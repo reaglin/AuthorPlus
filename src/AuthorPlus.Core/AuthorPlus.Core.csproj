@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- Domain model + on-disk book store. No UI, no AI, no Windows dependency:
+       everything here is unit-testable on any OS. -->
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <RootNamespace>AuthorPlus.Core</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="AuthorPlus.Tests" />
+  </ItemGroup>
+
+</Project>

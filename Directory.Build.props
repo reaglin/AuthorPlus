@@ -1,0 +1,30 @@
+<Project>
+
+  <!-- Shared settings for every project in src/ and tests/. -->
+
+  <PropertyGroup>
+    <!-- One version property. packaging/pack.ps1 (phase 4) reads it for the MSIX identity. -->
+    <AuthorPlusVersion>0.1.0</AuthorPlusVersion>
+    <Version>$(AuthorPlusVersion)</Version>
+    <AssemblyVersion>$(AuthorPlusVersion).0</AssemblyVersion>
+    <FileVersion>$(AuthorPlusVersion).0</FileVersion>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <LangVersion>latest</LangVersion>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <EnableNETAnalyzers>true</EnableNETAnalyzers>
+    <AnalysisLevel>latest</AnalysisLevel>
+    <GenerateDocumentationFile>false</GenerateDocumentationFile>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <Company>Ron Eaglin</Company>
+    <Product>AuthorPlus</Product>
+    <Copyright>Copyright © Ron Eaglin</Copyright>
+    <RepositoryUrl>https://github.com/reaglin/AuthorPlus</RepositoryUrl>
+  </PropertyGroup>
+
+</Project>

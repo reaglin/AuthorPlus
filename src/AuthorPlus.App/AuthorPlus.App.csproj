@@ -1,0 +1,25 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <!-- WinForms only for FolderBrowserDialog (WPF has no folder picker). -->
+    <UseWindowsForms>true</UseWindowsForms>
+    <RootNamespace>AuthorPlus.App</RootNamespace>
+    <AssemblyName>AuthorPlus</AssemblyName>
+    <ApplicationManifest Condition="Exists('app.manifest')">app.manifest</ApplicationManifest>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- UseWindowsForms injects a global "using System.Windows.Forms" that collides with WPF
+         controls (TextBox, Button…). Drop it; MainWindow aliases it as WinForms explicitly. -->
+    <Using Remove="System.Windows.Forms" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\AuthorPlus.Core\AuthorPlus.Core.csproj" />
+    <ProjectReference Include="..\AuthorPlus.AI\AuthorPlus.AI.csproj" />
+  </ItemGroup>
+
+</Project>
