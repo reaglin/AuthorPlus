@@ -382,8 +382,8 @@ public partial class MainWindow : Window
         // Summary + notes below the text (kept short; the summary is what AI fills in).
         var bottom = new StackPanel { Margin = new Thickness(0, 8, 0, 0) };
         bottom.Children.Add(new TextBlock { Text = "Summary", FontWeight = FontWeights.SemiBold });
-        var summary = new TextBox { Text = ch.Summary, AcceptsReturn = true, TextWrapping = TextWrapping.Wrap, MinLines = 2, MaxLines = 5, VerticalScrollBarVisibility = ScrollBarVisibility.Auto, Padding = new Thickness(4) };
-        summary.TextChanged += (_, _) => { if (!_loading) { ch.Summary = summary.Text; _dirty = true; } };
+        var summary = new TextBox { Text = _book!.SummaryText(ch), AcceptsReturn = true, TextWrapping = TextWrapping.Wrap, MinLines = 2, MaxLines = 5, VerticalScrollBarVisibility = ScrollBarVisibility.Auto, Padding = new Thickness(4) };
+        summary.TextChanged += (_, _) => { if (!_loading) { _book!.SetSummary(ch, summary.Text); _dirty = true; } };
         _summaryBox = summary;
         bottom.Children.Add(summary);
         Grid.SetRow(bottom, 2);
@@ -590,8 +590,8 @@ public partial class MainWindow : Window
         await RunAi($"Summarizing \"{ch.Title}\" with {AiHub.DisplayName(_ai.DefaultProvider)}…", async ct =>
         {
             var r = await _ai.RunTemplateAsync(AiPrompts.ChapterSummary, new { book = _book.Title, chapter = ch.Title, text }, ct);
-            ch.Summary = r.Text.Trim();
-            if (_summaryBox != null) { _loading = true; _summaryBox.Text = ch.Summary; _loading = false; }
+            _book.SetSummary(ch, r.Text.Trim(), r.Provider.ToString(), r.Model, AiPrompts.ChapterSummary);
+            if (_summaryBox != null) { _loading = true; _summaryBox.Text = _book.SummaryText(ch); _loading = false; }
             _dirty = true;
             return r;
         });
@@ -603,7 +603,7 @@ public partial class MainWindow : Window
         if (!EnsureAiOrExplain()) return;
 
         var known = $"Name: {c.Name}\nRole: {c.Role}\nOrigin: {c.Origin}\nDescription: {c.Description}\nMotivations: {c.Motivations}\nActions: {c.Actions}\nArc: {c.Arc}\nNotes: {c.Notes}";
-        var summaries = string.Join("\n\n", _book.Chapters.Where(x => !string.IsNullOrWhiteSpace(x.Summary)).Select(x => $"{x.Title}: {x.Summary}"));
+        var summaries = string.Join("\n\n", _book.Chapters.Where(x => !string.IsNullOrWhiteSpace(_book.SummaryText(x))).Select(x => $"{x.Title}: {_book.SummaryText(x)}"));
 
         await RunAi($"Drafting a profile for {c.Name} with {AiHub.DisplayName(_ai.DefaultProvider)}…", async ct =>
         {

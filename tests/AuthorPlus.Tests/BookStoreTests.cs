@@ -34,7 +34,7 @@ public class BookStoreTests
         var store = new BookStore(t.Path);
         var book = store.Create("Round Trip");
 
-        var c1 = new Chapter { Title = "One", Status = ChapterStatus.Draft, Summary = "s1" };
+        var c1 = new Chapter { Title = "One", Status = ChapterStatus.Draft };
         var c2 = new Chapter { Title = "Two" };
         var hero = new Character { Name = "Mara", Motivations = "to get home" };
         book.Chapters.AddRange(new[] { c1, c2 });

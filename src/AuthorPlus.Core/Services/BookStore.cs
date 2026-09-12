@@ -9,9 +9,11 @@ namespace AuthorPlus.Core.Services;
 ///
 /// <code>
 /// {Root}/{Book folder}/
-///   book.json                 metadata (Book minus the collections)
-///   chapters/{id}.json        Chapter metadata
+///   book.json                 metadata (Book minus the collections) + the id order of each collection
+///   sections/{id}.json        Section
+///   chapters/{id}.json        Chapter metadata (SectionId says which part it is in)
 ///   chapters/{id}.xaml        the prose — a WPF FlowDocument, saved by the editor
+///   items/{id}.json           Item (OwnerId = a chapter, a section or the book)
 ///   characters/{id}.json
 ///   timeline/{id}.json
 ///   plotlines/{id}.json
@@ -24,6 +26,9 @@ namespace AuthorPlus.Core.Services;
 ///
 /// Order is the order of the lists in <see cref="Book"/>; it is persisted as id lists in
 /// <c>book.json</c> so file-system enumeration order never matters.
+///
+/// Format 1 (2026-09-04) had no sections or items and kept a chapter's summary on the chapter.
+/// Loading a format-1 book moves each summary into a Summary item; the next save writes format 2.
 /// </summary>
 public sealed class BookStore
 {
@@ -101,11 +106,27 @@ public sealed class BookStore
             ModifiedUtc = meta.ModifiedUtc, FormatVersion = meta.FormatVersion, FolderPath = folder
         };
 
+        book.Sections   = LoadItems<Section>      (folder, "sections",   meta.SectionOrder,   s => s.Id);
         book.Chapters   = LoadItems<Chapter>      (folder, "chapters",   meta.ChapterOrder,   c => c.Id);
+        book.Items      = LoadItems<Item>         (folder, "items",      meta.ItemOrder,      i => i.Id);
         book.Characters = LoadItems<Character>    (folder, "characters", meta.CharacterOrder, c => c.Id);
         book.Timeline   = LoadItems<TimelineEvent>(folder, "timeline",   meta.TimelineOrder,  t => t.Id);
         book.Plotlines  = LoadItems<Plotline>     (folder, "plotlines",  meta.PlotlineOrder,  p => p.Id);
+
+        Migrate(book);
         return book;
+    }
+
+    /// <summary>Format 1 → 2: chapter summaries become Summary items. Idempotent; in memory only until the next save.</summary>
+    private static void Migrate(Book book)
+    {
+        foreach (var ch in book.Chapters)
+        {
+            if (!string.IsNullOrWhiteSpace(ch.LegacySummary) && book.SummaryOf(ch) is null)
+                book.SetSummary(ch, ch.LegacySummary.Trim());
+            ch.LegacySummary = null;
+        }
+        if (book.FormatVersion < Book.CurrentFormatVersion) book.FormatVersion = Book.CurrentFormatVersion;
     }
 
     private static List<T> LoadItems<T>(string folder, string sub, List<Guid> order, Func<T, Guid> id)
@@ -140,7 +161,8 @@ public sealed class BookStore
 
     /// <summary>
     /// Writes book.json and every item file, and deletes item files for ids no longer in the
-    /// book. Chapter bodies are untouched here — see <see cref="SaveChapterBody"/>.
+    /// book. Items whose owner no longer exists are dropped. Chapter bodies are untouched here —
+    /// see <see cref="SaveChapterBody"/>.
     /// </summary>
     public void Save(Book book)
     {
@@ -149,8 +171,16 @@ public sealed class BookStore
 
         Directory.CreateDirectory(book.FolderPath);
         book.ModifiedUtc = DateTime.UtcNow;
+        book.FormatVersion = Book.CurrentFormatVersion;
 
+        var owners = new HashSet<Guid> { book.Id };
+        owners.UnionWith(book.Sections.Select(s => s.Id));
+        owners.UnionWith(book.Chapters.Select(c => c.Id));
+        book.Items.RemoveAll(i => !owners.Contains(i.OwnerId));
+
+        SaveItems(book.FolderPath, "sections",   book.Sections,   s => s.Id, keepBodies: false);
         SaveItems(book.FolderPath, "chapters",   book.Chapters,   c => c.Id, keepBodies: true);
+        SaveItems(book.FolderPath, "items",      book.Items,      i => i.Id, keepBodies: false);
         SaveItems(book.FolderPath, "characters", book.Characters, c => c.Id, keepBodies: false);
         SaveItems(book.FolderPath, "timeline",   book.Timeline,   t => t.Id, keepBodies: false);
         SaveItems(book.FolderPath, "plotlines",  book.Plotlines,  p => p.Id, keepBodies: false);
@@ -160,7 +190,9 @@ public sealed class BookStore
             Id = book.Id, Title = book.Title, Author = book.Author, Synopsis = book.Synopsis,
             Genre = book.Genre, TargetWords = book.TargetWords, CreatedUtc = book.CreatedUtc,
             ModifiedUtc = book.ModifiedUtc, FormatVersion = book.FormatVersion,
+            SectionOrder   = book.Sections.Select(s => s.Id).ToList(),
             ChapterOrder   = book.Chapters.Select(c => c.Id).ToList(),
+            ItemOrder      = book.Items.Select(i => i.Id).ToList(),
             CharacterOrder = book.Characters.Select(c => c.Id).ToList(),
             TimelineOrder  = book.Timeline.Select(t => t.Id).ToList(),
             PlotlineOrder  = book.Plotlines.Select(p => p.Id).ToList()
@@ -256,7 +288,9 @@ public sealed class BookStore
         public DateTime   CreatedUtc     { get; set; }
         public DateTime   ModifiedUtc    { get; set; }
         public int        FormatVersion  { get; set; } = 1;
+        public List<Guid> SectionOrder   { get; set; } = new();
         public List<Guid> ChapterOrder   { get; set; } = new();
+        public List<Guid> ItemOrder      { get; set; } = new();
         public List<Guid> CharacterOrder { get; set; } = new();
         public List<Guid> TimelineOrder  { get; set; } = new();
         public List<Guid> PlotlineOrder  { get; set; } = new();
