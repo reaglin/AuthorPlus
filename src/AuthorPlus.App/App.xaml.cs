@@ -1,6 +1,5 @@
-using System.IO;
 using System.Windows;
-using AuthorPlus.AI;
+using Eaglin.AiManager;
 
 namespace AuthorPlus.App;
 
@@ -10,8 +9,10 @@ public partial class App : Application
     {
         base.OnStartup(e);
 
-        ActivityLog.Initialize(Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "AuthorPlus", "logs"));
+        // The AI Manager's shared log (Documents\AiManager\logs), tagged with this app's name.
+        // MainWindow's AiHub.Open("AuthorPlus") initialises it the same way; doing it here too
+        // means startup problems before the window exists are still recorded.
+        ActivityLog.Initialize(AiPaths.DefaultRoot, "AuthorPlus");
         ActivityLog.Info("App", $"AuthorPlus {typeof(App).Assembly.GetName().Version} starting");
 
         DispatcherUnhandledException += (_, args) =>

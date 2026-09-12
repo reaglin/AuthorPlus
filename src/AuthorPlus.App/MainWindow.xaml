@@ -41,6 +41,8 @@
                 <MenuItem Header="Suggest Character _Profile" Click="AiCharacter_Click"/>
                 <Separator/>
                 <MenuItem Header="AI _Settings…" Click="AiSettings_Click"/>
+                <MenuItem Header="_Prompt Library…" Click="AiPrompts_Click"/>
+                <MenuItem Header="AI _Usage…" Click="AiUsage_Click"/>
                 <MenuItem Header="Open AI _Log Folder" Click="OpenLog_Click"/>
             </MenuItem>
             <MenuItem Header="_Help">

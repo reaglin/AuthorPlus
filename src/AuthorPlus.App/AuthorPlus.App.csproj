@@ -19,7 +19,14 @@
 
   <ItemGroup>
     <ProjectReference Include="..\AuthorPlus.Core\AuthorPlus.Core.csproj" />
-    <ProjectReference Include="..\AuthorPlus.AI\AuthorPlus.AI.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- The shared AI layer (repo ..\AiManager). Packages come from the local feed C:\nuget-local;
+         run ..\AiManager\build\pack.ps1 once on a fresh machine. The DLLs are copied into the
+         publish folder, so an MSIX/Store build carries them and needs no feed at install time. -->
+    <PackageReference Include="Eaglin.AiManager" Version="1.0.0" />
+    <PackageReference Include="Eaglin.AiManager.Wpf" Version="1.0.0" />
   </ItemGroup>
 
 </Project>

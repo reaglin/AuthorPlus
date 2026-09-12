@@ -5,7 +5,8 @@ using System.Windows.Controls;
 using System.Windows.Documents;
 using System.Windows.Input;
 using System.Windows.Markup;
-using AuthorPlus.AI;
+using Eaglin.AiManager;
+using Eaglin.AiManager.Wpf;
 using AuthorPlus.Core.Models;
 using AuthorPlus.Core.Services;
 using WinForms = System.Windows.Forms;
@@ -20,8 +21,8 @@ namespace AuthorPlus.App;
 /// </summary>
 public partial class MainWindow : Window
 {
-    private readonly BookStore       _store    = new();
-    private readonly AiSettingsStore _aiStore  = new();
+    private readonly BookStore _store = new();
+    private readonly AiHub     _ai    = AiHub.Open("AuthorPlus");   // the shared AI Manager (keys, log, ledger, prompts)
     private Book?  _book;
     private object? _current;           // Chapter | Character | TimelineEvent | Plotline
     private RichTextBox? _rtb;          // live only while a chapter is open
@@ -34,6 +35,9 @@ public partial class MainWindow : Window
     public MainWindow()
     {
         InitializeComponent();
+        _ai.Prompts.RegisterDefaults(AiPrompts.Defaults);
+        _ai.BudgetExceeded += b => Dispatcher.Invoke(() =>
+            TxtAi.Text = $"AI: over the ${b.BudgetUsd:0.00} monthly budget (${b.SpentUsd:0.00} so far)");
         Loaded += (_, _) =>
         {
             BuildRecentMenu();
@@ -545,27 +549,31 @@ public partial class MainWindow : Window
 
     private void AiSettings_Click(object sender, RoutedEventArgs e)
     {
-        var dlg = new AiSettingsWindow(_aiStore) { Owner = this };
-        dlg.ShowDialog();
+        new AiSettingsWindow(_ai) { Owner = this }.ShowDialog();
         UpdateMenus();
     }
 
+    private void AiPrompts_Click(object sender, RoutedEventArgs e) =>
+        new PromptLibraryWindow(_ai) { Owner = this }.ShowDialog();
+
+    private void AiUsage_Click(object sender, RoutedEventArgs e) =>
+        new UsageDashboardWindow(_ai, appFilter: _ai.App) { Owner = this }.ShowDialog();
+
     private void OpenLog_Click(object sender, RoutedEventArgs e)
     {
-        var dir = ActivityLog.LogDirectory;
-        if (dir != null) Process.Start(new ProcessStartInfo("explorer.exe", $"\"{dir}\"") { UseShellExecute = true });
+        var dir = AiPaths.LogsDir(_ai.Root);
+        Directory.CreateDirectory(dir);
+        Process.Start(new ProcessStartInfo("explorer.exe", $"\"{dir}\"") { UseShellExecute = true });
     }
 
-    private IAiProvider? GetProviderOrExplain()
+    /// <summary>True when the default provider has a key; otherwise offers to open AI Settings.</summary>
+    private bool EnsureAiOrExplain()
     {
-        var effective = PreseMakerCredentials.CreateEffectiveSettings(_aiStore.Load());
-        try { return AiProviderRouter.GetProvider(effective); }
-        catch (InvalidOperationException ex)
-        {
-            if (MessageBox.Show(this, ex.Message + "\n\nOpen AI Settings now?", "AI", MessageBoxButton.YesNo, MessageBoxImage.Information) == MessageBoxResult.Yes)
-                AiSettings_Click(this, new RoutedEventArgs());
-            return null;
-        }
+        if (_ai.IsAvailable()) return true;
+        var msg = $"No API key is stored for {AiHub.DisplayName(_ai.DefaultProvider)}. Keys are shared with your other apps through the AI Manager.\n\nOpen AI Settings now?";
+        if (MessageBox.Show(this, msg, "AI", MessageBoxButton.YesNo, MessageBoxImage.Information) == MessageBoxResult.Yes)
+            AiSettings_Click(this, new RoutedEventArgs());
+        return false;
     }
 
     private async void AiSummarize_Click(object sender, RoutedEventArgs e)
@@ -577,44 +585,38 @@ public partial class MainWindow : Window
             MessageBox.Show(this, "Write at least a few paragraphs first — there is not enough text to summarize.", "AI", MessageBoxButton.OK, MessageBoxImage.Information);
             return;
         }
-        var provider = GetProviderOrExplain();
-        if (provider == null) return;
+        if (!EnsureAiOrExplain()) return;
 
-        await RunAi($"Summarizing \"{ch.Title}\" with {provider.ProviderName}…", async ct =>
+        await RunAi($"Summarizing \"{ch.Title}\" with {AiHub.DisplayName(_ai.DefaultProvider)}…", async ct =>
         {
-            var result = await provider.GenerateAsync(
-                "You are an editorial assistant for a novelist. Summarize the chapter in 3–5 sentences of plain prose: " +
-                "what happens, who is involved, and what changes. Do not praise, critique, or add anything not in the text.",
-                $"Book: {_book.Title}\nChapter: {ch.Title}\n\n{text}", ct, maxTokens: 1000);
-            ch.Summary = result.Trim();
+            var r = await _ai.RunTemplateAsync(AiPrompts.ChapterSummary, new { book = _book.Title, chapter = ch.Title, text }, ct);
+            ch.Summary = r.Text.Trim();
             if (_summaryBox != null) { _loading = true; _summaryBox.Text = ch.Summary; _loading = false; }
             _dirty = true;
+            return r;
         });
     }
 
     private async void AiCharacter_Click(object sender, RoutedEventArgs e)
     {
         if (_book == null || _current is not Character c) return;
-        var provider = GetProviderOrExplain();
-        if (provider == null) return;
+        if (!EnsureAiOrExplain()) return;
 
         var known = $"Name: {c.Name}\nRole: {c.Role}\nOrigin: {c.Origin}\nDescription: {c.Description}\nMotivations: {c.Motivations}\nActions: {c.Actions}\nArc: {c.Arc}\nNotes: {c.Notes}";
-        var context = string.Join("\n\n", _book.Chapters.Where(x => !string.IsNullOrWhiteSpace(x.Summary)).Select(x => $"{x.Title}: {x.Summary}"));
+        var summaries = string.Join("\n\n", _book.Chapters.Where(x => !string.IsNullOrWhiteSpace(x.Summary)).Select(x => $"{x.Title}: {x.Summary}"));
 
-        await RunAi($"Drafting a profile for {c.Name} with {provider.ProviderName}…", async ct =>
+        await RunAi($"Drafting a profile for {c.Name} with {AiHub.DisplayName(_ai.DefaultProvider)}…", async ct =>
         {
-            var result = await provider.GenerateAsync(
-                "You are a story-development assistant. Given what the author already knows about a character and the chapter " +
-                "summaries, suggest additions for the blank or thin fields. Return plain text with headings exactly: " +
-                "Description, Motivations, Actions, Arc. Keep each under 120 words. Never contradict what is given.",
-                $"Book: {_book.Title}\nSynopsis: {_book.Synopsis}\n\nCharacter as known:\n{known}\n\nChapter summaries:\n{context}", ct, maxTokens: 1500);
-            c.Notes = (c.Notes.Length > 0 ? c.Notes + "\n\n" : "") + $"— AI suggestions ({DateTime.Now:yyyy-MM-dd}) —\n{result.Trim()}";
+            var r = await _ai.RunTemplateAsync(AiPrompts.CharacterProfile,
+                new { book = _book.Title, synopsis = _book.Synopsis, known, summaries }, ct);
+            c.Notes = (c.Notes.Length > 0 ? c.Notes + "\n\n" : "") + $"— AI suggestions ({DateTime.Now:yyyy-MM-dd}) —\n{r.Text.Trim()}";
             _dirty = true;
             ShowCurrent();
+            return r;
         });
     }
 
-    private async Task RunAi(string statusText, Func<CancellationToken, Task> work)
+    private async Task RunAi(string statusText, Func<CancellationToken, Task<AiResponse>> work)
     {
         _aiCts?.Cancel();
         _aiCts = new CancellationTokenSource();
@@ -623,14 +625,21 @@ public partial class MainWindow : Window
         Cursor = Cursors.AppStarting;
         try
         {
-            await work(_aiCts.Token);
-            TxtAi.Text = "AI: done.";
+            var r = await work(_aiCts.Token);
+            TxtAi.Text = $"AI: done in {r.Elapsed.TotalSeconds:0.0}s · {r.InputTokens + r.OutputTokens:N0} tokens" +
+                         (r.EstimatedCostUsd is { } cost ? $" · est. ${cost:0.0000}" : "");
         }
         catch (OperationCanceledException) { TxtAi.Text = "AI: cancelled."; }
+        catch (AiException ex)
+        {
+            TxtAi.Text = "AI: failed.";
+            MessageBox.Show(this, ex.Message, "AI", MessageBoxButton.OK, MessageBoxImage.Warning);
+            if (ex.Kind == AiErrorKind.NoKey) AiSettings_Click(this, new RoutedEventArgs());
+        }
         catch (Exception ex)
         {
             TxtAi.Text = "AI: failed.";
-            ActivityLog.Error("AI", statusText, ex);
+            ActivityLog.Error("AuthorPlus", statusText, ex);
             MessageBox.Show(this, ex.Message, "AI", MessageBoxButton.OK, MessageBoxImage.Warning);
         }
         finally
@@ -647,10 +656,10 @@ public partial class MainWindow : Window
     private void UpdateMenus()
     {
         MnuBook.IsEnabled = _book != null;
-        var settings = _aiStore.Load();
-        var effective = PreseMakerCredentials.CreateEffectiveSettings(settings);
-        TxtAi.Text = effective.SelectedProviderHasKey
-            ? $"AI: {AiProviderRouter.DisplayName(effective.SelectedProvider)} · {effective.ModelFor(effective.SelectedProvider)}"
+        _ai.Reload();
+        var p = _ai.DefaultProvider;
+        TxtAi.Text = _ai.IsAvailable()
+            ? $"AI: {AiHub.DisplayName(p)} · {_ai.DefaultModel(p)}"
             : "AI: not configured (AI › AI Settings…)";
     }
 
