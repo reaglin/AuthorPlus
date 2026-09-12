@@ -25,19 +25,35 @@
                 <MenuItem Header="E_xit" Click="Exit_Click"/>
             </MenuItem>
             <MenuItem Header="_Book" x:Name="MnuBook">
+                <MenuItem Header="Add _Section" Click="AddSection_Click"/>
                 <MenuItem Header="Add _Chapter" Click="AddChapter_Click"/>
+                <MenuItem Header="Add _Item">
+                    <MenuItem Header="_Notes" Click="AddNotesItem_Click"/>
+                    <MenuItem Header="_Outline" Click="AddOutlineItem_Click"/>
+                </MenuItem>
+                <Separator/>
+                <MenuItem Header="Import Chapters from _Folder…" Click="ImportFolder_Click"/>
+                <MenuItem Header="Insert Chapter from Fi_le…" Click="InsertChapterFile_Click"
+                          ToolTip="Add one chapter written elsewhere (DOCX, TXT or Markdown) after the selected chapter, or at the end of the selected section."/>
+                <Separator/>
                 <MenuItem Header="Add Ch_aracter" Click="AddCharacter_Click"/>
                 <MenuItem Header="Add _Timeline Event" Click="AddEvent_Click"/>
                 <MenuItem Header="Add _Plotline" Click="AddPlotline_Click"/>
                 <Separator/>
                 <MenuItem Header="Move _Up" Click="MoveUp_Click" InputGestureText="Alt+Up"/>
                 <MenuItem Header="Move _Down" Click="MoveDown_Click" InputGestureText="Alt+Down"/>
-                <MenuItem Header="_Delete Item…" Click="DeleteItem_Click"/>
+                <MenuItem Header="_Delete…" Click="DeleteItem_Click" InputGestureText="Del"/>
                 <Separator/>
-                <MenuItem Header="Book _Properties…" Click="BookProperties_Click"/>
+                <MenuItem Header="Book _Properties" Click="BookProperties_Click"/>
             </MenuItem>
             <MenuItem Header="_AI" x:Name="MnuAi">
                 <MenuItem Header="_Summarize This Chapter" Click="AiSummarize_Click"/>
+                <MenuItem Header="_Analyze This Chapter…" Click="AiAnalyze_Click"/>
+                <MenuItem Header="_Characters in This Chapter" Click="AiCharactersInChapter_Click"/>
+                <Separator/>
+                <MenuItem Header="_Outline This Section" Click="AiSectionOutline_Click"/>
+                <MenuItem Header="Summarize This S_ection" Click="AiSectionSummary_Click"/>
+                <Separator/>
                 <MenuItem Header="Suggest Character _Profile" Click="AiCharacter_Click"/>
                 <Separator/>
                 <MenuItem Header="AI _Settings…" Click="AiSettings_Click"/>
@@ -62,7 +78,7 @@
         <!-- ── Body: tree | editor ──────────────────────────────────────────── -->
         <Grid>
             <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="280" MinWidth="200"/>
+                <ColumnDefinition Width="320" MinWidth="220"/>
                 <ColumnDefinition Width="6"/>
                 <ColumnDefinition Width="*"/>
             </Grid.ColumnDefinitions>
@@ -71,7 +87,8 @@
                 <TextBlock x:Name="TxtBookTitle" DockPanel.Dock="Top" Text="AuthorPlus"
                            FontSize="16" FontWeight="SemiBold" Margin="10,10,10,6" TextTrimming="CharacterEllipsis"/>
                 <TreeView x:Name="Tree" BorderThickness="0,1,0,0" BorderBrush="#DDD"
-                          SelectedItemChanged="Tree_SelectedItemChanged" Padding="4"/>
+                          SelectedItemChanged="Tree_SelectedItemChanged" Padding="4"
+                          PreviewMouseRightButtonDown="Tree_PreviewMouseRightButtonDown"/>
             </DockPanel>
 
             <GridSplitter Grid.Column="1" Width="6" HorizontalAlignment="Stretch" Background="#EEE"/>
@@ -90,7 +107,7 @@
                 </DockPanel>
 
                 <ContentControl x:Name="Editor" Grid.Row="1">
-                    <TextBlock Text="Open a book, then pick a chapter, character, event or plotline in the tree."
+                    <TextBlock Text="Open a book, then pick a section, chapter, item, character, event or plotline in the tree."
                                Foreground="#888" VerticalAlignment="Center" HorizontalAlignment="Center" TextWrapping="Wrap"/>
                 </ContentControl>
             </Grid>

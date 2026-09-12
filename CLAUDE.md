@@ -77,14 +77,16 @@ unit tests and must keep them (the AI layer's tests live in the AiManager repo).
 ## The four ideas that carry the design
 
 1. **A book is a folder; every item is a file.** `Documents\AuthorPlus\Books\{Title}\` holds
-   `book.json` (metadata + the id order of each collection), `sections/{id}.json` (a part;
-   holds its chapter id order), `chapters/{id}.json` + `chapters/{id}.xaml` (the prose, a WPF
-   FlowDocument), `items/{id}.json` (a per-chapter/section/book item with `OwnerId` and
-   `Kind`), `characters/{id}.json`, `timeline/{id}.json`, `plotlines/{id}.json`. `BookStore`
+   `book.json` (metadata + the id order of each collection), `sections/{id}.json` (a part),
+   `chapters/{id}.json` (metadata incl. `SectionId` — `Book.Chapters` is the one reading order,
+   sections group it) + `chapters/{id}.xaml` (the prose, a WPF FlowDocument), `items/{id}.json`
+   (a per-chapter/section/book item with `OwnerId` and `Kind`), `characters/{id}.json`, `timeline/{id}.json`, `plotlines/{id}.json`. `BookStore`
    writes temp-then-move, deletes files for removed items on save, and loads a corrupt item
    file as "that item is missing", never "the book is unreadable". Do not introduce a database
-   or a single-file package; export formats are exports. Sections and items arrive with
-   `FormatVersion` 2 (tasks 1.10, 1.11); version-1 books load with their chapters at book level.
+   or a single-file package; export formats are exports. `FormatVersion` 2 (2026-09-12) added
+   sections and items; a version-1 book loads with its chapters at book level and its chapter
+   summaries turned into Summary items. Import (`Core/Services/Import`) reads DOCX with
+   `System.IO.Compression` + XML, TXT and Markdown, and never touches the source files.
 2. **Chapter prose stays out of memory until opened.** `Chapter` carries metadata and a word
    count; `BookStore.LoadChapterBody/SaveChapterBody` move the XAML. The editor saves the body
    when the selection leaves the chapter and on Save.

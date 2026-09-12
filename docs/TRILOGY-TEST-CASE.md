@@ -51,4 +51,14 @@ paragraphs, heading styles, bold/italic runs. Nothing else (no tables, images, f
 
 ## Notes from Ron's use
 
-*(dated notes; feed the next phase)*
+- **2026-09-12 (Claude, first load).** Imported through Core into
+  `Documents\AuthorPlus\Books\The Book of One`: Part 1 28 chapters / 68,110 words, Part 2 19 /
+  57,791, Part 3 26 / 36,977 — 73 chapters, 162,878 words, 146 files in `chapters\`. The scan
+  flagged: Part 3 missing chapter 23; title mismatches inside the files — Part 1 ch. 3 ("…?
+  by Roland Ellison" in the heading) and 25 ("What Next?"); Part 2 ch. 5 (heading "Interlude -
+  George"), 8 ("The Interrogation" vs file "Roland"), 10 ("The Fallout" vs "The Safehouse"),
+  11 ("The Exchange" vs "The Extraction"), 12 ("Edmund's Victory" vs "Edmund"), 18 ("The Heart
+  and Mind"). File-name titles were used; Ron may prefer the in-document ones for Part 2 —
+  the Import window has a "Titles from" switch, or rename in the tree. Skipped correctly: the
+  compiled drafts, the three AI evaluation docs, the cover image. Hand-test steps 1, 2 and 5
+  pass (open, Summarize → item, save/reopen); steps 3 and 4 await Ron.

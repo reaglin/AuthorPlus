@@ -12,11 +12,15 @@ public sealed class ImportEntry
     /// <summary>The document's own first heading, when it has one ("Chapter One - The Message").</summary>
     public string? HeadingInDocument { get; set; }
     public string? Error       { get; set; }
+    /// <summary>The title as the heading inside the document states it ("Chapter Eight: The Interrogation" → "The Interrogation"), when there is one.</summary>
+    public string? DocumentTitle =>
+        HeadingInDocument is { } h ? (ChapterFileName.TryParse(h)?.Title ?? (h.Trim().Length > 0 ? h.Trim() : null)) : null;
     /// <summary>True when the heading inside the file names a different title than the file name does.</summary>
     public bool TitleMismatch =>
-        HeadingInDocument is { } h &&
-        ChapterFileName.TryParse(h) is { } p && !string.Equals(p.Title, Title, StringComparison.OrdinalIgnoreCase);
+        DocumentTitle is { } d && !string.Equals(d, Title, StringComparison.OrdinalIgnoreCase);
     public bool Include { get; set; } = true;
+    /// <summary>The title the import will use, honouring <see cref="ImportPlan.UseDocumentTitles"/>.</summary>
+    public string EffectiveTitle(ImportPlan plan) => plan.UseDocumentTitles && DocumentTitle is { } d ? d : Title;
 }
 
 /// <summary>What <see cref="ManuscriptImporter.Scan"/> found in a folder: the plan the user reviews before importing.</summary>
@@ -30,7 +34,10 @@ public sealed class ImportPlan
     public List<int> MissingNumbers { get; } = new();
     /// <summary>Numbers that two or more files claim.</summary>
     public List<int> DuplicateNumbers { get; } = new();
+    /// <summary>Take chapter titles from the heading inside each document instead of the file name.</summary>
+    public bool UseDocumentTitles { get; set; }
     public int TotalWords => Chapters.Where(c => c.Include && c.Error is null).Sum(c => c.WordCount);
+    public int MismatchCount => Chapters.Count(c => c.TitleMismatch);
 }
 
 /// <summary>
@@ -103,7 +110,7 @@ public sealed class ManuscriptImporter
         var created = new List<Chapter>();
         foreach (var entry in plan.Chapters.Where(e => e.Include && e.Error is null))
         {
-            var chapter = ImportOne(book, entry.Path, entry.Title, section, insertAt: null);
+            var chapter = ImportOne(book, entry.Path, entry.EffectiveTitle(plan), section, insertAt: null);
             created.Add(chapter);
         }
         _store.Save(book);
