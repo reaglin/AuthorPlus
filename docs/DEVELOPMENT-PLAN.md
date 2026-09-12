@@ -32,6 +32,32 @@ book can be created, written in, saved, closed and reopened.
 
 ## Phase 1 — Manuscript
 
+### 1A — Structure, the real book, AI Manager (added 2026-09-12; do these first)
+
+Re-plan with Ron 2026-09-12: the tree becomes Book → Sections → Chapters → Items, Ron's
+trilogy is the live test case (`docs/TRILOGY-TEST-CASE.md`), and AI moves to the shared
+`Eaglin.AiManager` package (`..\AiManager`, built first — its Phases 0–3 gate task 1.15).
+Tasks 1.1–1.9 below stay queued behind these; 1.7 is superseded by 1.12/1.13.
+
+Exit: the trilogy is loaded as one book with three sections and 73 chapters; a chapter's
+summary, analysis (from two providers) and characters-in-chapter exist as items under it;
+AI keys were entered only once, in AI Manager.
+
+| # | Task | Targets | Acceptance | Status |
+|---|---|---|---|---|
+| 1.10 | **Sections.** `Section { Id, Title, Summary, Notes, ChapterIds }`; `Book.Sections` + `SectionOrder`; chapters may still sit directly under the book. `BookStore`: `sections/{id}.json`, `FormatVersion` 2, version-1 books load with chapters at book level | `Core/Models`, `Core/Services/BookStore.cs` | round-trip, ordering, migration — unit-tested | [ ] |
+| 1.11 | **Items.** `Item { Id, OwnerId, Kind (Summary, Analysis, CharactersInChapter, Notes), Title, Body, CreatedUtc, ModifiedUtc, Provider, Model, PromptName, CharacterIds, PovCharacterId }` in `items/{id}.json`; owners hold `ItemIds`; Summary is one-per-chapter and replaces `Chapter.Summary` (migrated into an item) | same | round-trip; owner delete removes its items; migration test | [ ] |
+| 1.12 | **DOCX reader** in Core: `System.IO.Compression` + `XmlReader` → paragraphs, heading styles, bold/italic runs → FlowDocument XAML + word count. No NuGet package | `Core/Services/Import/DocxReader.cs` | fixture docx (built in the test) round-trips text, heading, bold, italic | [ ] |
+| 1.13 | **Manuscript import**: a folder of `Chapter N - Title.docx` → chapters in a chosen or new section; N numeric or spelled out (`Twenty-Eight`, `14-`); subfolders ignored; preview list (number, title, words) before import; summary reports gaps (e.g. missing 23) and heading/file-name mismatches; originals untouched | `Core/Services/Import/ManuscriptImporter.cs`, `App/ImportWindow` | file-name parser unit-tested on all 73 real names; import of the three parts matches `TRILOGY-TEST-CASE.md` | [ ] |
+| 1.14 | **Tree rebuild** (CIATLE `NavigationTree` style): Book root → Sections → Chapters → Items, then Characters, Timeline, Plotlines; glyph per node type; context menus (+ Section, + Chapter, + Item ▸ kind, Rename, Move up/down, Delete with confirm); item editors per kind; Section editor (title, summary, notes) | `App/MainWindow.*`, new `App/Views/*` | hand-test script in `TRILOGY-TEST-CASE.md` steps 1–2, 5 | [ ] |
+| 1.15 | **Adopt `Eaglin.AiManager`** (AiManager Phase 3): package reference from `C:\nuget-local`; delete `src/AuthorPlus.AI` + `AiTests.cs`; AI Settings / Prompt Library / Dashboard menu items open the package windows; register the app's templates | `App/`, `AuthorPlus.sln` | AI menu works with keys entered only in AiManagerApp; tests green | [ ] |
+| 1.16 | **AI actions that produce items**: Summary (creates/refreshes the singleton), Analysis (new dated item per run; pick one provider or "every provider with a key", streamed in `AiRunPanel` with Stop), Characters in this chapter (AI proposal merged with a name scan against the Characters list; user confirms) | `App/AiActions.cs`, templates | step 3–4 of the hand-test script | [ ] |
+| 1.17 | **Section-level items**: Outline (Ron's numbered chapter-flow style) and Section summary built from the chapter summaries; continuity prompt takes earlier sections' summaries as context | templates, `App` | Part 2 outline resembles `Chapter Summary - Power of 2.txt` in shape | [ ] |
+| 1.18 | **Load the trilogy** and record Ron's notes: three imports, counts checked, chapter-23 question answered, first-impression notes appended below | | notes dated in `TRILOGY-TEST-CASE.md` | [ ] |
+| 1.19 | **Add a chapter written elsewhere** (Ron, 2026-09-12: authors draft upcoming chapters or fill gaps on whatever device is handy). Context menu on a section or chapter: "Insert chapter from file…" — one DOCX, TXT or Markdown file → a new chapter at a chosen position (before/after the selected chapter, or by its number), the rest renumbered; the missing chapter 23 of *The Soul of Three* is the first real case | `Core/Services/Import/*`, `App` | insert at position round-trips; word count and title set; originals untouched | [ ] |
+
+### 1B — Manuscript polish
+
 Exit: a novelist could draft a whole book here and not miss Word for the drafting stage.
 
 | # | Task | Targets | Acceptance | Status |
@@ -42,7 +68,7 @@ Exit: a novelist could draft a whole book here and not miss Word for the draftin
 | 1.4 | Drag-and-drop reorder in the tree; multi-select delete | `MainWindow` | | [ ] |
 | 1.5 | Word-count goals: per chapter and per book, daily progress (words added today) | `Book.TargetWords`, a `progress.json` in the book folder | status bar shows today / total / target | [ ] |
 | 1.6 | Export: Markdown and DOCX (whole book, in chapter order, with a title page) | `Core/Services/Export/*` | opens in Word with headings | [ ] |
-| 1.7 | Import a manuscript: DOCX or Markdown → chapters by heading | `Core/Services/Import/*` | | [ ] |
+| 1.7 | ~~Import a manuscript: DOCX or Markdown → chapters by heading~~ superseded by 1.12/1.13 (per-chapter files); the "one compiled DOCX split on headings" case stays here as a later add-on | `Core/Services/Import/*` | | [ ] |
 | 1.8 | Book properties page (title, author, synopsis, genre, target) as a tree root item instead of a dialog | | | [ ] |
 | 1.9 | Distraction-free / full-screen writing mode | `MainWindow` | F11 | [ ] |
 

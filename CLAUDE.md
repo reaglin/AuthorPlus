@@ -21,11 +21,27 @@ voices), plot and writing-style analyses.
 | File | What it is |
 |---|---|
 | `docs/DEVELOPMENT-PLAN.md` | **The work breakdown** — numbered tasks per phase with status. Start here. |
+| `docs/TRILOGY-TEST-CASE.md` | Ron's real trilogy (73 DOCX chapters on OneDrive) — the live test case every feature is checked against. |
+| `..\AiManager\docs\PLAN.md` | The shared AI layer this app consumes (package `Eaglin.AiManager`). |
 | `README.md` | What the app is, for a reader who is not building it. |
 
-Decisions taken with Ron on 2026-09-04: WPF/.NET 10 (not WinForms); AI layer copied from
-CIATLE.AICore rather than referenced across repos; **folder per book, one file per item**;
-paid Microsoft Store app.
+Decisions taken with Ron on 2026-09-04: WPF/.NET 10 (not WinForms); **folder per book, one
+file per item**; paid Microsoft Store app.
+
+Decisions taken with Ron on 2026-09-12 (re-plan around real use):
+- **Tree like CIATLE's Program Assessment:** Book → Sections (parts) → Chapters → Items.
+  A chapter opens in the editor when clicked; its child *items* are per-chapter records —
+  first kinds: **Summary** (AI-drafted, editable, one per chapter), **Analysis** (AI
+  evaluation, kept as dated history with provider/model/prompt), **Characters in this
+  chapter**, **Notes**. Items can also hang off a section or the book.
+- **One book, three sections** for the trilogy; characters, timeline and plotlines are shared
+  across the whole book.
+- **Import** reads the per-chapter DOCX files (copied in; originals untouched) with a small
+  DOCX reader in Core — no NuGet dependency for it.
+- **AI comes from the shared `Eaglin.AiManager` package** (repo `..\AiManager`, built first).
+  `src/AuthorPlus.AI` is the seed of that library and is deleted once the package is adopted
+  (task 1.15). Several providers at once: an analysis can be run on every provider that has a
+  key and compared. Until 1.15 lands, the copied layer below still stands.
 
 ## Solution structure
 
@@ -58,25 +74,34 @@ workload. UI is hand-tested; everything in Core and AI has unit tests and must k
 ## The four ideas that carry the design
 
 1. **A book is a folder; every item is a file.** `Documents\AuthorPlus\Books\{Title}\` holds
-   `book.json` (metadata + the id order of each collection), `chapters/{id}.json` +
-   `chapters/{id}.xaml` (the prose, a WPF FlowDocument), `characters/{id}.json`,
-   `timeline/{id}.json`, `plotlines/{id}.json`. `BookStore` writes temp-then-move, deletes files
-   for removed items on save, and loads a corrupt item file as "that item is missing", never
-   "the book is unreadable". Do not introduce a database or a single-file package; export
-   formats are exports.
+   `book.json` (metadata + the id order of each collection), `sections/{id}.json` (a part;
+   holds its chapter id order), `chapters/{id}.json` + `chapters/{id}.xaml` (the prose, a WPF
+   FlowDocument), `items/{id}.json` (a per-chapter/section/book item with `OwnerId` and
+   `Kind`), `characters/{id}.json`, `timeline/{id}.json`, `plotlines/{id}.json`. `BookStore`
+   writes temp-then-move, deletes files for removed items on save, and loads a corrupt item
+   file as "that item is missing", never "the book is unreadable". Do not introduce a database
+   or a single-file package; export formats are exports. Sections and items arrive with
+   `FormatVersion` 2 (tasks 1.10, 1.11); version-1 books load with their chapters at book level.
 2. **Chapter prose stays out of memory until opened.** `Chapter` carries metadata and a word
    count; `BookStore.LoadChapterBody/SaveChapterBody` move the XAML. The editor saves the body
    when the selection leaves the chapter and on Save.
-3. **One AI provider handles everything.** `AiProviderRouter.GetProvider(effectiveSettings)`
-   → `IAiProvider.GenerateAsync(system, user, ct, maxTokens)`. Always build from
-   `PreseMakerCredentials.CreateEffectiveSettings(store.Load())` so the "use PreseMaker's keys"
-   opt-in applies, and never persist the effective copy. Keys at rest are DPAPI-encrypted
-   (`AiSettingsStore`). Default Claude model is `claude-opus-5`; the model list lives only in
-   `AiProviderRouter`. Every call goes through `ActivityLog` (`%LOCALAPPDATA%\AuthorPlus\logs`).
-4. **The tree is the navigation, the editor is per item.** `MainWindow` builds `TreeViewItem`s
-   whose `Tag` is the model object; selection change commits the previous item and shows the
-   next. Non-chapter items edit through `FieldForm(...)` — label + TextBox per property, writing
-   straight into the model — so adding a field to a model is one line in `ShowCurrent`.
+3. **AI goes through the shared AI Manager.** Target (task 1.15): `AiHub.Open("AuthorPlus")`
+   from the `Eaglin.AiManager` package; requests name a provider or use the app default; prompts
+   are registered templates (`chapter-summary`, `chapter-analysis`, `characters-in-chapter`,
+   `character-profile`) the user can edit in the package's Prompt Library window; keys, log,
+   usage and the dashboard live in `Documents\AiManager\`. *Until then* the copied layer
+   applies: `AiProviderRouter.GetProvider(effectiveSettings)` → `IAiProvider.GenerateAsync`,
+   always built from `PreseMakerCredentials.CreateEffectiveSettings(store.Load())`, keys DPAPI
+   at rest (`AiSettingsStore`), every call through `ActivityLog`. Do not extend the copied
+   layer; put new AI capability in `..\AiManager`.
+4. **The tree is the navigation, the editor is per node.** `MainWindow` builds `TreeViewItem`s
+   whose `Tag` is the model object (Book, Section, Chapter, Item, Character, TimelineEvent,
+   Plotline); selection change commits the previous node and shows the next. Context menus per
+   node type add children (+ Section, + Chapter, + Item ▸ kind), rename, move, delete — the
+   CIATLE `NavigationTree` pattern. Simple records edit through `FieldForm(...)` — label +
+   TextBox per property, writing straight into the model — so adding a field to a model is one
+   line in `ShowCurrent`. Item kinds each get a small editor (Summary/Notes: text; Analysis:
+   read-only body with a metadata header and Re-run; Characters in chapter: checklist + POV).
 
 ## Conventions
 
