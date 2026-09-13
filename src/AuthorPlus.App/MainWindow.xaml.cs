@@ -65,6 +65,7 @@ public partial class MainWindow : Window
             // "AuthorPlus.exe <book folder>" opens that book (also the hook for a file association).
             var args = Environment.GetCommandLineArgs();
             if (args.Length > 1 && Directory.Exists(args[1])) TryOpenFolder(args[1]);
+            else if (LoadRecent().FirstOrDefault() is { } last) TryOpenFolder(last);   // always come back to the last book
         };
         Closing += MainWindow_Closing;
         CommandBindings.Add(new CommandBinding(FocusCommand, (_, _) => ToggleFocusMode()));
@@ -253,6 +254,8 @@ public partial class MainWindow : Window
             ItemKind.Summary             => "✦",
             ItemKind.Analysis            => "🔍",
             ItemKind.CharactersInChapter => "👥",
+            ItemKind.ChapterPlotlines    => "🧵",
+            ItemKind.Suggestions         => "💡",
             ItemKind.Outline             => "☰",
             _                            => "📝"
         },
@@ -302,11 +305,11 @@ public partial class MainWindow : Window
         if (_book == null) { _loading = false; return; }
 
         var root = Node(_book, bold: true);
-        foreach (var item in _book.ItemsOf(_book.Id)) root.Items.Add(Node(item));
+        foreach (var item in _book.ItemsOf(_book.Id)) root.Items.Add(ItemNode(item));
         foreach (var section in _book.Sections)
         {
             var sNode = Node(section, bold: true);
-            foreach (var item in _book.ItemsOf(section.Id)) sNode.Items.Add(Node(item));
+            foreach (var item in _book.ItemsOf(section.Id)) sNode.Items.Add(ItemNode(item));
             foreach (var chapter in _book.ChaptersOf(section)) sNode.Items.Add(ChapterNode(chapter));
             root.Items.Add(sNode);
         }
@@ -325,7 +328,15 @@ public partial class MainWindow : Window
     private TreeViewItem ChapterNode(Chapter chapter)
     {
         var node = Node(chapter);
-        foreach (var item in _book!.ItemsOf(chapter.Id)) node.Items.Add(Node(item));
+        foreach (var item in _book!.ItemsOf(chapter.Id)) node.Items.Add(ItemNode(item));
+        return node;
+    }
+
+    /// <summary>An item node with the items it owns beneath it (an analysis and its suggestions).</summary>
+    private TreeViewItem ItemNode(Item item)
+    {
+        var node = Node(item);
+        foreach (var child in _book!.ItemsOf(item.Id)) node.Items.Add(ItemNode(child));
         return node;
     }
 
@@ -341,7 +352,7 @@ public partial class MainWindow : Window
         foreach (var item in items)
         {
             var child = Node(item);
-            if (IdOf(item) is { } id) foreach (var it in _book!.ItemsOf(id)) child.Items.Add(Node(it));
+            if (IdOf(item) is { } id) foreach (var it in _book!.ItemsOf(id)) child.Items.Add(ItemNode(it));
             node.Items.Add(child);
         }
         return node;
@@ -460,7 +471,7 @@ public partial class MainWindow : Window
             case Chapter:
                 Add("Summarize (AI)", AiSummarize_Click, _ai.IsAvailable());
                 Add("Analyze… (AI)", AiAnalyze_Click, _ai.IsAvailable());
-                Add("Characters in This Chapter", AiCharactersInChapter_Click);
+                Add("Chapter Characters", AiCharactersInChapter_Click);
                 Add("Style Report…", Style_Click);
                 Add("Add Notes", AddNotesItem_Click);
                 Sep();
@@ -531,8 +542,8 @@ public partial class MainWindow : Window
             case Item it:
                 TxtKind.Text = it.Kind switch
                 {
-                    ItemKind.Summary => "Summary", ItemKind.Analysis => "Analysis", ItemKind.CharactersInChapter => "Characters in chapter",
-                    ItemKind.Outline => "Outline", _ => "Notes"
+                    ItemKind.Summary => "Summary", ItemKind.Analysis => "Analysis", ItemKind.CharactersInChapter => "Chapter Characters",
+                    ItemKind.ChapterPlotlines => "Chapter Plotlines", ItemKind.Suggestions => "Suggestions", ItemKind.Outline => "Outline", _ => "Notes"
                 } + " of " + OwnerLabel(it);
                 TxtName.Text = it.Kind == ItemKind.Summary ? "Summary" : it.Title;
                 Editor.Content = BuildItemEditor(it);
@@ -618,6 +629,10 @@ public partial class MainWindow : Window
         if (it.OwnerId == _book.Id) return "the book";
         if (_book.Sections.FirstOrDefault(s => s.Id == it.OwnerId) is { } s) return s.Title;
         if (_book.Chapters.FirstOrDefault(c => c.Id == it.OwnerId) is { } c) return $"chapter {_book.ChapterNumber(c)}, {c.Title}";
+        if (_book.Items.FirstOrDefault(i => i.Id == it.OwnerId) is { } parent) return $"the analysis \"{parent.Title}\"";
+        if (_book.Characters.FirstOrDefault(x => x.Id == it.OwnerId) is { } ch) return ch.Name;
+        if (_book.Timeline.FirstOrDefault(x => x.Id == it.OwnerId) is { } ev) return ev.Title;
+        if (_book.Plotlines.FirstOrDefault(x => x.Id == it.OwnerId) is { } pl) return pl.Name;
         return "?";
     }
 
@@ -783,7 +798,7 @@ public partial class MainWindow : Window
         summarize.Click += AiSummarize_Click;
         var analyze = new Button { Content = "Analyze… (AI)", Padding = new Thickness(8, 2, 8, 2), Margin = new Thickness(4, 0, 0, 0) };
         analyze.Click += AiAnalyze_Click;
-        var who = new Button { Content = "Characters in chapter", Padding = new Thickness(8, 2, 8, 2), Margin = new Thickness(4, 0, 0, 0) };
+        var who = new Button { Content = "Chapter Characters", Padding = new Thickness(8, 2, 8, 2), Margin = new Thickness(4, 0, 0, 0) };
         who.Click += AiCharactersInChapter_Click;
         bar.Items.Add(summarize); bar.Items.Add(analyze); bar.Items.Add(who);
         Grid.SetRow(bar, 0);
@@ -1175,6 +1190,16 @@ public partial class MainWindow : Window
             panel.Children.Add(BuildCharactersInChapterEditor(it));
             return panel;
         }
+        if (it.Kind == ItemKind.ChapterPlotlines)
+        {
+            panel.Children.Add(BuildChapterPlotlinesEditor(it));
+            return panel;
+        }
+        if (it.Kind == ItemKind.Analysis && AnalysisSections.Parse(it.Body).Any(x => x.Heading.Length > 0))
+        {
+            panel.Children.Add(BuildAnalysisEditor(it));
+            return panel;
+        }
 
         var body = new TextBox
         {
@@ -1223,6 +1248,69 @@ public partial class MainWindow : Window
         Grid.SetRow(notes, 1);
         grid.Children.Add(notes);
         return grid;
+    }
+
+    /// <summary>The analysis as one card per aspect, each with a Suggestions… button that asks for rewrites for that aspect alone.</summary>
+    private UIElement BuildAnalysisEditor(Item it)
+    {
+        var chapter = _book!.Chapters.FirstOrDefault(c => c.Id == it.OwnerId);
+        var stack = new StackPanel();
+        var existing = _book.ItemsOf(it.Id).Where(s => s.Kind == ItemKind.Suggestions).ToList();
+        foreach (var section in AnalysisSections.Parse(it.Body))
+        {
+            var header = new DockPanel();
+            var title = new TextBlock { Text = section.Heading.Length > 0 ? section.Heading : "Overview", FontWeight = FontWeights.SemiBold, VerticalAlignment = VerticalAlignment.Center };
+            header.Children.Add(title);
+            if (section.Heading.Length > 0 && chapter != null)
+            {
+                var done = existing.Where(sg => sg.Title.Contains(section.Heading, StringComparison.OrdinalIgnoreCase)).ToList();
+                var btn = new Button { Content = done.Count == 0 ? "Suggestions…" : $"Suggestions… ({done.Count} saved)", Padding = new Thickness(8, 1, 8, 1), Margin = new Thickness(12, 0, 0, 0), IsEnabled = _ai.IsAvailable(),
+                                       ToolTip = "Ask the AI for concrete rewrites that address this point; saved as a Suggestions item under this analysis" };
+                var aspect = section.Heading; var finding = section.Body;
+                btn.Click += (_, _) => RunSuggestions(it, chapter, aspect, finding);
+                DockPanel.SetDock(btn, Dock.Right);
+                header.Children.Insert(0, btn);
+            }
+            var body = new TextBox { Text = section.Body, IsReadOnly = true, TextWrapping = TextWrapping.Wrap, BorderThickness = new Thickness(0), Background = System.Windows.Media.Brushes.Transparent, Padding = new Thickness(8, 4, 8, 8), FontSize = 14 };
+            stack.Children.Add(new Expander { Header = header, Content = body, IsExpanded = true, Margin = new Thickness(0, 0, 0, 6) });
+        }
+        return new ScrollViewer { Content = stack, VerticalScrollBarVisibility = ScrollBarVisibility.Auto };
+    }
+
+    private void RunSuggestions(Item analysis, Chapter chapter, string aspect, string finding)
+    {
+        if (!EnsureAiOrExplain()) return;
+        CommitCurrent();
+        var text = ChapterText(chapter);
+        var dlg = new AiRunWindow(_ai, _book!, analysis.Id, ItemKind.Suggestions, $"Suggestions — {aspect}", $"Suggestions · {aspect}", AiPrompts.AnalysisSuggestions,
+            $"Concrete rewrites for the \"{aspect}\" point of this analysis: the passage, a rewritten version, and why. Saved under the analysis as a Suggestions item.",
+            provider => _ai.Prompts.Get(AiPrompts.AnalysisSuggestions).Bind(new { book = _book!.Title, chapter = chapter.Title, aspect, finding, text }, provider), ConfirmSend) { Owner = this };
+        dlg.ShowDialog();
+        if (dlg.Created.Count == 0) return;
+        MarkDirty();
+        BuildTree(select: dlg.Created[^1]);
+    }
+
+    private UIElement BuildChapterPlotlinesEditor(Item it)
+    {
+        var chapter = _book!.Chapters.FirstOrDefault(c => c.Id == it.OwnerId);
+        var stack = new DockPanel();
+        var picker = new LinkPicker("Plotlines running through this chapter", PlotlineCandidates(), it.PlotlineIds, () =>
+        {
+            Touch(it);
+            if (chapter == null) return;
+            chapter.PlotlineIds = it.PlotlineIds.ToList();
+            foreach (var p in _book.Plotlines) { if (it.PlotlineIds.Contains(p.Id)) { if (!p.ChapterIds.Contains(chapter.Id)) p.ChapterIds.Add(chapter.Id); } else p.ChapterIds.Remove(chapter.Id); }
+        }, expanded: true);
+        DockPanel.SetDock(picker, Dock.Top);
+        stack.Children.Add(picker);
+        var label = new TextBlock { Text = "What happens in each thread here (the AI's notes, editable)", FontWeight = FontWeights.SemiBold, Margin = new Thickness(0, 8, 0, 4) };
+        DockPanel.SetDock(label, Dock.Top);
+        stack.Children.Add(label);
+        var body = new TextBox { Text = it.Body, AcceptsReturn = true, TextWrapping = TextWrapping.Wrap, VerticalScrollBarVisibility = ScrollBarVisibility.Auto, Padding = new Thickness(8) };
+        body.TextChanged += (_, _) => { if (!_loading) { it.Body = body.Text; Touch(it); } };
+        stack.Children.Add(body);
+        return stack;
     }
 
     private void Touch(Item it) { it.ModifiedUtc = DateTime.UtcNow; MarkDirty(); }
@@ -1476,8 +1564,8 @@ public partial class MainWindow : Window
                 break;
             case Item it:
                 if (MessageBox.Show(this, $"Delete this {(it.Kind == ItemKind.Summary ? "summary" : it.Kind == ItemKind.Analysis ? "analysis" : "item")} of {OwnerLabel(it)}?", "Delete", MessageBoxButton.YesNo, MessageBoxImage.Warning) != MessageBoxResult.Yes) return;
-                next = _book.Chapters.FirstOrDefault(c => c.Id == it.OwnerId) ?? _book.Sections.FirstOrDefault(s => s.Id == it.OwnerId) ?? (object)_book;
-                _book.Items.Remove(it);
+                next = FindById(it.OwnerId) ?? (object)_book;
+                _book.RemoveItemTree(it);
                 break;
             case Character c:
                 if (!ConfirmDelete(c.Name)) return;
@@ -1653,7 +1741,7 @@ public partial class MainWindow : Window
         });
     }
 
-    private void AiAnalyze_Click(object sender, RoutedEventArgs e)
+    private async void AiAnalyze_Click(object sender, RoutedEventArgs e)
     {
         if (_book == null || CurrentChapter() is not { } ch) { UpdateStatus("Select a chapter first."); return; }
         if (!EnsureAiOrExplain()) return;
@@ -1662,7 +1750,10 @@ public partial class MainWindow : Window
         var section = _book.SectionOf(ch)?.Title ?? "(none)";
         var context = EarlierSummaries(ch);
         var dlg = new AiRunWindow(_ai, _book, ch.Id, ItemKind.Analysis, $"Analyze \"{ch.Title}\"", "Analysis", AiPrompts.ChapterAnalysis,
-            "Each finished answer is saved under the chapter as an Analysis item with the date, provider and model, so runs can be compared later. The prompt is \"chapter-analysis\" in AI › Prompt Library.",
+            "The editor's notes on eight aspects — Pacing, Tension, Stakes, Point of view and voice, Dialogue, Continuity with the earlier chapters, Prose habits, and the Three changes that would help most — " +
+            "each quoting the text. Saved under the chapter as an Analysis item (date, provider, model); open it to see one card per aspect, each with a Suggestions… button for concrete rewrites. " +
+            "When the run finishes, a second short pass lists the chapter's characters and plotlines: known ones are linked, new ones are offered for adding. " +
+            "The prompt is \"chapter-analysis\" in AI › Prompt Library.",
             provider => _ai.Prompts.Get(AiPrompts.ChapterAnalysis).Bind(new { book = _book.Title, section, chapter = ch.Title, context, text }, provider),
             ConfirmSend) { Owner = this };
         dlg.ShowDialog();
@@ -1670,6 +1761,86 @@ public partial class MainWindow : Window
         MarkDirty();
         BuildTree(select: dlg.Created[^1]);
         UpdateStatus($"{dlg.Created.Count} analysis item(s) added to \"{ch.Title}\".");
+        await ExtractEntitiesAsync(ch, text);
+    }
+
+    /// <summary>
+    /// After an analysis: one structured pass names the chapter's characters and plotlines.
+    /// Known ones are linked to the chapter; new ones are offered in a checklist and, if kept,
+    /// added to the book. The Chapter Characters and Chapter Plotlines items are written.
+    /// </summary>
+    private async Task ExtractEntitiesAsync(Chapter ch, string text)
+    {
+        if (_book == null || !_ai.IsAvailable() || text.Trim().Length < 200) return;
+        var knownCharacters = _book.Characters.Count == 0 ? "(none recorded yet)"
+            : string.Join("\n", _book.Characters.Select(c => $"{c.Name}{(c.Aliases.Length > 0 ? " — " + string.Join(", ", MentionFinder.NamesOf(c).Skip(1)) : "")}"));
+        var knownPlotlines = _book.Plotlines.Count == 0 ? "(none recorded yet)" : string.Join("\n", _book.Plotlines.Select(p => p.Name));
+
+        ChapterExtract extract;
+        try
+        {
+            TxtAi.Text = $"Listing the characters and plotlines of \"{ch.Title}\"…";
+            Cursor = Cursors.AppStarting;
+            var r = await SendTemplateAsync(AiPrompts.ChapterExtract, new { chapter = ch.Title, known_characters = knownCharacters, known_plotlines = knownPlotlines, text }, _aiCts?.Token ?? CancellationToken.None);
+            extract = ChapterExtract.Parse(r.Text);
+            TxtAi.Text = $"AI: done in {r.Elapsed.TotalSeconds:0.0}s" + (r.EstimatedCostUsd is { } cost ? $" · est. ${cost:0.0000}" : "");
+        }
+        catch (OperationCanceledException) { TxtAi.Text = "AI: cancelled."; return; }
+        catch (AiException ex) { TxtAi.Text = "AI: the character/plotline pass failed."; MessageBox.Show(this, ex.Message, "AI", MessageBoxButton.OK, MessageBoxImage.Warning); return; }
+        finally { Cursor = Cursors.Arrow; }
+
+        Character? Known(string name) => _book.Characters.FirstOrDefault(c => MentionFinder.NamesOf(c).Any(n => n.Equals(name, StringComparison.OrdinalIgnoreCase)));
+        Plotline? KnownPlot(string name) => _book.Plotlines.FirstOrDefault(p => p.Name.Equals(name, StringComparison.OrdinalIgnoreCase));
+
+        var newCharacters = extract.Characters.Where(e => Known(e.Name) == null).ToList();
+        var newPlotlines  = extract.Plotlines.Where(e => KnownPlot(e.Name) == null).ToList();
+        if (newCharacters.Count > 0 || newPlotlines.Count > 0)
+        {
+            var dlg = new NewEntitiesWindow(ch.Title, newCharacters, newPlotlines) { Owner = this };
+            if (dlg.ShowDialog() == true)
+            {
+                foreach (var e in dlg.ChosenCharacters) _book.Characters.Add(new Character { Name = e.Name, Notes = e.Note.Length > 0 ? $"— from the analysis of \"{ch.Title}\" —\n{e.Note}" : "" });
+                foreach (var e in dlg.ChosenPlotlines) _book.Plotlines.Add(new Plotline { Name = e.Name, Status = PlotlineStatus.Active, Summary = e.Note });
+            }
+        }
+
+        // Chapter Characters item + chapter links
+        var charItem = _book.ItemsOf(ch.Id).FirstOrDefault(i => i.Kind == ItemKind.CharactersInChapter)
+                       ?? new Item { OwnerId = ch.Id, Kind = ItemKind.CharactersInChapter, Title = "Chapter Characters" };
+        if (!_book.Items.Contains(charItem)) _book.Items.Add(charItem);
+        var lines = new List<string>();
+        foreach (var e in extract.Characters)
+        {
+            var c = Known(e.Name);
+            lines.Add($"{e.Name}{(e.IsPov ? " (POV)" : "")}{(e.IsNew ? " (introduced)" : "")}{(e.Note.Length > 0 ? " — " + e.Note : "")}");
+            if (c == null) continue;
+            if (!charItem.CharacterIds.Contains(c.Id)) charItem.CharacterIds.Add(c.Id);
+            if (e.IsPov) charItem.PovCharacterId = c.Id;
+        }
+        charItem.Body = string.Join("\n", lines);
+        charItem.Provider = _ai.DefaultProvider.ToString(); charItem.PromptName = AiPrompts.ChapterExtract; charItem.ModifiedUtc = DateTime.UtcNow;
+        SyncChapterFromItem(charItem);
+
+        // Chapter Plotlines item + links on both sides
+        var plotItem = _book.ItemsOf(ch.Id).FirstOrDefault(i => i.Kind == ItemKind.ChapterPlotlines)
+                       ?? new Item { OwnerId = ch.Id, Kind = ItemKind.ChapterPlotlines, Title = "Chapter Plotlines" };
+        if (!_book.Items.Contains(plotItem)) _book.Items.Add(plotItem);
+        var plotLines = new List<string>();
+        foreach (var e in extract.Plotlines)
+        {
+            var p = KnownPlot(e.Name);
+            plotLines.Add($"{e.Name}{(e.IsNew ? " (new)" : "")}{(e.Note.Length > 0 ? " — " + e.Note : "")}");
+            if (p == null) continue;
+            if (!plotItem.PlotlineIds.Contains(p.Id)) plotItem.PlotlineIds.Add(p.Id);
+            if (!ch.PlotlineIds.Contains(p.Id)) ch.PlotlineIds.Add(p.Id);
+            if (!p.ChapterIds.Contains(ch.Id)) p.ChapterIds.Add(ch.Id);
+        }
+        plotItem.Body = string.Join("\n", plotLines);
+        plotItem.Provider = _ai.DefaultProvider.ToString(); plotItem.PromptName = AiPrompts.ChapterExtract; plotItem.ModifiedUtc = DateTime.UtcNow;
+
+        MarkDirty();
+        BuildTree(select: charItem);
+        UpdateStatus($"\"{ch.Title}\": {extract.Characters.Count} characters and {extract.Plotlines.Count} plotlines listed; {newCharacters.Count + newPlotlines.Count} were new.");
     }
 
     // ── Continuity, plot, style ───────────────────────────────────────────────
@@ -1770,7 +1941,7 @@ public partial class MainWindow : Window
 
         // Local name scan first: cheap, offline, and right most of the time.
         var item = _book.ItemsOf(ch.Id).FirstOrDefault(i => i.Kind == ItemKind.CharactersInChapter)
-                   ?? new Item { OwnerId = ch.Id, Kind = ItemKind.CharactersInChapter, Title = "Characters in this chapter" };
+                   ?? new Item { OwnerId = ch.Id, Kind = ItemKind.CharactersInChapter, Title = "Chapter Characters" };
         if (!_book.Items.Contains(item)) _book.Items.Add(item);
         foreach (var c in _book.Characters)
         {

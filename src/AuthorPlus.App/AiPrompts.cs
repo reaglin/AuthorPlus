@@ -20,6 +20,8 @@ public static class AiPrompts
     public const string ContinuityCheck     = "continuity-check";
     public const string PlotAnalysis        = "plot-analysis";
     public const string StyleRead           = "style-read";
+    public const string AnalysisSuggestions = "analysis-suggestions";
+    public const string ChapterExtract      = "chapter-extract";
 
     /// <summary>
     /// Practical ceiling for one request's prose, in characters (≈ 100k tokens). Above it a
@@ -31,11 +33,15 @@ public static class AiPrompts
     public static IReadOnlyList<PromptTemplate> Defaults { get; } = new[]
     {
         new PromptTemplate(ChapterSummary,
-            system: "You are an editorial assistant for a novelist. Summarize the chapter in 3–5 sentences of plain prose: " +
-                    "what happens, who is involved, and what changes. Do not praise, critique, or add anything not in the text.",
+            system: "You are an editorial assistant for a novelist. Summarize the chapter for the author's own records, in this exact shape:\n\n" +
+                    "What happens\n- one bullet per event or turn, in order (3–8 bullets, each one sentence)\n\n" +
+                    "Characters\n- Name (introduced here): what they do in this chapter — only for characters who first appear in this chapter\n" +
+                    "- Name: what they do in this chapter\n\n" +
+                    "Use the two headings exactly as written, one bullet per line, a blank line between the two lists. " +
+                    "Plain prose in each bullet, no praise, no critique, nothing not in the text.",
             user:   "Book: {book}\nChapter: {chapter}\n\n{text}",
-            description: "Three to five sentences saying what happens in a chapter. Becomes the chapter's Summary item.",
-            maxTokens: 1000),
+            description: "What happens (bulleted, in order) and what each character does, marking who is introduced. Becomes the chapter's Summary item.",
+            maxTokens: 1200),
 
         new PromptTemplate(ChunkSummary,
             system: "You are an editorial assistant. This is part {part} of {parts} of one chapter. Summarize what happens in this part " +
@@ -53,9 +59,11 @@ public static class AiPrompts
 
         new PromptTemplate(ChapterAnalysis,
             system: "You are an experienced fiction editor giving a working author frank, specific, useful notes. " +
-                    "Assess the chapter on: pacing, tension and stakes; point of view and voice; dialogue; clarity and continuity " +
-                    "with what came before; prose habits worth fixing. Quote short phrases from the text when you point at something. " +
-                    "End with the three changes that would help most. Use plain headings and short paragraphs; no praise padding.",
+                    "Write the analysis under these headings, each on its own line exactly as \"## Heading\", in this order: " +
+                    "## Pacing, ## Tension, ## Stakes, ## Point of view and voice, ## Dialogue, ## Continuity, ## Prose habits, ## Three changes. " +
+                    "Under each heading give 2–5 short paragraphs or bullets; quote short phrases from the text when you point at something; " +
+                    "Continuity means clarity and consistency with what came before (the earlier summaries). " +
+                    "Under Three changes give the three changes that would help most, numbered. No praise padding; nothing outside the headings.",
             user:   "Book: {book}\nSection: {section}\nChapter: {chapter}\n\nWhat has happened so far (summaries of earlier chapters):\n{context}\n\nThe chapter:\n{text}",
             description: "An editorial critique of one chapter, with the earlier chapters' summaries as context. Kept as a dated Analysis item; run it on several providers to compare.",
             maxTokens: 3000),
@@ -114,6 +122,26 @@ public static class AiPrompts
             user:   "Book: {book}\nScope: {scope}\n\nKnown plotlines:\n{plotlines}\n\nChapter summaries in reading order:\n{summaries}",
             description: "Acts, a tension score per chapter, slow stretches, plotlines and suggested convergences, from the chapter summaries. Becomes an Analysis item on the section or the book.",
             maxTokens: 4000),
+
+        new PromptTemplate(AnalysisSuggestions,
+            system: "You are a line editor helping a novelist act on one point from an editorial analysis of a chapter. " +
+                    "For the aspect named, give 3–6 concrete rewrite suggestions. For each: the passage concerned (quote it briefly, or name where it is), " +
+                    "a rewritten version of that passage in the author's own voice, and one sentence on why it helps. " +
+                    "Number the suggestions. Do not rewrite the whole chapter; do not add plot the text does not have.",
+            user:   "Book: {book}\nChapter: {chapter}\nAspect: {aspect}\n\nWhat the analysis said about it:\n{finding}\n\nThe chapter:\n{text}",
+            description: "Rewrite suggestions for one aspect of a chapter analysis (the Suggestions… button on an analysis card). Saved as a Suggestions item under the analysis.",
+            maxTokens: 2500),
+
+        new PromptTemplate(ChapterExtract,
+            system: "You extract records for an author's story bible from one chapter. Output exactly two blocks and nothing else:\n\n" +
+                    "CHARACTERS\nName | known or new | POV or - | what they do in this chapter (one short clause)\n\n" +
+                    "PLOTLINES\nName | known or new | what happens in this thread in this chapter (one short clause)\n\n" +
+                    "One line per character who appears or acts (not a passing mention); one line per story thread the chapter advances. " +
+                    "Use the known names exactly when they match (an alias counts as known); mark anyone or anything not in the known lists as new. " +
+                    "Give a new plotline a short descriptive name (2–5 words). Mark exactly one character POV when the chapter has a viewpoint character.",
+            user:   "Chapter: {chapter}\n\nKnown characters (name — also called):\n{known_characters}\n\nKnown plotlines:\n{known_plotlines}\n\n{text}",
+            description: "Runs after Analyze…: lists the chapter's characters and plotlines so they can be linked, and new ones added to the book.",
+            maxTokens: 1200),
 
         new PromptTemplate(StyleRead,
             system: "You are a line editor. You are given local statistics about a chapter's prose and the chapter itself. Describe the " +

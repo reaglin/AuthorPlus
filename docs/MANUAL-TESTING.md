@@ -43,9 +43,15 @@ the exe (`AuthorPlus.exe "<book folder>"` opens it). Books live in `Documents\Au
 - Book › **Check Consistency…** (Ctrl+K); tick "Also scan chapter text"; double-click a line.
 
 **AI** (keys come from the AI Manager; AI › AI Settings shows them and this month's spend)
-- Right-click a chapter › **Summarize** (summary item appears under the chapter);
-  **Analyze…** on one provider, then on "Every provider with a key" to compare;
-  **Characters in This Chapter**; **Style Report…** then **AI voice read…**.
+- Right-click a chapter › **Summarize** (a Summary item: "What happens" bullets, then
+  "Characters" with who is introduced);
+  **Analyze…** on one provider, then on "Every provider with a key" to compare — the run window
+  says what it will produce; the Analysis item opens as one card per aspect (Pacing, Tension,
+  Stakes, Point of view and voice, Dialogue, Continuity, Prose habits, Three changes), each with
+  **Suggestions…** (rewrites for that point, saved under the analysis). When the run closes, a
+  short pass lists the chapter's characters and plotlines: known ones are linked, new ones are
+  offered in a checklist, and **Chapter Characters** / **Chapter Plotlines** items appear;
+  **Chapter Characters** on its own; **Style Report…** then **AI voice read…**.
 - Right-click a section › **Outline This Section**, **Summarize This Section**,
   **Continuity Check (AI)…**, **Plot Analysis (AI)…** (these want chapter summaries first).
 - Character › **Suggest Profile (AI)**.
@@ -61,5 +67,5 @@ the exe (`AuthorPlus.exe "<book folder>"` opens it). Books live in `Documents\Au
 - Several Part 2 chapter titles differ between file name and in-document heading; titles came
   from the file names. Rename in the tree, or re-import Part 2 with "Titles from: headings".
 - The OpenAI key has no credits on that account; Claude and Gemini work.
-- Preview-prompts and the tree's expanded state are not remembered between runs.
+- Preview-prompts and the tree's expanded state are not remembered between runs (the last book is reopened on start).
 - Audio / text-to-speech is version 2 (see "Version 2 — Audio" in the plan).

@@ -69,7 +69,7 @@
             <MenuItem Header="_AI" x:Name="MnuAi">
                 <MenuItem Header="_Summarize This Chapter" Click="AiSummarize_Click"/>
                 <MenuItem Header="_Analyze This Chapter…" Click="AiAnalyze_Click"/>
-                <MenuItem Header="_Characters in This Chapter" Click="AiCharactersInChapter_Click"/>
+                <MenuItem Header="_Chapter Characters" Click="AiCharactersInChapter_Click" ToolTip="Who appears in the chapter (name scan + AI), as a Chapter Characters item"/>
                 <MenuItem Header="Style _Report…" Click="Style_Click" ToolTip="Local prose statistics for the chapter, with an optional AI read"/>
                 <Separator/>
                 <MenuItem Header="Continuity Chec_k (AI)…" Click="AiContinuity_Click" ToolTip="Contradictions across the selected section (or the whole book), checked against the characters and timeline"/>

@@ -179,6 +179,13 @@ public sealed class BookStore
         owners.UnionWith(book.Characters.Select(c => c.Id));
         owners.UnionWith(book.Timeline.Select(t => t.Id));
         owners.UnionWith(book.Plotlines.Select(p => p.Id));
+        // Items may own items (an analysis owns its suggestions): grow the owner set to a fixed point.
+        for (bool grew = true; grew;)
+        {
+            grew = false;
+            foreach (var i in book.Items)
+                if (owners.Contains(i.OwnerId) && owners.Add(i.Id)) grew = true;
+        }
         book.Items.RemoveAll(i => !owners.Contains(i.OwnerId));
 
         SaveItems(book.FolderPath, "sections",   book.Sections,   s => s.Id, keepBodies: false);

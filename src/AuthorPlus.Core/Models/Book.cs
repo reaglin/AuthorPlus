@@ -91,11 +91,28 @@ public sealed class Book
         return 0;
     }
 
-    /// <summary>Removes a chapter and everything that hangs off it (its items). The caller saves.</summary>
+    /// <summary>Removes a chapter and everything that hangs off it (its items, and theirs). The caller saves.</summary>
     public void RemoveChapter(Chapter chapter)
     {
         Chapters.Remove(chapter);
-        Items.RemoveAll(i => i.OwnerId == chapter.Id);
+        RemoveOwned(chapter.Id);
+    }
+
+    /// <summary>Removes an item and every item that hangs off it (e.g. an analysis and its suggestions).</summary>
+    public void RemoveItemTree(Item item)
+    {
+        Items.Remove(item);
+        RemoveOwned(item.Id);
+    }
+
+    /// <summary>Removes every item owned by <paramref name="ownerId"/>, recursively.</summary>
+    public void RemoveOwned(Guid ownerId)
+    {
+        foreach (var child in Items.Where(i => i.OwnerId == ownerId).ToList())
+        {
+            Items.Remove(child);
+            RemoveOwned(child.Id);
+        }
     }
 
     /// <summary>Removes a section and its items. Its chapters stay in the book at book level unless <paramref name="deleteChapters"/>.</summary>
@@ -107,7 +124,7 @@ public sealed class Book
             else c.SectionId = null;
         }
         Sections.Remove(section);
-        Items.RemoveAll(i => i.OwnerId == section.Id);
+        RemoveOwned(section.Id);
     }
 }
 
@@ -160,7 +177,11 @@ public enum ItemKind
     /// <summary>Free notes / to-do.</summary>
     Notes,
     /// <summary>A numbered chapter-flow outline (section or book level).</summary>
-    Outline
+    Outline,
+    /// <summary>Which plotlines run through a chapter, with what happens in each. One per chapter.</summary>
+    ChapterPlotlines,
+    /// <summary>Rewrite suggestions for one aspect of an analysis. Owned by the Analysis item.</summary>
+    Suggestions
 }
 
 /// <summary>
@@ -186,6 +207,8 @@ public sealed class Item
     /// <summary>For <see cref="ItemKind.CharactersInChapter"/>: who appears and whose point of view it is.</summary>
     public List<Guid> CharacterIds   { get; set; } = new();
     public Guid?      PovCharacterId { get; set; }
+    /// <summary>For <see cref="ItemKind.ChapterPlotlines"/>: the plotlines running through the chapter.</summary>
+    public List<Guid> PlotlineIds    { get; set; } = new();
 
     [JsonIgnore] public bool IsAiMade => !string.IsNullOrEmpty(Provider);
 }

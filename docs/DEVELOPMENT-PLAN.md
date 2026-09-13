@@ -100,6 +100,20 @@ sent and what it cost.
 | 3.5 | Streaming responses with cancel; per-call cost shown from usage; monthly spend total in AI Settings | all in the AI Manager: streaming via `AiRunPanel`, cost on every response and in the status bar, "Spent this month" line in AI Settings (AiManager 1.1.0) | | [x] 2026-09-13 |
 | 3.6 | Long-chapter handling: chunking with a running summary when text exceeds the model's practical input | `Core/TextChunker`, `AiPrompts.MaxPromptChars` (≈100k tokens), templates `chunk-summary` + `merge-summaries` | a chapter over the ceiling is summarized in parts then merged; a book-level prompt over it is refused with an explanation | [x] 2026-09-13 |
 
+### Ron's first hand-test (2026-09-13, build 0.4.0) — tasks
+
+Ron liked: the right-click menus on chapters ("great … good interface"), the Characters and
+Plotlines checklists that appear on a chapter.
+
+| # | Task (Ron's words → what changes) | Targets | Status |
+|---|---|---|---|
+| 3.7 | *"The summary should be formatted to give major bullet points … What occurs; Character actions (introduction and actions). The continuous chain of text is challenging to read."* → the `chapter-summary` prompt returns two headed lists (What happens / Characters, marking introductions); the Summary editor shows it as written | `AiPrompts`, item editor | [x] 2026-09-13 |
+| 3.8 | *"The Analyze screen should give more detail on what the analysis will produce."* → the run window lists the aspects it will return and what follows | `AiRunWindow` note | [x] 2026-09-13 |
+| 3.9 | *"The analysis should break these into separate items and each should have a 'Suggestions' button that shows suggestions on how to rewrite sections to address the items — a redesign of the Analysis results screen."* → `chapter-analysis` returns fixed `## ` sections (Pacing, Tension, Stakes, Point of view and voice, Dialogue, Continuity, Prose habits, Three changes); the Analysis editor shows one expandable card per aspect with **Suggestions…**, which runs `analysis-suggestions` for that aspect and saves a Suggestions item under the analysis | `Core/AnalysisSections`, `AiPrompts`, item editors, `ItemKind.Suggestions`, items may own items | [x] 2026-09-13 |
+| 3.10 | *"Characters in the Chapter can simply be 'Chapter Characters'."* → renamed everywhere | menus, item title | [x] 2026-09-13 |
+| 3.11 | *"Analyze should find characters and create the Characters submenu; it should also create the Plotlines submenu, adding any new plotlines to the plotlines list."* → after an analysis a structured `chapter-extract` pass lists characters (introduced / acting, POV) and plotlines; known ones are linked, new ones are offered in a checklist and added as Character / Plotline records; a Chapter Characters item and a **Chapter Plotlines** item (new kind) appear under the chapter | `AiPrompts`, `Core/ChapterExtract`, `Item.PlotlineIds`, `NewEntitiesWindow` | [x] 2026-09-13 |
+| 3.12 | *"The program should always open on the previous project."* → startup opens the most recent book when no folder is given | `MainWindow` | [x] 2026-09-13 |
+
 ## Phase 4 — Export, packaging, Store
 
 Exit: signed MSIX installs on a clean Windows 11 VM; Store listing submitted.
