@@ -87,6 +87,9 @@ unit tests and must keep them (the AI layer's tests live in the AiManager repo).
    sections and items; a version-1 book loads with its chapters at book level and its chapter
    summaries turned into Summary items. Import (`Core/Services/Import`) reads DOCX with
    `System.IO.Compression` + XML, TXT and Markdown, and never touches the source files.
+   **Version 2 will add `audio\\{itemId}.mp3` for Audio items** (text-to-speech through the AI
+   Manager) — keep new per-item binary files on that pattern: on disk, out of memory, deleted
+   with the item.
 2. **Chapter prose stays out of memory until opened.** `Chapter` carries metadata and a word
    count; `BookStore.LoadChapterBody/SaveChapterBody` move the XAML. The editor saves the body
    when the selection leaves the chapter and on Save.
@@ -122,7 +125,7 @@ unit tests and must keep them (the AI layer's tests live in the AiManager repo).
 
 - `..\AiManager` — the shared AI layer this app consumes (its `CLAUDE.md` and `docs/PLAN.md`).
   `CIATLE.AICore` was the seed of that library; nothing AI-related is copied between repos now.
-- `..\PreseMaker` — owns the Google TTS narration pipeline the "narrations" feature will reuse
-  (its saved API keys were imported into the AI Manager store on 2026-09-12).
+- `..\PreseMaker` — owns the Google TTS narration pipeline today; it moves into the AI Manager
+  (its Phase 5) and AuthorPlus v2 uses it for chapter audio (this plan's "Version 2 — Audio").
 - `..\SMADA10` — the WPF/.NET 10 + scripted-MSIX Store pattern to follow for packaging
   (`packaging/pack.ps1`, `AppxManifest.xml`).

@@ -112,10 +112,22 @@ Exit: signed MSIX installs on a clean Windows 11 VM; Store listing submitted.
 | 4.4 | Store listing assets, screenshots, description; age rating; price | `store/` | | [ ] |
 | 4.5 | Store name reservation (Ron) and first submission | | | [ ] |
 
+## Version 2 — Audio (Ron, 2026-09-12: "not v1, but develop knowing where we are going")
+
+Chapters and any selected text can be turned into audio through the AI Manager's text-to-speech
+(AiManager Phase 5, its `docs/PLAN.md` §14). Designed now so v1 leaves room; built after v1 ships.
+
+| # | Task | Targets | Notes |
+|---|---|---|---|
+| A.1 | `ItemKind.Audio`: an item under a chapter (or section, or the book) whose file lives in `audio\{itemId}.mp3` (or `.wav`); the item records voice, provider, characters spoken, cost, duration | `Core/Models`, `BookStore` (an `audio\` folder handled like chapter bodies: on disk, out of memory, deleted with the item) | the folder layout in CLAUDE.md idea 1 gets one more line |
+| A.2 | "Read this chapter aloud…" → `AiHub.Speech.SynthesizeLongAsync` over the chapter's plain text with progress and cancel; result saved as an Audio item; play/stop in the item editor (`AudioPreviewPanel` from the WPF package); "Export audio…" copies the file out | `App` | v1's `ChapterText(ch)` is already the input |
+| A.3 | Speak selection: right-click in the editor → "Read selection aloud" (plays, not saved) | `App` | |
+| A.4 | Per-character voices: `Character.Voice` (voice id from the shared catalog) and speaker attribution of dialogue — a `SpeakerMap` per chapter (item kind or side file) built by an AI pass ("who says each quoted line") and confirmed by the author; multi-voice synthesis stitches segments | `Core`, templates, `App` | the hard part; do A.1–A.3 first |
+| A.5 | Pronunciation dictionary shared with PreseMaker (names: "Olemelukwe", "Dalgo") — edited from the AI Manager's settings; per-book additions kept in the book folder | AiManager Phase 5.4 | |
+| A.6 | Whole-book audiobook export: one file per chapter with a manifest, optional chapter intros | `Core/Services/Export` | |
+
 ## Later (captured, not scheduled)
 
-- **Narrations** — reuse PreseMaker's Google TTS pipeline for chapter read-throughs; per-character
-  voices for dialogue (needs speaker attribution in the text).
 - Multiple books open at once; a "series" folder with shared characters.
 - Collaboration / cloud sync (folder-of-files makes OneDrive/Dropbox work today; conflict handling would be the feature).
 - Localisation.
@@ -140,3 +152,8 @@ Exit: signed MSIX installs on a clean Windows 11 VM; Store listing submitted.
   covers it; the imported prose keeps Word's double spaces where the source has them.
   Still to hand-test by Ron: the Import window against Part 3 after chapter 23 turns up, and
   Analyze… on two providers.
+- **Ron's to-do when back at the machine (2026-09-12):** (1) hand-test steps 3–4 of
+  `TRILOGY-TEST-CASE.md` and write notes there; (2) find chapter 23 of *The Soul of Three* and
+  insert it via right-click chapter 22 › Insert Chapter from File After This…; (3) decide
+  whether Part 2 titles should follow the in-document headings; (4) the OpenAI account has no
+  API credits; (5) AiManager PLAN.md §13 open points.
