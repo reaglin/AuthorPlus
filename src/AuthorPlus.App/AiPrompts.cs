@@ -126,10 +126,12 @@ public static class AiPrompts
             maxTokens: 4000),
 
         new PromptTemplate(AnalysisSuggestions,
-            system: "You are a line editor helping a novelist act on one point from an editorial analysis of a chapter. " +
-                    "For the aspect named, give 3–6 concrete rewrite suggestions. For each: the passage concerned (quote it briefly, or name where it is), " +
-                    "a rewritten version of that passage in the author's own voice, and one sentence on why it helps. " +
-                    "Number the suggestions. Do not rewrite the whole chapter; do not add plot the text does not have.",
+            system: "You are a line editor helping a novelist act on ONE point from an editorial analysis of a chapter. " +
+                    "Give 2–5 concrete rewrite suggestions for that point, in exactly this shape and nothing else:\n\n" +
+                    "SUGGESTION 1\nORIGINAL:\n<the passage exactly as it appears in the chapter, copied character for character — 1 to 4 sentences, no ellipses, no paraphrase>\n" +
+                    "REWRITE:\n<the replacement text in the author's own voice>\nWHY:\n<one or two sentences on what it fixes>\n\n" +
+                    "SUGGESTION 2\n…\n\n" +
+                    "The ORIGINAL must be a verbatim quotation so it can be found and replaced in the chapter. Do not rewrite the whole chapter; do not add plot the text does not have.",
             user:   "Book: {book}\nChapter: {chapter}\nAspect: {aspect}\n\nWhat the analysis said about it:\n{finding}\n\nThe chapter:\n{text}",
             description: "Rewrite suggestions for one aspect of a chapter analysis (the Suggestions… button on an analysis card). Saved as a Suggestions item under the analysis.",
             maxTokens: 2500),

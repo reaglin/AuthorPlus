@@ -49,7 +49,13 @@ the exe (`AuthorPlus.exe "<book folder>"` opens it). Books live in `Documents\Au
   says what it will produce; the Analysis item opens as one card per aspect (Pacing, Tension,
   Stakes, Point of view and voice, Dialogue, Continuity, Prose habits, Three changes) with the
   editor's numbered points, each point with its own **Suggestions…** (rewrites for that one
-  point, saved under the analysis as "Suggestions · Aspect · n"). When the run closes, a
+  point, saved under the analysis as "Suggestions · Aspect · n"). Open a Suggestions item: a
+  diff per suggestion (current passage left with removed words struck through, rewrite right
+  with added words highlighted), the reasoning, and **Apply** (replaces the passage in the
+  chapter), **Mark** (keeps it for your own rewrite — a box appears, then **Apply mine**),
+  **Resolve**, **Go to passage**. **Marked Passages…** (right-click a chapter, or Book menu for
+  the whole book) brings every marked passage back. Right-click any item › **Mark as
+  Resolved** puts a ✓ on it in the tree. When the run closes, a
   short pass lists the chapter's characters and plotlines: known ones are linked, new ones are
   offered in a checklist, and **Chapter Characters** / **Chapter Plotlines** items appear;
   **Chapter Characters** on its own; **Style Report…** then **AI voice read…**.

@@ -57,6 +57,7 @@
                 <MenuItem Header="Book _Properties" Click="BookProperties_Click"/>
                 <Separator/>
                 <MenuItem Header="Check _Consistency…" Click="Consistency_Click" InputGestureText="Ctrl+K"/>
+                <MenuItem Header="Marked Passa_ges…" Click="MarkedPassages_Click" ToolTip="Every passage you marked for your own rewrite, in the selected chapter or the whole book"/>
             </MenuItem>
             <MenuItem Header="_View">
                 <MenuItem Header="_Find and Replace" Click="Find_Click" InputGestureText="Ctrl+F"/>

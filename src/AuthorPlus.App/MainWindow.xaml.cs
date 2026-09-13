@@ -27,7 +27,7 @@ namespace AuthorPlus.App;
 /// kind; everything else edits in a field form built at runtime. Switching selection saves the
 /// node being left. Right-click gives each node type its own menu (the CIATLE tree pattern).
 /// </summary>
-public partial class MainWindow : Window
+public partial class MainWindow : Window, ISuggestionActions
 {
     private readonly BookStore _store = new();
     private readonly AiHub     _ai    = AiHub.Open("AuthorPlus");   // the shared AI Manager (keys, log, ledger, prompts)
@@ -270,13 +270,23 @@ public partial class MainWindow : Window
         Book b          => b.Title,
         Section s       => s.Title,
         Chapter c       => $"{_book!.ChapterNumber(c)}. {c.Title}",
-        Item i          => i.Kind == ItemKind.Summary ? "Summary" : i.Title.Length > 0 ? i.Title : i.Kind.ToString(),
+        Item i          => (i.Resolved ? "✓ " : "") + (i.Kind == ItemKind.Summary ? "Summary" : i.Title.Length > 0 ? i.Title : i.Kind.ToString()) + SuggestionCounts(i),
         Character c     => c.Name,
         TimelineEvent t => string.IsNullOrWhiteSpace(t.When) ? t.Title : $"{t.When} — {t.Title}",
         Plotline p      => p.Name,
         string s        => s,
         _               => node.ToString() ?? ""
     };
+
+    private static string SuggestionCounts(Item i)
+    {
+        if (i.Kind != ItemKind.Suggestions || i.Suggestions.Count == 0) return "";
+        int applied = i.Suggestions.Count(s => s.Status == SuggestionStatus.Applied), marked = i.Suggestions.Count(s => s.Status == SuggestionStatus.Marked),
+            resolved = i.Suggestions.Count(s => s.Status == SuggestionStatus.Resolved), open = i.Suggestions.Count(s => s.Status == SuggestionStatus.Open);
+        var parts = new List<string>();
+        if (open > 0) parts.Add($"{open} open"); if (applied > 0) parts.Add($"{applied} applied"); if (marked > 0) parts.Add($"{marked} marked"); if (resolved > 0) parts.Add($"{resolved} resolved");
+        return "  (" + string.Join(", ", parts) + ")";
+    }
 
     private static Guid? IdOf(object node) => node switch
     {
@@ -475,6 +485,7 @@ public partial class MainWindow : Window
                 Add("Analyze… (AI)", AiAnalyze_Click, _ai.IsAvailable());
                 Add("Chapter Characters", AiCharactersInChapter_Click);
                 Add("Style Report…", Style_Click);
+                Add("Marked Passages…", MarkedPassages_Click);
                 Add("Add Notes", AddNotesItem_Click);
                 Sep();
                 Add("Insert Chapter from File After This…", InsertChapterFile_Click);
@@ -482,7 +493,10 @@ public partial class MainWindow : Window
                 Add("Move Up", MoveUp_Click); Add("Move Down", MoveDown_Click);
                 Add("Delete Chapter…", DeleteItem_Click);
                 break;
-            case Item:
+            case Item it:
+                Add(it.Resolved ? "Reopen" : "Mark as Resolved", ResolveItem_Click);
+                if (it.Kind == ItemKind.Suggestions) Add("Marked Passages of This Chapter…", MarkedPassages_Click);
+                Sep();
                 Add("Move Up", MoveUp_Click); Add("Move Down", MoveDown_Click);
                 Add("Delete…", DeleteItem_Click);
                 break;
@@ -1195,7 +1209,8 @@ public partial class MainWindow : Window
     {
         var panel = new DockPanel();
         var meta = new TextBlock { Foreground = System.Windows.Media.Brushes.Gray, Margin = new Thickness(0, 0, 0, 8), TextWrapping = TextWrapping.Wrap };
-        meta.Text = (it.IsAiMade ? $"Written by {it.Provider} ({it.Model}) with the \"{it.PromptName}\" prompt · " : "") +
+        meta.Text = (it.Resolved ? $"✓ Resolved {it.ResolvedUtc?.ToLocalTime():yyyy-MM-dd} (right-click › Reopen) · " : "") +
+                    (it.IsAiMade ? $"Written by {it.Provider} ({it.Model}) with the \"{it.PromptName}\" prompt · " : "") +
                     $"created {it.CreatedUtc.ToLocalTime():yyyy-MM-dd HH:mm}, last changed {it.ModifiedUtc.ToLocalTime():yyyy-MM-dd HH:mm}";
         DockPanel.SetDock(meta, Dock.Top);
         panel.Children.Add(meta);
@@ -1208,6 +1223,11 @@ public partial class MainWindow : Window
         if (it.Kind == ItemKind.ChapterPlotlines)
         {
             panel.Children.Add(BuildChapterPlotlinesEditor(it));
+            return panel;
+        }
+        if (it.Kind == ItemKind.Suggestions)
+        {
+            panel.Children.Add(SuggestionsEditor.Build(it, MarkedPassagesWindow.ChapterOf(_book!, it), this, _ai.IsAvailable()));
             return panel;
         }
         if (it.Kind == ItemKind.Analysis && AnalysisSections.Parse(it.Body).Any(x => x.Heading.Length > 0))
@@ -1310,8 +1330,76 @@ public partial class MainWindow : Window
             provider => _ai.Prompts.Get(AiPrompts.AnalysisSuggestions).Bind(new { book = _book!.Title, chapter = chapter.Title, aspect = $"{aspect} — point {index}", finding, text }, provider), ConfirmSend) { Owner = this };
         dlg.ShowDialog();
         if (dlg.Created.Count == 0) return;
+        foreach (var created in dlg.Created) created.Suggestions = SuggestionParser.Parse(created.Body);
         MarkDirty();
         BuildTree(select: dlg.Created[^1]);
+    }
+
+    // ── Applying, marking, resolving suggestions (ISuggestionActions) ─────────
+
+    public bool Apply(Chapter chapter, SuggestionEntry entry, string replacement)
+    {
+        if (_book == null) return false;
+        if (ReferenceEquals(_current, chapter) && _rtb != null)
+        {
+            var hit = PassageInDocument.Locate(_rtb.Document, entry.Original);
+            if (hit == null) return false;
+            new TextRange(hit.Value.Start, hit.Value.End).Text = replacement;
+            MarkDirty();
+            UpdateWordCount(chapter);
+            return true;
+        }
+        var xaml = _store.LoadChapterBody(_book, chapter);
+        if (string.IsNullOrEmpty(xaml)) return false;
+        FlowDocument doc;
+        try { doc = (FlowDocument)XamlReader.Parse(xaml); } catch { return false; }
+        var span = PassageInDocument.Locate(doc, entry.Original);
+        if (span == null) return false;
+        new TextRange(span.Value.Start, span.Value.End).Text = replacement;
+        _store.SaveChapterBody(_book, chapter, XamlWriter.Save(doc), WordCounter.Count(PlainText(doc)));
+        MarkDirty();
+        RefreshTreeTexts();
+        return true;
+    }
+
+    public bool GoTo(Chapter chapter, SuggestionEntry entry)
+    {
+        if (_book == null) return false;
+        if (!ReferenceEquals(_current, chapter)) SelectNode(chapter);
+        if (_rtb == null) return false;
+        var hit = PassageInDocument.Locate(_rtb.Document, entry.Original);
+        if (hit == null) return false;
+        _rtb.Selection.Select(hit.Value.Start, hit.Value.End);
+        _rtb.Focus();
+        var rect = hit.Value.Start.GetCharacterRect(LogicalDirection.Forward);
+        _rtb.ScrollToVerticalOffset(_rtb.VerticalOffset + rect.Top - _rtb.ActualHeight / 3);
+        return true;
+    }
+
+    public void Changed(Item item)
+    {
+        MarkDirty();
+        RefreshTreeTexts();
+    }
+
+    private void ResolveItem_Click(object sender, RoutedEventArgs e)
+    {
+        if (_book == null || _current is not Item it) return;
+        it.Resolved = !it.Resolved;
+        it.ResolvedUtc = it.Resolved ? DateTime.UtcNow : null;
+        MarkDirty();
+        RefreshTreeTexts();
+        ShowCurrent();
+    }
+
+    private void MarkedPassages_Click(object sender, RoutedEventArgs e)
+    {
+        if (_book == null) return;
+        CommitCurrent();
+        var chapter = CurrentChapter() ?? (_current is Item it ? MarkedPassagesWindow.ChapterOf(_book, it) : null);
+        new MarkedPassagesWindow(_book, chapter, this) { Owner = this }.ShowDialog();
+        RefreshTreeTexts();
+        if (_current is Item) ShowCurrent();
     }
 
     private UIElement BuildChapterPlotlinesEditor(Item it)

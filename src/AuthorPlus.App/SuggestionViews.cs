@@ -1,0 +1,258 @@
+using System.Windows;
+using System.Windows.Controls;
+using System.Windows.Documents;
+using System.Windows.Media;
+using AuthorPlus.Core.Models;
+using AuthorPlus.Core.Services;
+using Brush = System.Windows.Media.Brush;
+using Brushes = System.Windows.Media.Brushes;
+using FontFamily = System.Windows.Media.FontFamily;
+using Color = System.Windows.Media.Color;
+
+namespace AuthorPlus.App;
+
+/// <summary>What the suggestion screens need from the main window to act on a suggestion.</summary>
+public interface ISuggestionActions
+{
+    /// <summary>Replaces the passage in the chapter with <paramref name="replacement"/>. False when the passage cannot be found.</summary>
+    bool Apply(Chapter chapter, SuggestionEntry entry, string replacement);
+    /// <summary>Opens the chapter and selects the passage. False when it cannot be found.</summary>
+    bool GoTo(Chapter chapter, SuggestionEntry entry);
+    /// <summary>Something on an item changed: save state, refresh labels.</summary>
+    void Changed(Item item);
+}
+
+/// <summary>
+/// The Suggestions item as a diff screen: for each suggestion the passage as it is (removed
+/// words highlighted) beside the rewrite (added words highlighted), the reasoning, and
+/// Apply / Mark / Resolve / Go to passage. A marked suggestion shows a box for the author's own
+/// words and "Apply mine".
+/// </summary>
+public static class SuggestionsEditor
+{
+    private static readonly Brush RemovedBg = new SolidColorBrush(Color.FromRgb(0xFB, 0xD9, 0xD9));
+    private static readonly Brush AddedBg   = new SolidColorBrush(Color.FromRgb(0xD3, 0xF3, 0xDB));
+    private static readonly Brush CardBg    = new SolidColorBrush(Color.FromRgb(0xFA, 0xFB, 0xFC));
+    private static readonly Brush Line      = new SolidColorBrush(Color.FromRgb(0xE1, 0xE5, 0xEA));
+
+    public static UIElement Build(Item item, Chapter? chapter, ISuggestionActions actions, bool aiAvailable)
+    {
+        if (item.Suggestions.Count == 0) item.Suggestions = SuggestionParser.Parse(item.Body);
+        var stack = new StackPanel();
+        if (item.Suggestions.Count == 0)
+        {
+            stack.Children.Add(new TextBlock { Text = "This reply did not come back in the suggestion format, so it is shown as text. Run Suggestions… again for the diff view.", Foreground = Brushes.Gray, TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 0, 0, 8) });
+            stack.Children.Add(new TextBox { Text = item.Body, IsReadOnly = true, TextWrapping = TextWrapping.Wrap, BorderThickness = new Thickness(0), Background = Brushes.Transparent });
+            return new ScrollViewer { Content = stack, VerticalScrollBarVisibility = ScrollBarVisibility.Auto };
+        }
+
+        foreach (var e in item.Suggestions) stack.Children.Add(Card(item, chapter, e, actions));
+        return new ScrollViewer { Content = stack, VerticalScrollBarVisibility = ScrollBarVisibility.Auto };
+    }
+
+    public static Border Card(Item item, Chapter? chapter, SuggestionEntry e, ISuggestionActions actions, bool showChapterTitle = false)
+    {
+        var card = new Border { Background = CardBg, BorderBrush = Line, BorderThickness = new Thickness(1), CornerRadius = new CornerRadius(4), Padding = new Thickness(10), Margin = new Thickness(0, 0, 0, 10) };
+        var body = new StackPanel();
+        card.Child = body;
+
+        // Header: number, status, buttons
+        var header = new DockPanel { Margin = new Thickness(0, 0, 0, 6) };
+        var buttons = new StackPanel { Orientation = Orientation.Horizontal };
+        DockPanel.SetDock(buttons, Dock.Right);
+        var status = new TextBlock { VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(8, 0, 0, 0), Foreground = Brushes.Gray };
+        var title = new TextBlock { Text = (showChapterTitle && chapter != null ? chapter.Title + " — " : "") + $"Suggestion {e.Index}", FontWeight = FontWeights.SemiBold, VerticalAlignment = VerticalAlignment.Center };
+        header.Children.Add(buttons);
+        header.Children.Add(title);
+        header.Children.Add(status);
+        body.Children.Add(header);
+
+        // Diff: left = current, right = rewrite
+        var diff = WordDiff.Compute(e.Original, e.Rewrite);
+        var grid = new Grid();
+        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(10) });
+        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+        grid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+        grid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+        var lh = new TextBlock { Text = "Current", Foreground = Brushes.Gray, FontSize = 11, Margin = new Thickness(0, 0, 0, 2) };
+        var rh = new TextBlock { Text = "Suggested", Foreground = Brushes.Gray, FontSize = 11, Margin = new Thickness(0, 0, 0, 2) };
+        Grid.SetColumn(rh, 2);
+        grid.Children.Add(lh); grid.Children.Add(rh);
+        var left  = DiffBlock(WordDiff.Left(diff),  DiffKind.Removed, RemovedBg);
+        var right = DiffBlock(WordDiff.Right(diff), DiffKind.Added, AddedBg);
+        Grid.SetRow(left, 1); Grid.SetRow(right, 1); Grid.SetColumn(right, 2);
+        grid.Children.Add(left); grid.Children.Add(right);
+        body.Children.Add(grid);
+
+        // Why
+        if (e.Why.Length > 0)
+        {
+            var why = new TextBlock { TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 8, 0, 0) };
+            why.Inlines.Add(new Run("Why: ") { FontWeight = FontWeights.SemiBold });
+            why.Inlines.Add(new Run(e.Why));
+            body.Children.Add(why);
+        }
+
+        // Author's own rewrite (marked passages)
+        var mine = new StackPanel { Margin = new Thickness(0, 8, 0, 0), Visibility = e.Status == SuggestionStatus.Marked ? Visibility.Visible : Visibility.Collapsed };
+        mine.Children.Add(new TextBlock { Text = "Your rewrite (in your own words)", FontWeight = FontWeights.SemiBold, Margin = new Thickness(0, 0, 0, 2) });
+        var mineBox = new TextBox { Text = e.AuthorRewrite, AcceptsReturn = true, TextWrapping = TextWrapping.Wrap, MinLines = 2, Padding = new Thickness(6), FontFamily = new FontFamily("Georgia"), FontSize = 14 };
+        mineBox.TextChanged += (_, _) => { e.AuthorRewrite = mineBox.Text; actions.Changed(item); };
+        mine.Children.Add(mineBox);
+        var applyMine = new Button { Content = "Apply mine", Padding = new Thickness(8, 2, 8, 2), HorizontalAlignment = HorizontalAlignment.Left, Margin = new Thickness(0, 4, 0, 0) };
+        mine.Children.Add(applyMine);
+        body.Children.Add(mine);
+
+        // Buttons
+        var apply   = new Button { Content = "Apply", Padding = new Thickness(8, 2, 8, 2), Margin = new Thickness(4, 0, 0, 0), ToolTip = "Put the suggested text into the chapter in place of the current passage" };
+        var mark    = new Button { Content = "Mark", Padding = new Thickness(8, 2, 8, 2), Margin = new Thickness(4, 0, 0, 0), ToolTip = "Keep this passage to rewrite in your own words (see Marked Passages)" };
+        var resolve = new Button { Content = "Resolve", Padding = new Thickness(8, 2, 8, 2), Margin = new Thickness(4, 0, 0, 0), ToolTip = "Done with this one" };
+        var reopen  = new Button { Content = "Reopen", Padding = new Thickness(8, 2, 8, 2), Margin = new Thickness(4, 0, 0, 0) };
+        var goTo    = new Button { Content = "Go to passage", Padding = new Thickness(8, 2, 8, 2), Margin = new Thickness(4, 0, 0, 0), ToolTip = "Open the chapter and select the passage" };
+        buttons.Children.Add(goTo); buttons.Children.Add(apply); buttons.Children.Add(mark); buttons.Children.Add(resolve); buttons.Children.Add(reopen);
+
+        void Paint()
+        {
+            var open = e.Status == SuggestionStatus.Open;
+            status.Text = e.Status switch
+            {
+                SuggestionStatus.Applied  => $"applied {e.ActedUtc?.ToLocalTime():yyyy-MM-dd HH:mm}",
+                SuggestionStatus.Marked   => "marked for your own rewrite",
+                SuggestionStatus.Resolved => $"resolved {e.ActedUtc?.ToLocalTime():yyyy-MM-dd}",
+                _ => ""
+            };
+            apply.IsEnabled  = chapter != null && open;
+            mark.IsEnabled   = chapter != null && open;
+            resolve.Visibility = e.Status == SuggestionStatus.Resolved ? Visibility.Collapsed : Visibility.Visible;
+            reopen.Visibility  = e.Status == SuggestionStatus.Resolved ? Visibility.Visible : Visibility.Collapsed;
+            goTo.IsEnabled   = chapter != null && e.Status != SuggestionStatus.Applied;
+            mine.Visibility  = e.Status == SuggestionStatus.Marked ? Visibility.Visible : Visibility.Collapsed;
+            card.Opacity = e.Status is SuggestionStatus.Resolved or SuggestionStatus.Applied ? 0.6 : 1.0;
+        }
+
+        apply.Click += (_, _) =>
+        {
+            if (chapter == null) return;
+            if (!actions.Apply(chapter, e, e.Rewrite)) { status.Text = "passage not found in the chapter (the text has changed); use Go to passage"; return; }
+            e.Status = SuggestionStatus.Applied; e.ActedUtc = DateTime.UtcNow; actions.Changed(item); Paint();
+        };
+        applyMine.Click += (_, _) =>
+        {
+            if (chapter == null || mineBox.Text.Trim().Length == 0) return;
+            if (!actions.Apply(chapter, e, mineBox.Text.Trim())) { status.Text = "passage not found in the chapter (the text has changed); use Go to passage"; return; }
+            e.Status = SuggestionStatus.Applied; e.ActedUtc = DateTime.UtcNow; actions.Changed(item); Paint();
+        };
+        mark.Click += (_, _) => { e.Status = SuggestionStatus.Marked; e.ActedUtc = DateTime.UtcNow; actions.Changed(item); Paint(); mineBox.Focus(); };
+        resolve.Click += (_, _) => { e.Status = SuggestionStatus.Resolved; e.ActedUtc = DateTime.UtcNow; actions.Changed(item); Paint(); };
+        reopen.Click += (_, _) => { e.Status = SuggestionStatus.Open; e.ActedUtc = null; actions.Changed(item); Paint(); };
+        goTo.Click += (_, _) => { if (chapter != null && !actions.GoTo(chapter, e)) status.Text = "passage not found in the chapter (the text has changed)"; };
+        Paint();
+        return card;
+    }
+
+    private static TextBlock DiffBlock(IEnumerable<DiffPiece> pieces, DiffKind highlight, Brush bg)
+    {
+        var tb = new TextBlock { TextWrapping = TextWrapping.Wrap, FontFamily = new FontFamily("Georgia"), FontSize = 14, Background = Brushes.White, Padding = new Thickness(8) };
+        foreach (var p in pieces)
+        {
+            var run = new Run(p.Text);
+            if (p.Kind == highlight) { run.Background = bg; if (highlight == DiffKind.Removed) run.TextDecorations = TextDecorations.Strikethrough; }
+            tb.Inlines.Add(run);
+        }
+        return tb;
+    }
+}
+
+/// <summary>All marked passages of a chapter (or the book), each with its suggestion, reasoning, and the author's own rewrite box.</summary>
+public sealed class MarkedPassagesWindow : Window
+{
+    public MarkedPassagesWindow(Book book, Chapter? chapter, ISuggestionActions actions)
+    {
+        Title = chapter == null ? "Marked passages — whole book" : $"Marked passages — {chapter.Title}";
+        Width = 900; Height = 680; MinWidth = 640; MinHeight = 420;
+        WindowStartupLocation = WindowStartupLocation.CenterOwner;
+        FontFamily = new FontFamily("Segoe UI"); FontSize = 13;
+
+        var root = new DockPanel { Margin = new Thickness(16) };
+        var head = new TextBlock
+        {
+            Text = "Passages you marked to rewrite yourself. Each shows the current text, the AI's suggestion and its reasoning; write your version in the box and Apply mine, or Resolve when done. Go to passage opens the chapter there.",
+            TextWrapping = TextWrapping.Wrap, Foreground = Brushes.Gray, Margin = new Thickness(0, 0, 0, 10)
+        };
+        DockPanel.SetDock(head, Dock.Top);
+        root.Children.Add(head);
+        var close = new Button { Content = "Close", Width = 90, IsCancel = true, HorizontalAlignment = HorizontalAlignment.Right, Margin = new Thickness(0, 10, 0, 0) };
+        DockPanel.SetDock(close, Dock.Bottom);
+        root.Children.Add(close);
+
+        var stack = new StackPanel();
+        int n = 0;
+        foreach (var item in book.Items.Where(i => i.Kind == ItemKind.Suggestions))
+        {
+            var ch = ChapterOf(book, item);
+            if (ch == null || (chapter != null && ch.Id != chapter.Id)) continue;
+            foreach (var e in item.Suggestions.Where(s => s.Status == SuggestionStatus.Marked))
+            {
+                n++;
+                stack.Children.Add(SuggestionsEditor.Card(item, ch, e, actions, showChapterTitle: chapter == null));
+            }
+        }
+        if (n == 0) stack.Children.Add(new TextBlock { Text = "Nothing is marked. On a suggestion, click Mark to keep it here.", Foreground = Brushes.Gray });
+        root.Children.Add(new ScrollViewer { Content = stack, VerticalScrollBarVisibility = ScrollBarVisibility.Auto });
+        Content = root;
+    }
+
+    /// <summary>The chapter a Suggestions item belongs to: its owner is the Analysis item, whose owner is the chapter.</summary>
+    public static Chapter? ChapterOf(Book book, Item suggestions)
+    {
+        var owner = suggestions.OwnerId;
+        for (int hops = 0; hops < 4; hops++)
+        {
+            if (book.Chapters.FirstOrDefault(c => c.Id == owner) is { } ch) return ch;
+            if (book.Items.FirstOrDefault(i => i.Id == owner) is { } parent) owner = parent.OwnerId; else return null;
+        }
+        return null;
+    }
+}
+
+/// <summary>Finds a quoted passage inside a WPF FlowDocument (tolerant match via <see cref="PassageLocator"/>), for Apply and Go to passage.</summary>
+public static class PassageInDocument
+{
+    /// <summary>
+    /// Finds a quoted passage in a FlowDocument. The document's text runs are walked into one
+    /// string with a map back to TextPointers, then <see cref="PassageLocator"/> does the tolerant
+    /// match (whitespace, curly quotes, dashes), and the span maps back to pointers.
+    /// </summary>
+    public static (TextPointer Start, TextPointer End)? Locate(FlowDocument doc, string passage)
+    {
+        var sb = new System.Text.StringBuilder();
+        var starts = new List<(int Index, TextPointer Pointer, int Length)>();
+        TextPointer? lastRunEnd = null;
+        for (var p = doc.ContentStart; p != null && p.CompareTo(doc.ContentEnd) < 0; p = p.GetNextContextPosition(LogicalDirection.Forward))
+        {
+            var ctx = p.GetPointerContext(LogicalDirection.Forward);
+            if (ctx == TextPointerContext.ElementEnd && p.Parent is Paragraph) { sb.Append('\n'); continue; }
+            if (ctx != TextPointerContext.Text) continue;
+            var run = p.GetTextInRun(LogicalDirection.Forward);
+            if (run.Length == 0) continue;
+            starts.Add((sb.Length, p, run.Length));
+            sb.Append(run);
+            lastRunEnd = p.GetPositionAtOffset(run.Length);
+        }
+        var span = PassageLocator.Find(sb.ToString(), passage);
+        if (span == null) return null;
+        var start = ToPointer(starts, span.Start);
+        var end = ToPointer(starts, span.Start + span.Length);
+        return start != null && end != null ? (start, end) : null;
+    }
+
+    private static TextPointer? ToPointer(List<(int Index, TextPointer Pointer, int Length)> runs, int textIndex)
+    {
+        foreach (var (index, pointer, length) in runs)
+            if (textIndex >= index && textIndex <= index + length) return pointer.GetPositionAtOffset(textIndex - index);
+        // a position that falls on a paragraph break: snap to the next run's start
+        foreach (var (index, pointer, _) in runs) if (index >= textIndex) return pointer;
+        return runs.Count > 0 ? runs[^1].Pointer.GetPositionAtOffset(runs[^1].Length) : null;
+    }
+}

@@ -210,7 +210,40 @@ public sealed class Item
     /// <summary>For <see cref="ItemKind.ChapterPlotlines"/>: the plotlines running through the chapter.</summary>
     public List<Guid> PlotlineIds    { get; set; } = new();
 
+    /// <summary>For <see cref="ItemKind.Suggestions"/>: the structured suggestions (the Body keeps the raw reply).</summary>
+    public List<SuggestionEntry> Suggestions { get; set; } = new();
+
+    /// <summary>The author has dealt with this item (analysis, suggestions, notes…); the tree shows it ticked.</summary>
+    public bool      Resolved    { get; set; }
+    public DateTime? ResolvedUtc { get; set; }
+
     [JsonIgnore] public bool IsAiMade => !string.IsNullOrEmpty(Provider);
+}
+
+public enum SuggestionStatus
+{
+    /// <summary>Not acted on.</summary>
+    Open,
+    /// <summary>The rewrite was put into the chapter.</summary>
+    Applied,
+    /// <summary>Kept for the author to rewrite in their own words (see <see cref="SuggestionEntry.AuthorRewrite"/>).</summary>
+    Marked,
+    /// <summary>Dealt with, one way or another.</summary>
+    Resolved
+}
+
+/// <summary>One rewrite suggestion: the passage as it is, the proposed text, why, and what the author did with it.</summary>
+public sealed class SuggestionEntry
+{
+    public Guid             Id            { get; set; } = Guid.NewGuid();
+    public int              Index         { get; set; }
+    public string           Original      { get; set; } = string.Empty;
+    public string           Rewrite       { get; set; } = string.Empty;
+    public string           Why           { get; set; } = string.Empty;
+    public SuggestionStatus Status        { get; set; } = SuggestionStatus.Open;
+    /// <summary>The author's own version, written against a marked passage.</summary>
+    public string           AuthorRewrite { get; set; } = string.Empty;
+    public DateTime?        ActedUtc      { get; set; }
 }
 
 /// <summary>
