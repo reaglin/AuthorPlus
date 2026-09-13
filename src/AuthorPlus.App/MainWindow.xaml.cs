@@ -10,6 +10,7 @@ using Section = AuthorPlus.Core.Models.Section;
 using AuthorPlus.Core.Services;
 using AuthorPlus.Core.Services.Export;
 using AuthorPlus.Core.Services.Import;
+using AuthorPlus.Core.Services.Style;
 using System.Windows.Threading;
 using Eaglin.AiManager;
 using Eaglin.AiManager.Wpf;
@@ -435,6 +436,10 @@ public partial class MainWindow : Window
                 Sep();
                 Add("Import Chapters from Folder…", ImportFolder_Click);
                 Sep();
+                Add("Continuity Check, whole book (AI)…", AiContinuity_Click, _ai.IsAvailable());
+                Add("Plot Analysis, whole book (AI)…", AiPlot_Click, _ai.IsAvailable());
+                Add("Check Consistency…", Consistency_Click);
+                Sep();
                 Add("Book Properties", BookProperties_Click);
                 break;
             case Section:
@@ -446,6 +451,8 @@ public partial class MainWindow : Window
                 Sep();
                 Add("Outline This Section (AI)", AiSectionOutline_Click, _ai.IsAvailable());
                 Add("Summarize This Section (AI)", AiSectionSummary_Click, _ai.IsAvailable());
+                Add("Continuity Check (AI)…", AiContinuity_Click, _ai.IsAvailable());
+                Add("Plot Analysis (AI)…", AiPlot_Click, _ai.IsAvailable());
                 Sep();
                 Add("Move Up", MoveUp_Click); Add("Move Down", MoveDown_Click);
                 Add("Delete Section…", DeleteItem_Click);
@@ -454,6 +461,7 @@ public partial class MainWindow : Window
                 Add("Summarize (AI)", AiSummarize_Click, _ai.IsAvailable());
                 Add("Analyze… (AI)", AiAnalyze_Click, _ai.IsAvailable());
                 Add("Characters in This Chapter", AiCharactersInChapter_Click);
+                Add("Style Report…", Style_Click);
                 Add("Add Notes", AddNotesItem_Click);
                 Sep();
                 Add("Insert Chapter from File After This…", InsertChapterFile_Click);
@@ -1556,6 +1564,55 @@ public partial class MainWindow : Window
         Process.Start(new ProcessStartInfo("explorer.exe", $"\"{dir}\"") { UseShellExecute = true });
     }
 
+    private bool _previewPrompts;
+
+    private void Preview_Click(object sender, RoutedEventArgs e)
+    {
+        _previewPrompts = MnuPreview.IsChecked;
+        UpdateStatus(_previewPrompts ? "AI prompts will be shown before sending." : "AI prompts are sent without preview.");
+    }
+
+    /// <summary>The prompt-preview gate: true to send. Every AI request passes through here.</summary>
+    private bool ConfirmSend(AiRequest request)
+    {
+        if (!_previewPrompts) return true;
+        var dlg = new PromptPreviewWindow(_ai, request) { Owner = this };
+        return dlg.ShowDialog() == true && dlg.Send;
+    }
+
+    /// <summary>Binds a template, refuses anything over the size ceiling, previews if asked, sends.</summary>
+    private async Task<AiResponse> SendTemplateAsync(string template, object values, CancellationToken ct, AiProviderType? provider = null)
+    {
+        var request = _ai.Prompts.Get(template).Bind(values, provider);
+        var chars = request.System.Length + request.User.Length;
+        if (chars > AiPrompts.MaxPromptChars)
+            throw new AiException(AiErrorKind.ProviderError, provider ?? _ai.DefaultProvider,
+                $"This request would send about {AiHub.EstimateTokens(request.System + request.User):N0} tokens, more than the {AiHub.EstimateTokens(new string('x', AiPrompts.MaxPromptChars)):N0} this app allows in one go. Summarize the chapters first so the prompt can use summaries instead of full text.");
+        if (!ConfirmSend(request)) throw new OperationCanceledException();
+        return await _ai.CompleteAsync(request, ct);
+    }
+
+    /// <summary>
+    /// The chapter summary, in one request when the text fits and otherwise in parts: each part is
+    /// summarized on its own and the part summaries are merged. Nothing is ever cut off silently.
+    /// </summary>
+    private async Task<AiResponse> SummarizeChapterAsync(Chapter ch, string text, CancellationToken ct)
+    {
+        const int partLimit = AiPrompts.MaxPromptChars - 4000;
+        if (text.Length <= partLimit)
+            return await SendTemplateAsync(AiPrompts.ChapterSummary, new { book = _book!.Title, chapter = ch.Title, text }, ct);
+
+        var parts = TextChunker.Split(text, partLimit);
+        var partSummaries = new List<string>();
+        for (int i = 0; i < parts.Count; i++)
+        {
+            TxtAi.Text = $"Summarizing \"{ch.Title}\" part {i + 1} of {parts.Count}…";
+            var r = await SendTemplateAsync(AiPrompts.ChunkSummary, new { book = _book!.Title, chapter = ch.Title, part = i + 1, parts = parts.Count, text = parts[i] }, ct);
+            partSummaries.Add($"Part {i + 1}: {r.Text.Trim()}");
+        }
+        return await SendTemplateAsync(AiPrompts.MergeSummaries, new { book = _book!.Title, chapter = ch.Title, summaries = string.Join("\n\n", partSummaries) }, ct);
+    }
+
     /// <summary>True when the default provider has a key; otherwise offers to open AI Settings.</summary>
     private bool EnsureAiOrExplain()
     {
@@ -1588,7 +1645,7 @@ public partial class MainWindow : Window
 
         await RunAi($"Summarizing \"{ch.Title}\" with {AiHub.DisplayName(_ai.DefaultProvider)}…", async ct =>
         {
-            var r = await _ai.RunTemplateAsync(AiPrompts.ChapterSummary, new { book = _book.Title, chapter = ch.Title, text }, ct);
+            var r = await SummarizeChapterAsync(ch, text, ct);
             var item = _book.SetSummary(ch, r.Text.Trim(), r.Provider.ToString(), r.Model, AiPrompts.ChapterSummary);
             MarkDirty();
             BuildTree(select: item);
@@ -1604,13 +1661,105 @@ public partial class MainWindow : Window
         var text = ChapterText(ch).Trim();
         var section = _book.SectionOf(ch)?.Title ?? "(none)";
         var context = EarlierSummaries(ch);
-        var dlg = new AnalysisWindow(_ai, _book, ch, provider =>
-            _ai.Prompts.Get(AiPrompts.ChapterAnalysis).Bind(new { book = _book.Title, section, chapter = ch.Title, context, text }, provider)) { Owner = this };
+        var dlg = new AiRunWindow(_ai, _book, ch.Id, ItemKind.Analysis, $"Analyze \"{ch.Title}\"", "Analysis", AiPrompts.ChapterAnalysis,
+            "Each finished answer is saved under the chapter as an Analysis item with the date, provider and model, so runs can be compared later. The prompt is \"chapter-analysis\" in AI › Prompt Library.",
+            provider => _ai.Prompts.Get(AiPrompts.ChapterAnalysis).Bind(new { book = _book.Title, section, chapter = ch.Title, context, text }, provider),
+            ConfirmSend) { Owner = this };
         dlg.ShowDialog();
         if (dlg.Created.Count == 0) return;
         MarkDirty();
         BuildTree(select: dlg.Created[^1]);
         UpdateStatus($"{dlg.Created.Count} analysis item(s) added to \"{ch.Title}\".");
+    }
+
+    // ── Continuity, plot, style ───────────────────────────────────────────────
+
+    /// <summary>The chapters an AI book-level action covers: the selected section's, or the whole book's.</summary>
+    private (Guid OwnerId, string Scope, List<Chapter> Chapters) AiScope()
+    {
+        if (CurrentSection() is { } s) return (s.Id, s.Title, _book!.ChaptersOf(s).ToList());
+        return (_book!.Id, "the whole book", _book.Chapters.ToList());
+    }
+
+    private string SummariesFor(IEnumerable<Chapter> chapters) =>
+        string.Join("\n", chapters.Select(c => $"{(_book!.SectionOf(c) is { } s ? s.Title + " · " : "")}{_book.ChapterNumber(c)}. {c.Title}: {(_book.SummaryText(c).Length > 0 ? _book.SummaryText(c) : "(no summary yet)")}"));
+
+    private bool WarnIfNoSummaries(IReadOnlyList<Chapter> chapters, string what)
+    {
+        int have = chapters.Count(c => _book!.SummaryText(c).Length > 0);
+        if (have == 0)
+        {
+            MessageBox.Show(this, $"{what} works from chapter summaries and none of these {chapters.Count} chapters has one yet. Summarize them first (right-click a chapter › Summarize).", "AI", MessageBoxButton.OK, MessageBoxImage.Information);
+            return false;
+        }
+        if (have < chapters.Count &&
+            MessageBox.Show(this, $"{have} of {chapters.Count} chapters have summaries; the rest will appear as \"(no summary yet)\". Continue anyway?", "AI", MessageBoxButton.YesNo, MessageBoxImage.Question) != MessageBoxResult.Yes)
+            return false;
+        return true;
+    }
+
+    private string CharacterFacts() => _book!.Characters.Count == 0 ? "(none recorded)" : string.Join("\n\n", _book.Characters.Select(c =>
+        $"{c.Name}{(c.Aliases.Length > 0 ? " (also " + string.Join(", ", MentionFinder.NamesOf(c).Skip(1)) + ")" : "")} — {c.Role}" +
+        (c.Description.Length > 0 ? $"\n  Description: {c.Description}" : "") + (c.Motivations.Length > 0 ? $"\n  Motivations: {c.Motivations}" : "") +
+        (c.Actions.Length > 0 ? $"\n  Actions: {c.Actions}" : "") + (c.Arc.Length > 0 ? $"\n  Arc: {c.Arc}" : "")));
+
+    private string TimelineFacts() => _book!.Timeline.Count == 0 ? "(no events recorded)" : string.Join("\n", _book.Timeline.OrderBy(e => e.Order).Select(e =>
+        $"{e.Order}. {(e.When.Length > 0 ? e.When + " — " : "")}{e.Title}{(e.Description.Length > 0 ? ": " + e.Description : "")}" +
+        (e.ChapterIds.Count > 0 ? $" [told in {string.Join(", ", e.ChapterIds.Select(id => _book.Chapters.FirstOrDefault(c => c.Id == id)).Where(c => c != null).Select(c => "ch. " + _book.ChapterNumber(c!)))}]" : "")));
+
+    private void AiContinuity_Click(object sender, RoutedEventArgs e)
+    {
+        if (_book == null) return;
+        if (!EnsureAiOrExplain()) return;
+        CommitCurrent();
+        var (ownerId, scope, chapters) = AiScope();
+        if (!WarnIfNoSummaries(chapters, "The continuity check")) return;
+        var values = new { book = _book.Title, scope, characters = CharacterFacts(), timeline = TimelineFacts(), summaries = SummariesFor(chapters) };
+        var dlg = new AiRunWindow(_ai, _book, ownerId, ItemKind.Analysis, $"Continuity check — {scope}", "Continuity check", AiPrompts.ContinuityCheck,
+            "Checks the chapter summaries against the character records and the timeline for contradictions, with chapter references. Saved as an Analysis item on the section (or the book). Better summaries and fuller character records give better results.",
+            provider => _ai.Prompts.Get(AiPrompts.ContinuityCheck).Bind(values, provider), ConfirmSend) { Owner = this };
+        dlg.ShowDialog();
+        if (dlg.Created.Count == 0) return;
+        MarkDirty();
+        BuildTree(select: dlg.Created[^1]);
+    }
+
+    private void AiPlot_Click(object sender, RoutedEventArgs e)
+    {
+        if (_book == null) return;
+        if (!EnsureAiOrExplain()) return;
+        CommitCurrent();
+        var (ownerId, scope, chapters) = AiScope();
+        if (!WarnIfNoSummaries(chapters, "Plot analysis")) return;
+        var plotlines = _book.Plotlines.Count == 0 ? "(none recorded yet)" : string.Join("\n", _book.Plotlines.Select(p => $"{p.Name} ({p.Status}){(p.Summary.Length > 0 ? ": " + p.Summary : "")}"));
+        var values = new { book = _book.Title, scope, plotlines, summaries = SummariesFor(chapters) };
+        var dlg = new AiRunWindow(_ai, _book, ownerId, ItemKind.Analysis, $"Plot analysis — {scope}", "Plot analysis", AiPrompts.PlotAnalysis,
+            "Acts, a tension score per chapter, slow stretches, the plotlines it can see and suggested convergences — from the chapter summaries. Saved as an Analysis item on the section (or the book).",
+            provider => _ai.Prompts.Get(AiPrompts.PlotAnalysis).Bind(values, provider), ConfirmSend) { Owner = this };
+        dlg.ShowDialog();
+        if (dlg.Created.Count == 0) return;
+        MarkDirty();
+        BuildTree(select: dlg.Created[^1]);
+    }
+
+    private void Style_Click(object sender, RoutedEventArgs e)
+    {
+        if (_book == null || CurrentChapter() is not { } ch) { UpdateStatus("Select a chapter first."); return; }
+        CommitCurrent();
+        var text = ChapterText(ch);
+        var report = StyleMetrics.Analyze(text);
+        var dlg = new StyleWindow(ch.Title, report, () =>
+        {
+            var stats = StyleMetrics.Describe(report);
+            var run = new AiRunWindow(_ai, _book, ch.Id, ItemKind.Analysis, $"Style read — \"{ch.Title}\"", "Style read", AiPrompts.StyleRead,
+                "The AI reads the chapter with the local statistics as leads and points at specific habits with quoted examples. Saved as an Analysis item under the chapter.",
+                provider => _ai.Prompts.Get(AiPrompts.StyleRead).Bind(new { book = _book.Title, chapter = ch.Title, stats, text }, provider), ConfirmSend) { Owner = this };
+            run.ShowDialog();
+            if (run.Created.Count == 0) return;
+            MarkDirty();
+            BuildTree(select: run.Created[^1]);
+        }, _ai.IsAvailable()) { Owner = this };
+        dlg.ShowDialog();
     }
 
     private async void AiCharactersInChapter_Click(object sender, RoutedEventArgs e)
@@ -1644,7 +1793,7 @@ public partial class MainWindow : Window
             : string.Join("\n", _book.Characters.Select(c => $"{c.Name}{(c.Aliases.Length > 0 ? " (" + string.Join(", ", c.Aliases.Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)) + ")" : "")} — {c.Role}"));
         await RunAi($"Reading \"{ch.Title}\" for its characters…", async ct =>
         {
-            var r = await _ai.RunTemplateAsync(AiPrompts.CharactersInChapter, new { chapter = ch.Title, known_characters = known, text }, ct);
+            var r = await SendTemplateAsync(AiPrompts.CharactersInChapter, new { chapter = ch.Title, known_characters = known, text }, ct);
             item.Body = r.Text.Trim();
             item.Provider = r.Provider.ToString(); item.Model = r.Model; item.PromptName = AiPrompts.CharactersInChapter;
             item.ModifiedUtc = DateTime.UtcNow;
@@ -1682,7 +1831,7 @@ public partial class MainWindow : Window
         }
         await RunAi($"Outlining \"{s.Title}\"…", async ct =>
         {
-            var r = await _ai.RunTemplateAsync(AiPrompts.SectionOutline, new { book = _book.Title, section = s.Title, summaries = SectionSummaries(s) }, ct);
+            var r = await SendTemplateAsync(AiPrompts.SectionOutline, new { book = _book.Title, section = s.Title, summaries = SectionSummaries(s) }, ct);
             var item = new Item { OwnerId = s.Id, Kind = ItemKind.Outline, Title = $"Outline · {DateTime.Now:yyyy-MM-dd}", Body = r.Text.Trim(), Provider = r.Provider.ToString(), Model = r.Model, PromptName = AiPrompts.SectionOutline };
             _book.Items.Add(item);
             MarkDirty();
@@ -1702,7 +1851,7 @@ public partial class MainWindow : Window
         }
         await RunAi($"Summarizing \"{s.Title}\"…", async ct =>
         {
-            var r = await _ai.RunTemplateAsync(AiPrompts.SectionSummary, new { book = _book.Title, section = s.Title, summaries = SectionSummaries(s) }, ct);
+            var r = await SendTemplateAsync(AiPrompts.SectionSummary, new { book = _book.Title, section = s.Title, summaries = SectionSummaries(s) }, ct);
             s.Summary = r.Text.Trim();
             MarkDirty();
             if (ReferenceEquals(_current, s)) ShowCurrent();
@@ -1720,7 +1869,7 @@ public partial class MainWindow : Window
 
         await RunAi($"Drafting a profile for {c.Name} with {AiHub.DisplayName(_ai.DefaultProvider)}…", async ct =>
         {
-            var r = await _ai.RunTemplateAsync(AiPrompts.CharacterProfile,
+            var r = await SendTemplateAsync(AiPrompts.CharacterProfile,
                 new { book = _book.Title, synopsis = _book.Synopsis, known, summaries }, ct);
             c.Notes = (c.Notes.Length > 0 ? c.Notes + "\n\n" : "") + $"— AI suggestions ({DateTime.Now:yyyy-MM-dd}) —\n{r.Text.Trim()}";
             MarkDirty();

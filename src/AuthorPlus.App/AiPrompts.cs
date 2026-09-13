@@ -7,14 +7,26 @@ namespace AuthorPlus.App;
 /// can edit the wording in AI › Prompt Library, and an edited template is never overwritten
 /// by a newer default here. Placeholders are filled by the code that runs each template.
 /// </summary>
-internal static class AiPrompts
+public static class AiPrompts
 {
     public const string ChapterSummary      = "chapter-summary";
+    public const string ChunkSummary        = "chunk-summary";
+    public const string MergeSummaries      = "merge-summaries";
     public const string ChapterAnalysis     = "chapter-analysis";
     public const string CharactersInChapter = "characters-in-chapter";
     public const string CharacterProfile    = "character-profile";
     public const string SectionOutline      = "section-outline";
     public const string SectionSummary      = "section-summary";
+    public const string ContinuityCheck     = "continuity-check";
+    public const string PlotAnalysis        = "plot-analysis";
+    public const string StyleRead           = "style-read";
+
+    /// <summary>
+    /// Practical ceiling for one request's prose, in characters (≈ 100k tokens). Above it a
+    /// chapter is summarised in parts (<see cref="ChunkSummary"/> then <see cref="MergeSummaries"/>)
+    /// and a book-level prompt is refused with an explanation — never cut off silently.
+    /// </summary>
+    public const int MaxPromptChars = 400_000;
 
     public static IReadOnlyList<PromptTemplate> Defaults { get; } = new[]
     {
@@ -23,6 +35,20 @@ internal static class AiPrompts
                     "what happens, who is involved, and what changes. Do not praise, critique, or add anything not in the text.",
             user:   "Book: {book}\nChapter: {chapter}\n\n{text}",
             description: "Three to five sentences saying what happens in a chapter. Becomes the chapter's Summary item.",
+            maxTokens: 1000),
+
+        new PromptTemplate(ChunkSummary,
+            system: "You are an editorial assistant. This is part {part} of {parts} of one chapter. Summarize what happens in this part " +
+                    "in 3–6 sentences of plain prose, naming who is involved. No commentary; nothing not in the text.",
+            user:   "Book: {book}\nChapter: {chapter} (part {part} of {parts})\n\n{text}",
+            description: "Used only when a chapter is too long for one request: summarizes one part of it.",
+            maxTokens: 800),
+
+        new PromptTemplate(MergeSummaries,
+            system: "You are an editorial assistant. Below are summaries of consecutive parts of one chapter. Combine them into one " +
+                    "summary of 3–5 sentences of plain prose: what happens, who is involved, what changes. Nothing not in the parts.",
+            user:   "Book: {book}\nChapter: {chapter}\n\nPart summaries in order:\n{summaries}",
+            description: "Used only when a chapter is too long for one request: merges the part summaries into the chapter summary.",
             maxTokens: 1000),
 
         new PromptTemplate(ChapterAnalysis,
@@ -63,6 +89,39 @@ internal static class AiPrompts
                     "at the start, the main turns, and where things stand at the end. Plain prose, no headings, nothing not in the summaries.",
             user:   "Book: {book}\nSection: {section}\n\nChapter summaries in order:\n{summaries}",
             description: "One paragraph summarizing a whole section from its chapter summaries. Fills the section's Summary field.",
-            maxTokens: 800)
+            maxTokens: 800),
+
+        new PromptTemplate(ContinuityCheck,
+            system: "You are a continuity editor for a novel. You are given the author's character records, the story timeline, and " +
+                    "chapter summaries in reading order. Find contradictions and slips: a character knowing something they cannot yet know, " +
+                    "names or roles that change, timeline events told in an order that clashes with the summaries, places or objects that " +
+                    "move without explanation, motivations that reverse without cause. For each finding give: what the contradiction is, " +
+                    "the chapters involved (by number and title), and the smallest fix. If something only looks like a contradiction but a " +
+                    "flashback or a deliberate reveal could explain it, say so. Number the findings; put the most serious first; " +
+                    "end with a one-line verdict on overall continuity. If you find nothing, say so plainly.",
+            user:   "Book: {book}\nScope: {scope}\n\nCharacters:\n{characters}\n\nTimeline (story order):\n{timeline}\n\nChapter summaries in reading order:\n{summaries}",
+            description: "Contradictions across chapters, checked against the character records and timeline. Becomes an Analysis item on the section or the book.",
+            maxTokens: 4000),
+
+        new PromptTemplate(PlotAnalysis,
+            system: "You are a story editor analysing structure from chapter summaries. Produce, with these exact headings: " +
+                    "ACTS — how the chapters group into acts and where each turn falls; " +
+                    "TENSION BY CHAPTER — one line per chapter as \"<number>. <title>: <score 1–10> — <why>\" in reading order; " +
+                    "SLOW STRETCHES — runs of low tension and what could lift them; " +
+                    "PLOTLINES — the threads you can see, and where each is picked up or dropped; " +
+                    "SUGGESTED CONVERGENCES — pairs of threads that could meet, and in which chapter. " +
+                    "Be concrete, use the chapter numbers, no praise padding.",
+            user:   "Book: {book}\nScope: {scope}\n\nKnown plotlines:\n{plotlines}\n\nChapter summaries in reading order:\n{summaries}",
+            description: "Acts, a tension score per chapter, slow stretches, plotlines and suggested convergences, from the chapter summaries. Becomes an Analysis item on the section or the book.",
+            maxTokens: 4000),
+
+        new PromptTemplate(StyleRead,
+            system: "You are a line editor. You are given local statistics about a chapter's prose and the chapter itself. Describe the " +
+                    "voice and tone in a paragraph; then, using the statistics as leads (not verdicts), point at specific habits with " +
+                    "quoted examples: sentence rhythm, passive constructions worth turning active, adverbs that could go, repeated " +
+                    "openings, dialogue balance, over-used words. End with five concrete line-level fixes. Plain headings, short paragraphs.",
+            user:   "Book: {book}\nChapter: {chapter}\n\nStatistics:\n{stats}\n\nThe chapter:\n{text}",
+            description: "An AI read of a chapter's voice and prose habits, guided by the local style statistics. Becomes an Analysis item.",
+            maxTokens: 2500)
     };
 }

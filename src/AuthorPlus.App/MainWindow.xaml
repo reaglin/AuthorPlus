@@ -62,11 +62,18 @@
                 <MenuItem Header="_Find and Replace" Click="Find_Click" InputGestureText="Ctrl+F"/>
                 <Separator/>
                 <MenuItem Header="_Distraction-free Writing" Click="Focus_Click" InputGestureText="F11" x:Name="MnuFocus"/>
+                <Separator/>
+                <MenuItem Header="_Preview AI Prompts Before Sending" IsCheckable="True" x:Name="MnuPreview" Click="Preview_Click"
+                          ToolTip="Show the exact text, token estimate and cost of every AI request before it goes out."/>
             </MenuItem>
             <MenuItem Header="_AI" x:Name="MnuAi">
                 <MenuItem Header="_Summarize This Chapter" Click="AiSummarize_Click"/>
                 <MenuItem Header="_Analyze This Chapter…" Click="AiAnalyze_Click"/>
                 <MenuItem Header="_Characters in This Chapter" Click="AiCharactersInChapter_Click"/>
+                <MenuItem Header="Style _Report…" Click="Style_Click" ToolTip="Local prose statistics for the chapter, with an optional AI read"/>
+                <Separator/>
+                <MenuItem Header="Continuity Chec_k (AI)…" Click="AiContinuity_Click" ToolTip="Contradictions across the selected section (or the whole book), checked against the characters and timeline"/>
+                <MenuItem Header="Plot Anal_ysis (AI)…" Click="AiPlot_Click" ToolTip="Acts, tension by chapter, slow stretches and suggested convergences, from the chapter summaries"/>
                 <Separator/>
                 <MenuItem Header="_Outline This Section" Click="AiSectionOutline_Click"/>
                 <MenuItem Header="Summarize This S_ection" Click="AiSectionSummary_Click"/>

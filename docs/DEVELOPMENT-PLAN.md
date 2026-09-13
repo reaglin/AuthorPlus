@@ -93,12 +93,12 @@ sent and what it cost.
 
 | # | Task | Targets | Acceptance | Status |
 |---|---|---|---|---|
-| 3.1 | Prompt library: editable prompt templates (summarize, profile, continuity, style) with a preview of the exact payload before sending | `AI/Prompts`, a Prompt window | | [ ] |
-| 3.2 | Continuity check: given selected chapters + character/timeline facts, list contradictions with chapter references | | | [ ] |
-| 3.3 | Style analysis: sentence-length, passive voice, adverb density (local, no AI) + AI voice/tone read on request | `Core/Services/Style` local metrics tested | | [ ] |
-| 3.4 | Plot analysis: acts / tension map from summaries; suggested convergences | | | [ ] |
-| 3.5 | Streaming responses with cancel; per-call cost shown from usage; monthly spend total in AI Settings | `IAiProvider` gains a streaming overload | | [ ] |
-| 3.6 | Long-chapter handling: chunking with a running summary when text exceeds the model's practical input | | never truncates silently | [ ] |
+| 3.1 | Prompt library: editable prompt templates (summarize, profile, continuity, style) with a preview of the exact payload before sending | `AI/Prompts`, a Prompt window | | [x] 2026-09-13 |
+| 3.2 | Continuity check: given selected chapters + character/timeline facts, list contradictions with chapter references | | | [x] 2026-09-13 |
+| 3.3 | Style analysis: sentence-length, passive voice, adverb density (local, no AI) + AI voice/tone read on request | `Core/Services/Style` local metrics tested | | [x] 2026-09-13 |
+| 3.4 | Plot analysis: acts / tension map from summaries; suggested convergences | | | [x] 2026-09-13 |
+| 3.5 | Streaming responses with cancel; per-call cost shown from usage; monthly spend total in AI Settings | all in the AI Manager: streaming via `AiRunPanel`, cost on every response and in the status bar, "Spent this month" line in AI Settings (AiManager 1.1.0) | | [x] 2026-09-13 |
+| 3.6 | Long-chapter handling: chunking with a running summary when text exceeds the model's practical input | `Core/TextChunker`, `AiPrompts.MaxPromptChars` (≈100k tokens), templates `chunk-summary` + `merge-summaries` | a chapter over the ceiling is summarized in parts then merged; a book-level prompt over it is refused with an explanation | [x] 2026-09-13 |
 
 ## Phase 4 — Export, packaging, Store
 
@@ -190,3 +190,18 @@ Chapters and any selected text can be turned into audio through the AI Manager's
   Verified by capture: chapter links, Characters view, character page, Timeline view; the
   Consistency window rendered from the assembly. Drag-and-drop, the plotline board with real
   plotlines, and the mentions dialog await Ron's hand-test.
+- **2026-09-13 — Phase 3 built (AI assistance).** AiManager 1.1.0 adds `AiHub.EstimateTokens`
+  / `EstimateInputCost` and the "Spent this month" line in AI Settings. AuthorPlus: View ›
+  Preview AI Prompts Before Sending shows the exact system/user text, provider, model, token
+  estimate and input cost for every request (whole calls and streamed runs alike — all go
+  through one gate); `AiRunWindow` replaces the chapter-only analysis window and serves
+  Analyze…, Continuity Check (AI)…, Plot Analysis (AI)… and the Style read, each saving dated
+  Analysis items on the chapter / section / book; Style Report… (right-click a chapter) shows
+  the local statistics (`Core/Style/StyleMetrics`: sentence lengths, passive-voice heuristic,
+  -ly adverbs, dialogue share, Flesch, top words, repeated openings) with an "AI voice read"
+  button; continuity and plot prompts work from chapter summaries plus the character records,
+  timeline and plotlines, and warn when summaries are missing; chapters longer than the
+  ceiling are summarized in parts (`TextChunker`) and merged, never cut. 72 Core tests green.
+  Rendered headless over the trilogy: Style window on chapter 1, Prompt preview of the
+  Part 1 continuity check. Ron: the AI runs themselves (continuity, plot, style read) are
+  yours to try — start with Part 1 after summarizing its chapters.
