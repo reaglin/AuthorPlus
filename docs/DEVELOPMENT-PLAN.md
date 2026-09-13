@@ -79,12 +79,12 @@ can show what is inconsistent.
 
 | # | Task | Targets | Acceptance | Status |
 |---|---|---|---|---|
-| 2.1 | Cross-links UI: chapter ↔ POV character / characters present / plotlines; event ↔ chapters & characters | field forms → pickers | | [ ] |
-| 2.2 | Character mentions: scan chapter text for character names, offer to link; "appears in" list on the character | `Core/Services/MentionFinder` | unit-tested on aliases | [ ] |
-| 2.3 | Timeline view: ordered table with When / Title / chapters / characters; reorder; "chapter order vs story order" side-by-side | new `TimelineView` | | [ ] |
-| 2.4 | Plotline board: per plotline the chapters it runs through; convergence markers; unresolved plotlines flagged | new `PlotlineView` | | [ ] |
-| 2.5 | Consistency checks (rule-based, no AI): character in a chapter before introduced; event referencing a deleted chapter; plotline never resolved | `Core/Services/Consistency` | tests per rule | [ ] |
-| 2.6 | Notes / research items as a fifth tree section (free-form, attachable to anything) | Models | | [ ] |
+| 2.1 | Cross-links UI: chapter ↔ POV character / characters present / plotlines; event ↔ chapters & characters | field forms → pickers | | [x] 2026-09-12 |
+| 2.2 | Character mentions: scan chapter text for character names, offer to link; "appears in" list on the character | `Core/Services/MentionFinder` | unit-tested on aliases | [x] 2026-09-12 |
+| 2.3 | Timeline view: ordered table with When / Title / chapters / characters; reorder; "chapter order vs story order" side-by-side | new `TimelineView` | | [x] 2026-09-12 |
+| 2.4 | Plotline board: per plotline the chapters it runs through; convergence markers; unresolved plotlines flagged | new `PlotlineView` | | [x] 2026-09-12 |
+| 2.5 | Consistency checks (rule-based, no AI): character in a chapter before introduced; event referencing a deleted chapter; plotline never resolved | `Core/Services/Consistency` | tests per rule | [x] 2026-09-12 |
+| 2.6 | Notes / research items — done through Items: a Notes (or Outline) item can hang off the book, a section, a chapter, a character, an event or a plotline (right-click › Add Notes) and shows under it in the tree; no separate fifth section needed | Models, `BookStore` owners | | [x] 2026-09-12 |
 
 ## Phase 3 — AI assistance
 
@@ -170,3 +170,23 @@ Chapters and any selected text can be turned into audio through the AI Manager's
   ~300 extra words). 52 Core tests green. **Not hand-verified in the running app** (the window could
   not take the foreground during the automated check): the find panel, F11 and the export
   dialog — Ron, please try File › Export › Word on the trilogy and Ctrl+F in a chapter.
+- **2026-09-12 — Phase 2 built (story bible).** Core: `MentionFinder` (names + aliases,
+  whole words, longest name first so "Lucy" is not counted again inside "Lucy Dalgo") and
+  `Consistency` (rules: dangling links, POV not present, plotline unresolved / without
+  chapters, one-sided convergence, events told out of story order, missing summaries, and
+  with the text scan: named before first linked chapter, never linked) — 59 tests green.
+  App: `LinkPicker` checklists on chapters (characters present + POV, plotlines — kept in
+  step with the Characters-in-chapter item and the plotlines' chapter lists), events
+  (chapters, characters, plotlines) and plotlines (chapters, characters, convergences mirrored
+  on both sides); Characters view (name, role, aliases, chapter count, POV count, first
+  appearance), Timeline view (story order with move up/down beside "as the chapters tell it"
+  with ⚠ for out-of-order), Plotline board (plotline × chapter grid, click to toggle, ◆ for
+  convergences, red = unresolved); character page shows "Appears in" and "Scan chapters for
+  mentions…" (`MentionsWindow`); Book › Check Consistency… (Ctrl+K, non-modal, double-click
+  goes to the node, re-runs after deletes). Seeded the trilogy with its seven main
+  characters and aliases and linked them by mention scan headless: 227 chapter-character
+  links (Roland Ellison in 50 chapters, One in 68, Edmund Blackwood in 24…); the checker's
+  first run reported 5 "named before first linked chapter" notes and the missing summaries.
+  Verified by capture: chapter links, Characters view, character page, Timeline view; the
+  Consistency window rendered from the assembly. Drag-and-drop, the plotline board with real
+  plotlines, and the mentions dialog await Ron's hand-test.

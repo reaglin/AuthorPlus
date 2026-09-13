@@ -62,3 +62,9 @@ paragraphs, heading styles, bold/italic runs. Nothing else (no tables, images, f
   the Import window has a "Titles from" switch, or rename in the tree. Skipped correctly: the
   compiled drafts, the three AI evaluation docs, the cover image. Hand-test steps 1, 2 and 5
   pass (open, Summarize → item, save/reopen); steps 3 and 4 await Ron.
+- **2026-09-12 (Claude, phase 2 seeding).** Added seven characters with aliases — Roland
+  Ellison (Roland, Ellison), Lucy Dalgo (Lucy, Detective Dalgo, Dalgo), Edmund Blackwood
+  (Edmund, Blackwood), Dr. Raymond George Clinton (George, Clinton, Dr. Clinton), One, Marcus,
+  Chen — and linked each to every chapter that names them at least twice (227 links). Ron:
+  fix roles/aliases as you like; "Scan chapters for mentions…" on a character shows the
+  single-mention chapters that were left unlinked.

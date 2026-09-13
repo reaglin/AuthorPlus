@@ -176,6 +176,9 @@ public sealed class BookStore
         var owners = new HashSet<Guid> { book.Id };
         owners.UnionWith(book.Sections.Select(s => s.Id));
         owners.UnionWith(book.Chapters.Select(c => c.Id));
+        owners.UnionWith(book.Characters.Select(c => c.Id));
+        owners.UnionWith(book.Timeline.Select(t => t.Id));
+        owners.UnionWith(book.Plotlines.Select(p => p.Id));
         book.Items.RemoveAll(i => !owners.Contains(i.OwnerId));
 
         SaveItems(book.FolderPath, "sections",   book.Sections,   s => s.Id, keepBodies: false);

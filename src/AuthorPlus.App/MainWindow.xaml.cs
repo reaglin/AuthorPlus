@@ -45,6 +45,8 @@ public partial class MainWindow : Window
 
     public static readonly RoutedCommand FocusCommand = new("Focus", typeof(MainWindow));
     public static readonly RoutedCommand FindCommand  = new("Find",  typeof(MainWindow));
+    public static readonly RoutedCommand ConsistencyCommand = new("Consistency", typeof(MainWindow));
+    private ConsistencyWindow? _consistency;
 
     private const string RecentKey = "recent_books.txt";
     private const string CharactersHeader = "Characters", TimelineHeader = "Timeline", PlotlinesHeader = "Plotlines";
@@ -66,6 +68,7 @@ public partial class MainWindow : Window
         Closing += MainWindow_Closing;
         CommandBindings.Add(new CommandBinding(FocusCommand, (_, _) => ToggleFocusMode()));
         CommandBindings.Add(new CommandBinding(FindCommand,  (_, _) => ShowFind()));
+        CommandBindings.Add(new CommandBinding(ConsistencyCommand, (_, _) => Consistency_Click(this, new RoutedEventArgs())));
         _autosave.Tick += (_, _) => { if (_book != null && _dirty && (DateTime.Now - _lastEdit).TotalSeconds >= 12) SaveAll(silent: true); };
         _autosave.Start();
         Deactivated += (_, _) => { if (_book != null && _dirty) SaveAll(silent: true); };
@@ -334,8 +337,23 @@ public partial class MainWindow : Window
         };
         node.Expanded  += (_, e) => { if (ReferenceEquals(e.OriginalSource, node)) _collapsed.Remove(GroupKey(header)); };
         node.Collapsed += (_, e) => { if (ReferenceEquals(e.OriginalSource, node)) _collapsed.Add(GroupKey(header)); };
-        foreach (var item in items) node.Items.Add(Node(item));
+        foreach (var item in items)
+        {
+            var child = Node(item);
+            if (IdOf(item) is { } id) foreach (var it in _book!.ItemsOf(id)) child.Items.Add(Node(it));
+            node.Items.Add(child);
+        }
         return node;
+    }
+
+    /// <summary>The model object with this id, anywhere in the book.</summary>
+    private object? FindById(Guid id)
+    {
+        if (_book == null) return null;
+        if (_book.Id == id) return _book;
+        return (object?)_book.Sections.FirstOrDefault(s => s.Id == id) ?? _book.Chapters.FirstOrDefault(c => c.Id == id)
+            ?? _book.Items.FirstOrDefault(i => i.Id == id) ?? _book.Characters.FirstOrDefault(c => c.Id == id)
+            ?? _book.Timeline.FirstOrDefault(t => t.Id == id) ?? (object?)_book.Plotlines.FirstOrDefault(p => p.Id == id);
     }
 
     private static Guid GroupKey(string header) => new(System.Security.Cryptography.MD5.HashData(System.Text.Encoding.UTF8.GetBytes(header)));
@@ -452,12 +470,16 @@ public partial class MainWindow : Window
                     header == CharactersHeader ? AddCharacter_Click : header == TimelineHeader ? AddEvent_Click : AddPlotline_Click);
                 break;
             case Character:
+                Add("Scan Chapters for Mentions…", ScanMentions_Click);
                 Add("Suggest Profile (AI)", AiCharacter_Click, _ai.IsAvailable());
+                Add("Add Notes", AddNotesItem_Click);
                 Sep();
                 Add("Move Up", MoveUp_Click); Add("Move Down", MoveDown_Click);
                 Add("Delete…", DeleteItem_Click);
                 break;
             case TimelineEvent or Plotline:
+                Add("Add Notes", AddNotesItem_Click);
+                Sep();
                 Add("Move Up", MoveUp_Click); Add("Move Down", MoveDown_Click);
                 Add("Delete…", DeleteItem_Click);
                 break;
@@ -508,9 +530,19 @@ public partial class MainWindow : Window
                 Editor.Content = BuildItemEditor(it);
                 break;
             case Character c:
+            {
                 TxtKind.Text = "Character";
                 TxtName.Text = c.Name;
-                Editor.Content = FieldForm(
+                var appears = _book!.Chapters.Where(ch => ch.CharacterIds.Contains(c.Id))
+                    .Select(ch => $"{(_book.SectionOf(ch) is { } s ? s.Title + " · " : "")}{_book.ChapterNumber(ch)}. {ch.Title}{(ch.PovCharacterId == c.Id ? "  (POV)" : "")}").ToList();
+                var scan = new Button { Content = "Scan chapters for mentions…", Padding = new Thickness(10, 3, 10, 3), HorizontalAlignment = HorizontalAlignment.Left, Margin = new Thickness(0, 6, 0, 0) };
+                scan.Click += ScanMentions_Click;
+                Editor.Content = FieldFormWith(new UIElement[]
+                    {
+                        new TextBlock { Text = "Appears in", FontWeight = FontWeights.SemiBold, Margin = new Thickness(0, 12, 0, 2) },
+                        new TextBlock { Text = appears.Count == 0 ? "No chapter lists this character yet." : string.Join("\n", appears), TextWrapping = TextWrapping.Wrap },
+                        scan
+                    },
                     ("Role",        () => c.Role,        v => c.Role = v,        1),
                     ("Also called (other names the text uses, one per line)", () => c.Aliases, v => c.Aliases = v, 2),
                     ("Origin",      () => c.Origin,      v => c.Origin = v,      2),
@@ -520,21 +552,43 @@ public partial class MainWindow : Window
                     ("Arc",         () => c.Arc,         v => c.Arc = v,         3),
                     ("Notes",       () => c.Notes,       v => c.Notes = v,       3));
                 break;
+            }
             case TimelineEvent t:
                 TxtKind.Text = "Event";
                 TxtName.Text = t.Title;
-                Editor.Content = FieldForm(
+                Editor.Content = FieldFormWith(new UIElement[]
+                    {
+                        new LinkPicker("Chapters where it is told", ChapterCandidates(), t.ChapterIds, MarkDirty, expanded: true),
+                        new LinkPicker("Characters involved", CharacterCandidates(), t.CharacterIds, MarkDirty, expanded: true),
+                        new LinkPicker("Plotlines", PlotlineCandidates(), t.PlotlineIds, MarkDirty)
+                    },
                     ("When",        () => t.When,        v => t.When = v,        1),
-                    ("Description", () => t.Description, v => t.Description = v, 8));
+                    ("Description", () => t.Description, v => t.Description = v, 6));
                 break;
             case Plotline p:
                 TxtKind.Text = "Plotline";
                 TxtName.Text = p.Name;
-                Editor.Content = FieldForm(
+                Editor.Content = FieldFormWith(new UIElement[]
+                    {
+                        new LinkPicker("Chapters it runs through", ChapterCandidates(), p.ChapterIds, MarkDirty),
+                        new LinkPicker("Characters involved", CharacterCandidates(), p.CharacterIds, MarkDirty),
+                        BuildConvergencesEditor(p)
+                    },
                     ("Status (Planned / Active / Resolved)", () => p.Status.ToString(),
                         v => { if (Enum.TryParse<PlotlineStatus>(v, true, out var s)) p.Status = s; }, 1),
-                    ("Summary", () => p.Summary, v => p.Summary = v, 6),
-                    ("Notes",   () => p.Notes,   v => p.Notes = v,   4));
+                    ("Summary", () => p.Summary, v => p.Summary = v, 5),
+                    ("Notes",   () => p.Notes,   v => p.Notes = v,   3));
+                break;
+            case string header when _book != null:
+                TxtKind.Text = "";
+                TxtName.Text = header;
+                Editor.Content = header switch
+                {
+                    TimelineHeader   => new TimelineView(_book, SelectNode, MarkDirty),
+                    PlotlinesHeader  => new PlotlineBoard(_book, SelectNode, MarkDirty),
+                    CharactersHeader => new CharactersView(_book, SelectNode),
+                    _                => new TextBlock()
+                };
                 break;
             default:
                 TxtKind.Text = "";
@@ -557,6 +611,93 @@ public partial class MainWindow : Window
         if (_book.Sections.FirstOrDefault(s => s.Id == it.OwnerId) is { } s) return s.Title;
         if (_book.Chapters.FirstOrDefault(c => c.Id == it.OwnerId) is { } c) return $"chapter {_book.ChapterNumber(c)}, {c.Title}";
         return "?";
+    }
+
+    private IEnumerable<(Guid, string)> ChapterCandidates() =>
+        _book!.Chapters.Select(ch => (ch.Id, $"{(_book.SectionOf(ch) is { } s ? _book.Sections.IndexOf(s) + 1 + "." : "")}{_book.ChapterNumber(ch)} {ch.Title}"));
+    private IEnumerable<(Guid, string)> CharacterCandidates() => _book!.Characters.Select(c => (c.Id, c.Name));
+    private IEnumerable<(Guid, string)> PlotlineCandidates()  => _book!.Plotlines.Select(p => (p.Id, p.Name));
+
+    /// <summary>Convergences of a plotline: other plotline, the chapter it happens in, a note; kept mirrored on the other side.</summary>
+    private UIElement BuildConvergencesEditor(Plotline p)
+    {
+        var panel = new StackPanel { Margin = new Thickness(0, 8, 0, 0) };
+        var rows = new StackPanel();
+        void Rebuild()
+        {
+            rows.Children.Clear();
+            foreach (var conv in p.Convergences.ToList())
+            {
+                var row = new DockPanel { Margin = new Thickness(0, 2, 0, 2) };
+                var others = _book!.Plotlines.Where(o => o.Id != p.Id).ToList();
+                var otherBox = new ComboBox { ItemsSource = others, DisplayMemberPath = "Name", SelectedItem = others.FirstOrDefault(o => o.Id == conv.OtherPlotlineId), Width = 180, Margin = new Thickness(0, 0, 6, 0) };
+                var chapters = new List<object> { "(any chapter)" }; chapters.AddRange(_book.Chapters);
+                var chapterBox = new ComboBox { ItemsSource = chapters, Width = 220, Margin = new Thickness(0, 0, 6, 0), SelectedItem = _book.Chapters.FirstOrDefault(c => c.Id == conv.ChapterId) ?? chapters[0] };
+                chapterBox.ItemTemplate = ChapterTemplate();
+                var note = new TextBox { Text = conv.Note, Margin = new Thickness(0, 0, 6, 0), VerticalContentAlignment = VerticalAlignment.Center };
+                var remove = new Button { Content = "✕", Padding = new Thickness(6, 1, 6, 1) };
+                otherBox.SelectionChanged += (_, _) => { if (!_loading && otherBox.SelectedItem is Plotline o) { conv.OtherPlotlineId = o.Id; Mirror(p, conv); MarkDirty(); } };
+                chapterBox.SelectionChanged += (_, _) => { if (!_loading) { conv.ChapterId = (chapterBox.SelectedItem as Chapter)?.Id; Mirror(p, conv); MarkDirty(); } };
+                note.TextChanged += (_, _) => { if (!_loading) { conv.Note = note.Text; MarkDirty(); } };
+                remove.Click += (_, _) => { p.Convergences.Remove(conv); MarkDirty(); Rebuild(); };
+                DockPanel.SetDock(remove, Dock.Right);
+                row.Children.Add(remove);
+                row.Children.Add(new TextBlock { Text = "with", VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(0, 0, 6, 0) });
+                row.Children.Add(otherBox);
+                row.Children.Add(new TextBlock { Text = "in", VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(0, 0, 6, 0) });
+                row.Children.Add(chapterBox);
+                row.Children.Add(note);
+                rows.Children.Add(row);
+            }
+        }
+        var add = new Button { Content = "Add convergence", Padding = new Thickness(8, 2, 8, 2), HorizontalAlignment = HorizontalAlignment.Left, Margin = new Thickness(0, 4, 0, 0) };
+        add.Click += (_, _) =>
+        {
+            var other = _book!.Plotlines.FirstOrDefault(o => o.Id != p.Id);
+            if (other == null) { MessageBox.Show(this, "Add another plotline first — a convergence needs two.", "Plotlines", MessageBoxButton.OK, MessageBoxImage.Information); return; }
+            var conv = new PlotlineConvergence { OtherPlotlineId = other.Id };
+            p.Convergences.Add(conv);
+            Mirror(p, conv);
+            MarkDirty();
+            Rebuild();
+        };
+        panel.Children.Add(new TextBlock { Text = "Converges with (recorded on both plotlines)", FontWeight = FontWeights.SemiBold, Margin = new Thickness(0, 8, 0, 2) });
+        panel.Children.Add(rows);
+        panel.Children.Add(add);
+        Rebuild();
+        return panel;
+    }
+
+    /// <summary>Makes sure the other plotline records the same convergence back.</summary>
+    private void Mirror(Plotline p, PlotlineConvergence conv)
+    {
+        var other = _book!.Plotlines.FirstOrDefault(o => o.Id == conv.OtherPlotlineId);
+        if (other == null) return;
+        var back = other.Convergences.FirstOrDefault(c => c.OtherPlotlineId == p.Id);
+        if (back == null) other.Convergences.Add(new PlotlineConvergence { OtherPlotlineId = p.Id, ChapterId = conv.ChapterId, Note = conv.Note });
+        else back.ChapterId = conv.ChapterId;
+    }
+
+    private DataTemplate ChapterTemplate()
+    {
+        var f = new FrameworkElementFactory(typeof(TextBlock));
+        f.SetBinding(TextBlock.TextProperty, new System.Windows.Data.Binding(".") { Converter = new ChapterLabelConverter(_book!) });
+        return new DataTemplate { VisualTree = f };
+    }
+
+    private sealed class ChapterLabelConverter(Book book) : System.Windows.Data.IValueConverter
+    {
+        public object Convert(object value, Type t, object p, System.Globalization.CultureInfo c) => value is Chapter ch ? $"{book.ChapterNumber(ch)}. {ch.Title}" : value?.ToString() ?? "";
+        public object ConvertBack(object value, Type t, object p, System.Globalization.CultureInfo c) => throw new NotSupportedException();
+    }
+
+    /// <summary>A field form with extra elements (pickers, read-only lists) appended after the fields.</summary>
+    private UIElement FieldFormWith(IEnumerable<UIElement> extras, params (string Label, Func<string> Get, Action<string> Set, int Lines)[] fields)
+    {
+        var scroll = (ScrollViewer)FieldForm(fields);
+        var panel = (StackPanel)scroll.Content;
+        foreach (var e in extras) panel.Children.Add(e);
+        return scroll;
     }
 
     /// <summary>A label + multi-line TextBox per field; edits flow straight into the model.</summary>
@@ -644,6 +785,15 @@ public partial class MainWindow : Window
         Grid.SetRow(_findPanel, 1);
         grid.Children.Add(_findPanel);
 
+        // Links: who is in the chapter (with POV) and which plotlines run through it.
+        grid.RowDefinitions.Insert(2, new RowDefinition { Height = GridLength.Auto });
+        var links = new StackPanel { Margin = new Thickness(0, 0, 0, 4) };
+        links.Children.Add(new LinkPicker("Characters present", CharacterCandidates(), ch.CharacterIds, () => { MarkDirty(); SyncCharactersItem(ch); },
+            single: ch.PovCharacterId, singleChanged: id => ch.PovCharacterId = id));
+        links.Children.Add(new LinkPicker("Plotlines in this chapter", PlotlineCandidates(), ch.PlotlineIds, () => { MarkDirty(); foreach (var p in _book!.Plotlines) { if (ch.PlotlineIds.Contains(p.Id)) { if (!p.ChapterIds.Contains(ch.Id)) p.ChapterIds.Add(ch.Id); } else p.ChapterIds.Remove(ch.Id); } }));
+        Grid.SetRow(links, 2);
+        grid.Children.Add(links);
+
         // The manuscript.
         _rtb = new RichTextBox
         {
@@ -656,7 +806,7 @@ public partial class MainWindow : Window
             Document = LoadDocument(ch)
         };
         _rtb.TextChanged += (_, _) => { if (!_loading) { MarkDirty(); UpdateWordCount(ch); } };
-        Grid.SetRow(_rtb, 2);
+        Grid.SetRow(_rtb, 3);
         grid.Children.Add(_rtb);
 
         UpdateWordCount(ch);
@@ -1045,9 +1195,9 @@ public partial class MainWindow : Window
             var row = new DockPanel { Margin = new Thickness(0, 2, 0, 2) };
             var pov = new RadioButton { Content = "POV", GroupName = "pov-" + it.Id, IsChecked = it.PovCharacterId == c.Id, Margin = new Thickness(12, 0, 0, 0), VerticalAlignment = VerticalAlignment.Center };
             var check = new CheckBox { Content = c.Name, IsChecked = it.CharacterIds.Contains(c.Id), VerticalAlignment = VerticalAlignment.Center };
-            check.Checked   += (_, _) => { if (_loading) return; if (!it.CharacterIds.Contains(c.Id)) it.CharacterIds.Add(c.Id); Touch(it); };
-            check.Unchecked += (_, _) => { if (_loading) return; it.CharacterIds.Remove(c.Id); if (it.PovCharacterId == c.Id) { it.PovCharacterId = null; pov.IsChecked = false; } Touch(it); };
-            pov.Checked += (_, _) => { if (_loading) return; it.PovCharacterId = c.Id; if (!it.CharacterIds.Contains(c.Id)) { it.CharacterIds.Add(c.Id); check.IsChecked = true; } Touch(it); };
+            check.Checked   += (_, _) => { if (_loading) return; if (!it.CharacterIds.Contains(c.Id)) it.CharacterIds.Add(c.Id); Touch(it); SyncChapterFromItem(it); };
+            check.Unchecked += (_, _) => { if (_loading) return; it.CharacterIds.Remove(c.Id); if (it.PovCharacterId == c.Id) { it.PovCharacterId = null; pov.IsChecked = false; } Touch(it); SyncChapterFromItem(it); };
+            pov.Checked += (_, _) => { if (_loading) return; it.PovCharacterId = c.Id; if (!it.CharacterIds.Contains(c.Id)) { it.CharacterIds.Add(c.Id); check.IsChecked = true; } Touch(it); SyncChapterFromItem(it); };
             DockPanel.SetDock(pov, Dock.Right);
             row.Children.Add(pov);
             row.Children.Add(check);
@@ -1068,6 +1218,21 @@ public partial class MainWindow : Window
     }
 
     private void Touch(Item it) { it.ModifiedUtc = DateTime.UtcNow; MarkDirty(); }
+
+    /// <summary>The chapter's own links are the record; the Characters-in-chapter item mirrors them.</summary>
+    private void SyncChapterFromItem(Item it)
+    {
+        if (_book?.Chapters.FirstOrDefault(c => c.Id == it.OwnerId) is not { } ch) return;
+        ch.CharacterIds = it.CharacterIds.ToList();
+        ch.PovCharacterId = it.PovCharacterId;
+    }
+
+    private void SyncCharactersItem(Chapter ch)
+    {
+        if (_book?.ItemsOf(ch.Id).FirstOrDefault(i => i.Kind == ItemKind.CharactersInChapter) is not { } it) return;
+        it.CharacterIds = ch.CharacterIds.ToList();
+        it.PovCharacterId = ch.PovCharacterId;
+    }
 
     /// <summary>Pushes the on-screen state of the current node back into the model / disk.</summary>
     private void CommitCurrent()
@@ -1122,10 +1287,13 @@ public partial class MainWindow : Window
     /// <summary>Whose item a new Notes/Outline should be: the selected book/section/chapter (or the item's owner).</summary>
     private Guid CurrentOwnerId() => _current switch
     {
-        Section s => s.Id,
-        Chapter c => c.Id,
-        Item i    => i.OwnerId,
-        _         => _book!.Id
+        Section s       => s.Id,
+        Chapter c       => c.Id,
+        Item i          => i.OwnerId,
+        Character c     => c.Id,
+        TimelineEvent t => t.Id,
+        Plotline p      => p.Id,
+        _               => _book!.Id
     };
 
     private void AddSection_Click(object sender, RoutedEventArgs e)
@@ -1305,18 +1473,24 @@ public partial class MainWindow : Window
                 break;
             case Character c:
                 if (!ConfirmDelete(c.Name)) return;
-                _book.Characters.Remove(c); break;
+                _book.Characters.Remove(c); _book.Items.RemoveAll(i => i.OwnerId == c.Id);
+                foreach (var ch in _book.Chapters) { ch.CharacterIds.Remove(c.Id); if (ch.PovCharacterId == c.Id) ch.PovCharacterId = null; }
+                break;
             case TimelineEvent t:
                 if (!ConfirmDelete(t.Title)) return;
-                _book.Timeline.Remove(t); break;
+                _book.Timeline.Remove(t); _book.Items.RemoveAll(i => i.OwnerId == t.Id); break;
             case Plotline p:
                 if (!ConfirmDelete(p.Name)) return;
-                _book.Plotlines.Remove(p); break;
+                _book.Plotlines.Remove(p); _book.Items.RemoveAll(i => i.OwnerId == p.Id);
+                foreach (var ch in _book.Chapters) ch.PlotlineIds.Remove(p.Id);
+                foreach (var o in _book.Plotlines) o.Convergences.RemoveAll(x => x.OtherPlotlineId == p.Id);
+                break;
         }
         _current = null;
         MarkDirty();
         BuildTree(select: next);
         if (next == null) { ShowCurrent(); UpdateMenus(); }
+        _consistency?.Run();
 
         bool ConfirmDelete(string name) =>
             MessageBox.Show(this, $"Delete \"{name}\"?", "Delete", MessageBoxButton.YesNo, MessageBoxImage.Warning) == MessageBoxResult.Yes;
@@ -1326,6 +1500,37 @@ public partial class MainWindow : Window
     {
         if (_book == null) return;
         SelectNode(_book);
+    }
+
+    private void ScanMentions_Click(object sender, RoutedEventArgs e)
+    {
+        if (_book == null || _current is not Character c) { UpdateStatus("Select a character first."); return; }
+        CommitCurrent();
+        Cursor = Cursors.Wait;
+        MentionsWindow dlg;
+        try { dlg = new MentionsWindow(_book, c, ChapterText) { Owner = this }; }
+        finally { Cursor = Cursors.Arrow; }
+        if (dlg.ShowDialog() != true || dlg.ToLink.Count == 0) return;
+        foreach (var ch in dlg.ToLink)
+        {
+            if (!ch.CharacterIds.Contains(c.Id)) ch.CharacterIds.Add(c.Id);
+            SyncCharactersItem(ch);
+        }
+        MarkDirty();
+        ShowCurrent();
+        UpdateStatus($"Linked {c.Name} to {dlg.ToLink.Count} chapter(s).");
+    }
+
+    private void Consistency_Click(object sender, RoutedEventArgs e)
+    {
+        if (_book == null) return;
+        CommitCurrent();
+        if (_consistency is { IsLoaded: true }) { _consistency.Run(); _consistency.Activate(); return; }
+        _consistency = new ConsistencyWindow(
+            scanText => Consistency.Check(_book, scanText ? ChapterText : null),
+            id => { if (FindById(id) is { } node) { SelectNode(node); Activate(); } }) { Owner = this };
+        _consistency.Closed += (_, _) => _consistency = null;
+        _consistency.Show();
     }
 
     // ══════════════════════════════════════════════════════════════════════════
@@ -1425,6 +1630,7 @@ public partial class MainWindow : Window
             if (names.Any(n => text.Contains(n, StringComparison.OrdinalIgnoreCase)) && !item.CharacterIds.Contains(c.Id))
                 item.CharacterIds.Add(c.Id);
         }
+        SyncChapterFromItem(item);
         MarkDirty();
 
         if (!_ai.IsAvailable() || text.Trim().Length < 200)
@@ -1452,6 +1658,7 @@ public partial class MainWindow : Window
                 if (!item.CharacterIds.Contains(match.Id)) item.CharacterIds.Add(match.Id);
                 if (line.Contains("(POV)", StringComparison.OrdinalIgnoreCase) && item.PovCharacterId == null) item.PovCharacterId = match.Id;
             }
+            SyncChapterFromItem(item);
             MarkDirty();
             BuildTree(select: item);
             return r;

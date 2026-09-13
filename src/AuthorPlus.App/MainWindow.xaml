@@ -14,6 +14,7 @@
     <Window.InputBindings>
         <KeyBinding Key="F11" Command="{x:Static local:MainWindow.FocusCommand}"/>
         <KeyBinding Key="F" Modifiers="Ctrl" Command="{x:Static local:MainWindow.FindCommand}"/>
+        <KeyBinding Key="K" Modifiers="Ctrl" Command="{x:Static local:MainWindow.ConsistencyCommand}"/>
     </Window.InputBindings>
 
     <DockPanel>
@@ -54,6 +55,8 @@
                 <MenuItem Header="_Delete…" Click="DeleteItem_Click" InputGestureText="Del"/>
                 <Separator/>
                 <MenuItem Header="Book _Properties" Click="BookProperties_Click"/>
+                <Separator/>
+                <MenuItem Header="Check _Consistency…" Click="Consistency_Click" InputGestureText="Ctrl+K"/>
             </MenuItem>
             <MenuItem Header="_View">
                 <MenuItem Header="_Find and Replace" Click="Find_Click" InputGestureText="Ctrl+F"/>
