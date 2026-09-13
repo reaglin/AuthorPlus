@@ -8,7 +8,9 @@ using System.Windows.Markup;
 using AuthorPlus.Core.Models;
 using Section = AuthorPlus.Core.Models.Section;
 using AuthorPlus.Core.Services;
+using AuthorPlus.Core.Services.Export;
 using AuthorPlus.Core.Services.Import;
+using System.Windows.Threading;
 using Eaglin.AiManager;
 using Eaglin.AiManager.Wpf;
 using Microsoft.Win32;
@@ -35,6 +37,14 @@ public partial class MainWindow : Window
     private bool _dirty;
     private CancellationTokenSource? _aiCts;
     private readonly HashSet<Guid> _collapsed = new();   // tree nodes the user closed (everything else stays open)
+    private Progress? _progress;                         // words-today tracking for the open book
+    private DateTime _lastEdit;                          // for autosave: save once the author pauses
+    private readonly DispatcherTimer _autosave = new() { Interval = TimeSpan.FromSeconds(5) };
+    private bool _focusMode;
+    private Rect _restoreBounds;
+
+    public static readonly RoutedCommand FocusCommand = new("Focus", typeof(MainWindow));
+    public static readonly RoutedCommand FindCommand  = new("Find",  typeof(MainWindow));
 
     private const string RecentKey = "recent_books.txt";
     private const string CharactersHeader = "Characters", TimelineHeader = "Timeline", PlotlinesHeader = "Plotlines";
@@ -54,8 +64,14 @@ public partial class MainWindow : Window
             if (args.Length > 1 && Directory.Exists(args[1])) TryOpenFolder(args[1]);
         };
         Closing += MainWindow_Closing;
+        CommandBindings.Add(new CommandBinding(FocusCommand, (_, _) => ToggleFocusMode()));
+        CommandBindings.Add(new CommandBinding(FindCommand,  (_, _) => ShowFind()));
+        _autosave.Tick += (_, _) => { if (_book != null && _dirty && (DateTime.Now - _lastEdit).TotalSeconds >= 12) SaveAll(silent: true); };
+        _autosave.Start();
+        Deactivated += (_, _) => { if (_book != null && _dirty) SaveAll(silent: true); };
         PreviewKeyDown += (_, e) =>
         {
+            if (e.Key == Key.Escape && _focusMode) { ToggleFocusMode(); e.Handled = true; }
             if (e.Key == Key.Up && Keyboard.Modifiers == ModifierKeys.Alt) { MoveUp_Click(this, e); e.Handled = true; }
             if (e.Key == Key.Down && Keyboard.Modifiers == ModifierKeys.Alt) { MoveDown_Click(this, e); e.Handled = true; }
             if (e.Key == Key.Delete && Tree.IsKeyboardFocusWithin) { DeleteItem_Click(this, e); e.Handled = true; }
@@ -108,6 +124,10 @@ public partial class MainWindow : Window
         _current = null;
         _dirty = false;
         _collapsed.Clear();
+        _progress = Progress.Load(book);
+        _progress.Touch(book.TotalWords);
+        _progress.Save(book);
+        TxtSaved.Text = "";
         TxtBookTitle.Text = book.Title;
         Title = $"{book.Title} — AuthorPlus";
         RememberRecent(book.FolderPath);
@@ -119,7 +139,15 @@ public partial class MainWindow : Window
 
     private void Save_Executed(object sender, ExecutedRoutedEventArgs e) => SaveAll();
 
-    private void SaveAll()
+    /// <summary>Marks the book changed and restarts the autosave pause.</summary>
+    private void MarkDirty()
+    {
+        _dirty = true;
+        _lastEdit = DateTime.Now;
+        TxtSaved.Text = "Unsaved changes";
+    }
+
+    private void SaveAll(bool silent = false)
     {
         if (_book == null) return;
         try
@@ -127,11 +155,15 @@ public partial class MainWindow : Window
             CommitCurrent();
             _store.Save(_book);
             _dirty = false;
-            UpdateStatus($"Saved {DateTime.Now:HH:mm:ss}");
+            _progress?.Touch(_book.TotalWords);
+            _progress?.Save(_book);
+            TxtSaved.Text = $"{(silent ? "Autosaved" : "Saved")} {DateTime.Now:HH:mm:ss}";
+            if (!silent) UpdateStatus($"Saved {DateTime.Now:HH:mm:ss}");
             RefreshTreeTexts();
         }
         catch (Exception ex)
         {
+            if (silent) { TxtSaved.Text = "Autosave failed — use File › Save"; ActivityLog.Error("AuthorPlus", "Autosave", ex); return; }
             MessageBox.Show(this, $"Save failed:\n\n{ex.Message}", "Save", MessageBoxButton.OK, MessageBoxImage.Error);
         }
     }
@@ -321,7 +353,7 @@ public partial class MainWindow : Window
             else if (tvi.Tag is not null) tvi.Header = $"{Glyph(tvi.Tag)} {Label(tvi.Tag)}".Trim();
         }
         TxtBookTitle.Text = _book.Title;
-        TxtWords.Text = $"{_book.TotalWords:N0} words" + (_book.TargetWords > 0 ? $" of {_book.TargetWords:N0}" : "");
+        TxtWords.Text = WordsStatus(null, 0);
     }
 
     private IEnumerable<TreeViewItem> AllNodes()
@@ -543,7 +575,7 @@ public partial class MainWindow : Window
                 VerticalScrollBarVisibility = lines > 1 ? ScrollBarVisibility.Auto : ScrollBarVisibility.Disabled,
                 Padding = new Thickness(4)
             };
-            box.TextChanged += (_, _) => { if (_loading) return; set(box.Text); _dirty = true; };
+            box.TextChanged += (_, _) => { if (_loading) return; set(box.Text); MarkDirty(); };
             panel.Children.Add(box);
         }
         return new ScrollViewer { Content = panel, VerticalScrollBarVisibility = ScrollBarVisibility.Auto };
@@ -555,10 +587,14 @@ public partial class MainWindow : Window
     {
         var grid = new Grid();
         grid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+        grid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
         grid.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
 
         // Toolbar — formatting via the built-in EditingCommands.
         var bar = new ToolBar();
+        bar.Items.Add(ToolButton("↶", ApplicationCommands.Undo, FontWeights.Normal));
+        bar.Items.Add(ToolButton("↷", ApplicationCommands.Redo, FontWeights.Normal));
+        bar.Items.Add(new Separator());
         bar.Items.Add(ToolButton("B", EditingCommands.ToggleBold, FontWeights.Bold));
         bar.Items.Add(ToolButton("I", EditingCommands.ToggleItalic, FontWeights.Normal, italic: true));
         bar.Items.Add(ToolButton("U", EditingCommands.ToggleUnderline, FontWeights.Normal, underline: true));
@@ -567,8 +603,30 @@ public partial class MainWindow : Window
         bar.Items.Add(ToolButton("¶ Center", EditingCommands.AlignCenter, FontWeights.Normal));
         bar.Items.Add(ToolButton("¶ Justify", EditingCommands.AlignJustify, FontWeights.Normal));
         bar.Items.Add(new Separator());
+        bar.Items.Add(ToolButton("• List", EditingCommands.ToggleBullets, FontWeights.Normal));
+        bar.Items.Add(ToolButton("1. List", EditingCommands.ToggleNumbering, FontWeights.Normal));
+        bar.Items.Add(new Separator());
+        var sizeBox = new ComboBox { ItemsSource = new[] { "12", "13", "14", "15", "16", "18", "20", "24" }, Width = 56, IsEditable = true, ToolTip = "Font size of the selection" };
+        sizeBox.SelectionChanged += (_, _) => { if (!_loading && _rtb != null && double.TryParse(sizeBox.SelectedItem as string, out var sz)) { _rtb.Selection.ApplyPropertyValue(TextElement.FontSizeProperty, sz); _rtb.Focus(); } };
+        bar.Items.Add(new TextBlock { Text = "Size:", VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(4, 0, 4, 0) });
+        bar.Items.Add(sizeBox);
+        var heading = new Button { Content = "Heading", Padding = new Thickness(8, 2, 8, 2), ToolTip = "Make the current paragraph a heading (or back to body text)" };
+        heading.Click += (_, _) => ToggleHeading();
+        bar.Items.Add(heading);
+        var scene = new Button { Content = "Scene break", Padding = new Thickness(8, 2, 8, 2), ToolTip = "Insert a centred * * * on its own line" };
+        scene.Click += (_, _) => InsertSceneBreak();
+        bar.Items.Add(scene);
+        var find = new Button { Content = "Find…", Padding = new Thickness(8, 2, 8, 2), ToolTip = "Find and replace (Ctrl+F)" };
+        find.Click += (_, _) => ShowFind();
+        bar.Items.Add(find);
+        bar.Items.Add(new Separator());
+        var goal = new TextBox { Width = 60, Text = ch.TargetWords > 0 ? ch.TargetWords.ToString() : "", ToolTip = "Word goal for this chapter (blank = none)", VerticalAlignment = VerticalAlignment.Center };
+        goal.TextChanged += (_, _) => { if (_loading) return; ch.TargetWords = int.TryParse(goal.Text.Replace(",", ""), out var g) ? g : 0; MarkDirty(); UpdateWordCount(ch); };
+        bar.Items.Add(new TextBlock { Text = "Goal:", VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(4, 0, 4, 0) });
+        bar.Items.Add(goal);
+        bar.Items.Add(new Separator());
         var status = new ComboBox { ItemsSource = Enum.GetValues<ChapterStatus>(), SelectedItem = ch.Status, Width = 100, VerticalAlignment = VerticalAlignment.Center };
-        status.SelectionChanged += (_, _) => { if (!_loading && status.SelectedItem is ChapterStatus s) { ch.Status = s; _dirty = true; } };
+        status.SelectionChanged += (_, _) => { if (!_loading && status.SelectedItem is ChapterStatus s) { ch.Status = s; MarkDirty(); } };
         bar.Items.Add(new TextBlock { Text = "Status:", VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(6, 0, 4, 0) });
         bar.Items.Add(status);
         bar.Items.Add(new Separator());
@@ -582,6 +640,10 @@ public partial class MainWindow : Window
         Grid.SetRow(bar, 0);
         grid.Children.Add(bar);
 
+        _findPanel = BuildFindPanel();
+        Grid.SetRow(_findPanel, 1);
+        grid.Children.Add(_findPanel);
+
         // The manuscript.
         _rtb = new RichTextBox
         {
@@ -593,12 +655,299 @@ public partial class MainWindow : Window
             SpellCheck = { IsEnabled = true },
             Document = LoadDocument(ch)
         };
-        _rtb.TextChanged += (_, _) => { if (!_loading) { _dirty = true; UpdateWordCount(ch); } };
-        Grid.SetRow(_rtb, 1);
+        _rtb.TextChanged += (_, _) => { if (!_loading) { MarkDirty(); UpdateWordCount(ch); } };
+        Grid.SetRow(_rtb, 2);
         grid.Children.Add(_rtb);
 
         UpdateWordCount(ch);
         return grid;
+    }
+
+    // ── Headings, scene breaks ────────────────────────────────────────────────
+
+    private void ToggleHeading()
+    {
+        if (_rtb?.Selection.Start.Paragraph is not { } p) return;
+        bool isHeading = p.FontWeight == FontWeights.Bold && p.FontSize >= 20;
+        if (isHeading) { p.ClearValue(TextElement.FontWeightProperty); p.ClearValue(TextElement.FontSizeProperty); p.ClearValue(Block.MarginProperty); }
+        else { p.FontWeight = FontWeights.Bold; p.FontSize = 22; p.Margin = new Thickness(0, 18, 0, 8); }
+        MarkDirty();
+        _rtb.Focus();
+    }
+
+    private void InsertSceneBreak()
+    {
+        if (_rtb == null) return;
+        var here = _rtb.Selection.Start.Paragraph;
+        var brk = new Paragraph(new Run(FlowDocumentXaml.SceneBreak)) { TextAlignment = TextAlignment.Center, Margin = new Thickness(0, 12, 0, 12) };
+        var after = new Paragraph();
+        if (here != null) { _rtb.Document.Blocks.InsertAfter(here, brk); _rtb.Document.Blocks.InsertAfter(brk, after); }
+        else { _rtb.Document.Blocks.Add(brk); _rtb.Document.Blocks.Add(after); }
+        _rtb.CaretPosition = after.ContentStart;
+        MarkDirty();
+        _rtb.Focus();
+    }
+
+    // ── Find and replace ──────────────────────────────────────────────────────
+
+    private DockPanel? _findPanel;
+    private TextBox? _findBox, _replaceBox;
+    private TextBlock? _findStatus;
+
+    private DockPanel BuildFindPanel()
+    {
+        var panel = new DockPanel { Visibility = Visibility.Collapsed, Margin = new Thickness(0, 4, 0, 4), Background = System.Windows.Media.Brushes.WhiteSmoke };
+        _findBox = new TextBox { Width = 200, Margin = new Thickness(4, 2, 8, 2), VerticalContentAlignment = VerticalAlignment.Center };
+        _replaceBox = new TextBox { Width = 200, Margin = new Thickness(4, 2, 8, 2), VerticalContentAlignment = VerticalAlignment.Center };
+        _findStatus = new TextBlock { VerticalAlignment = VerticalAlignment.Center, Foreground = System.Windows.Media.Brushes.Gray, Margin = new Thickness(8, 0, 0, 0) };
+        var next = new Button { Content = "Find next", Padding = new Thickness(8, 2, 8, 2), Margin = new Thickness(0, 0, 4, 0) };
+        var replace = new Button { Content = "Replace", Padding = new Thickness(8, 2, 8, 2), Margin = new Thickness(0, 0, 4, 0) };
+        var all = new Button { Content = "Replace all", Padding = new Thickness(8, 2, 8, 2), Margin = new Thickness(0, 0, 4, 0) };
+        var close = new Button { Content = "✕", Padding = new Thickness(6, 2, 6, 2), Margin = new Thickness(8, 0, 4, 0) };
+        next.Click += (_, _) => FindNext();
+        replace.Click += (_, _) => ReplaceOne();
+        all.Click += (_, _) => ReplaceAll();
+        close.Click += (_, _) => { panel.Visibility = Visibility.Collapsed; _rtb?.Focus(); };
+        _findBox.KeyDown += (_, e) => { if (e.Key == Key.Enter) { FindNext(); e.Handled = true; } if (e.Key == Key.Escape) { panel.Visibility = Visibility.Collapsed; _rtb?.Focus(); } };
+        DockPanel.SetDock(close, Dock.Right);
+        panel.Children.Add(close);
+        panel.Children.Add(new TextBlock { Text = "Find:", VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(6, 0, 0, 0) });
+        panel.Children.Add(_findBox);
+        panel.Children.Add(new TextBlock { Text = "Replace:", VerticalAlignment = VerticalAlignment.Center });
+        panel.Children.Add(_replaceBox);
+        panel.Children.Add(next); panel.Children.Add(replace); panel.Children.Add(all);
+        panel.Children.Add(_findStatus);
+        return panel;
+    }
+
+    private void ShowFind()
+    {
+        if (_findPanel == null || _rtb == null) { UpdateStatus("Open a chapter to search in it."); return; }
+        _findPanel.Visibility = Visibility.Visible;
+        if (_rtb.Selection.Text.Length > 0 && !_rtb.Selection.Text.Contains('\n')) _findBox!.Text = _rtb.Selection.Text;
+        _findBox!.Focus();
+        _findBox.SelectAll();
+    }
+
+    private void Find_Click(object sender, RoutedEventArgs e) => ShowFind();
+
+    /// <summary>Finds the next occurrence after the current selection (wrapping once); selects it.</summary>
+    private bool FindNext(bool fromStart = false)
+    {
+        if (_rtb == null || _findBox == null || _findBox.Text.Length == 0) return false;
+        var needle = _findBox.Text;
+        var start = fromStart ? _rtb.Document.ContentStart : _rtb.Selection.End;
+        var hit = FindFrom(start, needle) ?? (fromStart ? null : FindFrom(_rtb.Document.ContentStart, needle));
+        if (hit == null) { _findStatus!.Text = "Not found."; return false; }
+        _rtb.Selection.Select(hit.Value.Start, hit.Value.End);
+        _rtb.Focus();
+        var rect = hit.Value.Start.GetCharacterRect(LogicalDirection.Forward);
+        _rtb.ScrollToVerticalOffset(_rtb.VerticalOffset + rect.Top - _rtb.ActualHeight / 3);
+        _findStatus!.Text = "";
+        return true;
+    }
+
+    private static (TextPointer Start, TextPointer End)? FindFrom(TextPointer from, string needle)
+    {
+        for (var p = from; p != null; p = p.GetNextContextPosition(LogicalDirection.Forward))
+        {
+            if (p.GetPointerContext(LogicalDirection.Forward) != TextPointerContext.Text) continue;
+            var run = p.GetTextInRun(LogicalDirection.Forward);
+            var idx = run.IndexOf(needle, StringComparison.OrdinalIgnoreCase);
+            if (idx < 0) continue;
+            var s = p.GetPositionAtOffset(idx);
+            var e = s?.GetPositionAtOffset(needle.Length);
+            if (s != null && e != null) return (s, e);
+        }
+        return null;
+    }
+
+    private void ReplaceOne()
+    {
+        if (_rtb == null || _findBox == null || _replaceBox == null) return;
+        if (string.Equals(_rtb.Selection.Text, _findBox.Text, StringComparison.OrdinalIgnoreCase) && _findBox.Text.Length > 0)
+        {
+            _rtb.Selection.Text = _replaceBox.Text;
+            MarkDirty();
+        }
+        FindNext();
+    }
+
+    private void ReplaceAll()
+    {
+        if (_rtb == null || _findBox == null || _replaceBox == null || _findBox.Text.Length == 0) return;
+        int n = 0;
+        _rtb.BeginChange();
+        try
+        {
+            var p = _rtb.Document.ContentStart;
+            while (FindFrom(p, _findBox.Text) is { } hit)
+            {
+                var range = new TextRange(hit.Start, hit.End);
+                range.Text = _replaceBox.Text;
+                p = range.End;
+                n++;
+                if (n > 10000) break;
+            }
+        }
+        finally { _rtb.EndChange(); }
+        if (n > 0) MarkDirty();
+        _findStatus!.Text = $"Replaced {n}.";
+    }
+
+    // ── Distraction-free mode ─────────────────────────────────────────────────
+
+    private void Focus_Click(object sender, RoutedEventArgs e) => ToggleFocusMode();
+
+    private void ToggleFocusMode()
+    {
+        _focusMode = !_focusMode;
+        if (_focusMode)
+        {
+            _restoreBounds = RestoreBounds;
+            MainMenu.Visibility = Visibility.Collapsed;
+            StatusBar.Visibility = Visibility.Collapsed;
+            TreePane.Visibility = Visibility.Collapsed;
+            Splitter.Visibility = Visibility.Collapsed;
+            TreeColumn.Width = new GridLength(0);
+            SplitterColumn.Width = new GridLength(0);
+            WindowStyle = WindowStyle.None;
+            ResizeMode = ResizeMode.NoResize;
+            WindowState = WindowState.Maximized;
+            if (_rtb != null) { _rtb.Padding = new Thickness(Math.Max(24, (ActualWidth - 900) / 2), 40, Math.Max(24, (ActualWidth - 900) / 2), 40); _rtb.Focus(); }
+        }
+        else
+        {
+            MainMenu.Visibility = Visibility.Visible;
+            StatusBar.Visibility = Visibility.Visible;
+            TreePane.Visibility = Visibility.Visible;
+            Splitter.Visibility = Visibility.Visible;
+            TreeColumn.Width = new GridLength(320);
+            SplitterColumn.Width = new GridLength(6);
+            WindowStyle = WindowStyle.SingleBorderWindow;
+            ResizeMode = ResizeMode.CanResize;
+            WindowState = WindowState.Normal;
+            if (_rtb != null) _rtb.Padding = new Thickness(24, 16, 24, 16);
+        }
+        MnuFocus.IsChecked = _focusMode;
+    }
+
+    // ── Export ────────────────────────────────────────────────────────────────
+
+    private void ExportDocx_Click(object sender, RoutedEventArgs e) => Export("Word document (*.docx)|*.docx", ".docx", (src, path) => DocxWriter.Write(src, path));
+    private void ExportMarkdown_Click(object sender, RoutedEventArgs e) => Export("Markdown (*.md)|*.md", ".md", (src, path) => MarkdownExporter.Write(src, path));
+
+    private void Export(string filter, string ext, Action<ExportSource, string> write)
+    {
+        if (_book == null) return;
+        CommitCurrent();
+        var dlg = new SaveFileDialog { Title = "Export the whole book", Filter = filter, FileName = BookStore.SafeFolderName(_book.Title) + ext, AddExtension = true };
+        if (dlg.ShowDialog(this) != true) return;
+        try
+        {
+            write(ExportSource.Load(_book, _store), dlg.FileName);
+            UpdateStatus($"Exported to {dlg.FileName}");
+            if (MessageBox.Show(this, $"Exported {_book.Chapters.Count} chapters ({_book.TotalWords:N0} words) to\n{dlg.FileName}\n\nOpen it now?", "Export", MessageBoxButton.YesNo, MessageBoxImage.Information) == MessageBoxResult.Yes)
+                Process.Start(new ProcessStartInfo(dlg.FileName) { UseShellExecute = true });
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show(this, $"Export failed:\n\n{ex.Message}", "Export", MessageBoxButton.OK, MessageBoxImage.Error);
+        }
+    }
+
+    // ── Drag and drop in the tree ─────────────────────────────────────────────
+
+    private System.Windows.Point _dragStart;
+    private object? _dragCandidate;
+
+    private void Tree_PreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+    {
+        _dragStart = e.GetPosition(Tree);
+        _dragCandidate = (e.OriginalSource as DependencyObject)?.FindAncestor<TreeViewItem>()?.Tag;
+        if (_dragCandidate is string or Book or null) _dragCandidate = null;
+    }
+
+    private void Tree_PreviewMouseMove(object sender, MouseEventArgs e)
+    {
+        if (_dragCandidate == null || e.LeftButton != MouseButtonState.Pressed) return;
+        var d = e.GetPosition(Tree) - _dragStart;
+        if (Math.Abs(d.X) < SystemParameters.MinimumHorizontalDragDistance && Math.Abs(d.Y) < SystemParameters.MinimumVerticalDragDistance) return;
+        var payload = _dragCandidate;
+        _dragCandidate = null;
+        CommitCurrent();
+        DragDrop.DoDragDrop(Tree, new DataObject("AuthorPlusNode", payload), DragDropEffects.Move);
+    }
+
+    private void Tree_DragOver(object sender, DragEventArgs e)
+    {
+        e.Effects = CanDrop(e) ? DragDropEffects.Move : DragDropEffects.None;
+        e.Handled = true;
+    }
+
+    private bool CanDrop(DragEventArgs e)
+    {
+        if (!e.Data.GetDataPresent("AuthorPlusNode")) return false;
+        var target = (e.OriginalSource as DependencyObject)?.FindAncestor<TreeViewItem>()?.Tag;
+        var moving = e.Data.GetData("AuthorPlusNode");
+        if (target == null || ReferenceEquals(target, moving)) return false;
+        return (moving, target) switch
+        {
+            (Chapter, Chapter or Section or Book) => true,
+            (Section, Section) => true,
+            (Item a, Item b) => a.OwnerId == b.OwnerId,
+            (Character, Character) or (TimelineEvent, TimelineEvent) or (Plotline, Plotline) => true,
+            _ => false
+        };
+    }
+
+    private void Tree_Drop(object sender, DragEventArgs e)
+    {
+        if (_book == null || !CanDrop(e)) return;
+        var target = (e.OriginalSource as DependencyObject)!.FindAncestor<TreeViewItem>()!.Tag!;
+        var moving = e.Data.GetData("AuthorPlusNode")!;
+        e.Handled = true;
+
+        switch (moving, target)
+        {
+            case (Chapter c, Chapter t):                       // before the target, in the target's section
+                _book.Chapters.Remove(c);
+                c.SectionId = t.SectionId;
+                _book.Chapters.Insert(_book.Chapters.IndexOf(t), c);
+                break;
+            case (Chapter c, Section s):                       // last in that section
+                _book.Chapters.Remove(c);
+                c.SectionId = s.Id;
+                _book.Chapters.Insert(InsertIndexAtEnd(s), c);
+                break;
+            case (Chapter c, Book):                            // out of any section, at the end
+                _book.Chapters.Remove(c);
+                c.SectionId = null;
+                _book.Chapters.Add(c);
+                break;
+            case (Section a, Section b):
+                _book.Sections.Remove(a);
+                _book.Sections.Insert(_book.Sections.IndexOf(b), a);
+                break;
+            case (Item a, Item b):
+                _book.Items.Remove(a);
+                _book.Items.Insert(_book.Items.IndexOf(b), a);
+                break;
+            case (Character a, Character b): MoveBefore(_book.Characters, a, b); break;
+            case (TimelineEvent a, TimelineEvent b):
+                MoveBefore(_book.Timeline, a, b);
+                for (int i = 0; i < _book.Timeline.Count; i++) _book.Timeline[i].Order = i + 1;
+                break;
+            case (Plotline a, Plotline b): MoveBefore(_book.Plotlines, a, b); break;
+        }
+        MarkDirty();
+        BuildTree(select: moving);
+
+        static void MoveBefore<T>(List<T> list, T item, T before) where T : class
+        {
+            list.Remove(item);
+            list.Insert(list.IndexOf(before), item);
+        }
     }
 
     private static Button ToolButton(string text, ICommand command, FontWeight weight, bool italic = false, bool underline = false)
@@ -636,8 +985,20 @@ public partial class MainWindow : Window
     private void UpdateWordCount(Chapter ch)
     {
         if (_rtb == null) return;
-        var words = WordCounter.Count(PlainText(_rtb.Document));
-        TxtWords.Text = $"Chapter: {words:N0} words   ·   Book: {(_book?.TotalWords - ch.WordCount + words) ?? 0:N0}";
+        TxtWords.Text = WordsStatus(ch, WordCounter.Count(PlainText(_rtb.Document)));
+    }
+
+    /// <summary>"Chapter: 2,345 / 3,000 · Book: 162,880 of 180,000 · today +412".</summary>
+    private string WordsStatus(Chapter? ch, int liveChapterWords)
+    {
+        if (_book == null) return "";
+        var bookWords = ch == null ? _book.TotalWords : _book.TotalWords - ch.WordCount + liveChapterWords;
+        var parts = new List<string>();
+        if (ch != null) parts.Add($"Chapter: {liveChapterWords:N0}{(ch.TargetWords > 0 ? $" / {ch.TargetWords:N0}" : "")} words");
+        parts.Add($"Book: {bookWords:N0}{(_book.TargetWords > 0 ? $" of {_book.TargetWords:N0}" : "")} words");
+        var today = (_progress?.WordsToday() ?? 0) + (ch == null ? 0 : liveChapterWords - ch.WordCount);
+        if (_progress != null) parts.Add($"today {(today >= 0 ? "+" : "")}{today:N0}");
+        return string.Join("   ·   ", parts);
     }
 
     // ── Item editors ──────────────────────────────────────────────────────────
@@ -664,7 +1025,7 @@ public partial class MainWindow : Window
             FontFamily = new System.Windows.Media.FontFamily(it.Kind == ItemKind.Analysis ? "Segoe UI" : "Georgia"),
             FontSize = 14
         };
-        body.TextChanged += (_, _) => { if (!_loading) { it.Body = body.Text; it.ModifiedUtc = DateTime.UtcNow; _dirty = true; } };
+        body.TextChanged += (_, _) => { if (!_loading) { it.Body = body.Text; it.ModifiedUtc = DateTime.UtcNow; MarkDirty(); } };
         panel.Children.Add(body);
         return panel;
     }
@@ -706,7 +1067,7 @@ public partial class MainWindow : Window
         return grid;
     }
 
-    private void Touch(Item it) { it.ModifiedUtc = DateTime.UtcNow; _dirty = true; }
+    private void Touch(Item it) { it.ModifiedUtc = DateTime.UtcNow; MarkDirty(); }
 
     /// <summary>Pushes the on-screen state of the current node back into the model / disk.</summary>
     private void CommitCurrent()
@@ -732,7 +1093,7 @@ public partial class MainWindow : Window
             case TimelineEvent t:  t.Title  = TxtName.Text; break;
             case Plotline p:       p.Name   = TxtName.Text; break;
         }
-        _dirty = true;
+        MarkDirty();
         if (Tree.SelectedItem is TreeViewItem tvi && ReferenceEquals(tvi.Tag, _current))
             tvi.Header = $"{Glyph(_current)} {Label(_current)}".Trim();
         if (_current is Book) TxtBookTitle.Text = TxtName.Text;
@@ -773,7 +1134,7 @@ public partial class MainWindow : Window
         CommitCurrent();
         var s = new Section { Title = $"Part {_book.Sections.Count + 1}" };
         _book.Sections.Add(s);
-        _dirty = true;
+        MarkDirty();
         BuildTree(select: s);
         TxtName.Focus(); TxtName.SelectAll();
     }
@@ -786,7 +1147,7 @@ public partial class MainWindow : Window
         var ch = new Chapter { Title = "New Chapter", SectionId = section?.Id };
         int index = _current is Chapter cur ? _book.Chapters.IndexOf(cur) + 1 : InsertIndexAtEnd(section);
         _book.Chapters.Insert(index, ch);
-        _dirty = true;
+        MarkDirty();
         BuildTree(select: ch);
         TxtName.Focus(); TxtName.SelectAll();
     }
@@ -808,7 +1169,7 @@ public partial class MainWindow : Window
         CommitCurrent();
         var it = new Item { OwnerId = CurrentOwnerId(), Kind = kind, Title = title };
         _book.Items.Add(it);
-        _dirty = true;
+        MarkDirty();
         BuildTree(select: it);
         TxtName.Focus(); TxtName.SelectAll();
     }
@@ -822,7 +1183,7 @@ public partial class MainWindow : Window
         if (_book == null || list == null) return;
         CommitCurrent();
         list.Add(item);
-        _dirty = true;
+        MarkDirty();
         BuildTree(select: item);
         TxtName.Focus(); TxtName.SelectAll();
     }
@@ -856,7 +1217,7 @@ public partial class MainWindow : Window
         {
             var importer = new ManuscriptImporter(_store);
             var ch = importer.ImportOne(_book, dlg.FileName, null, section, insertAt);
-            _dirty = true;
+            MarkDirty();
             BuildTree(select: ch);
             UpdateStatus($"Inserted \"{ch.Title}\" ({ch.WordCount:N0} words) as chapter {_book.ChapterNumber(ch)}{(section != null ? $" of {section.Title}" : "")}.");
         }
@@ -885,7 +1246,7 @@ public partial class MainWindow : Window
         if (!moved) return;
         if (_current is TimelineEvent) for (int i = 0; i < _book.Timeline.Count; i++) _book.Timeline[i].Order = i + 1;
         CommitCurrent();
-        _dirty = true;
+        MarkDirty();
         BuildTree(select: _current);
     }
 
@@ -953,7 +1314,7 @@ public partial class MainWindow : Window
                 _book.Plotlines.Remove(p); break;
         }
         _current = null;
-        _dirty = true;
+        MarkDirty();
         BuildTree(select: next);
         if (next == null) { ShowCurrent(); UpdateMenus(); }
 
@@ -1024,7 +1385,7 @@ public partial class MainWindow : Window
         {
             var r = await _ai.RunTemplateAsync(AiPrompts.ChapterSummary, new { book = _book.Title, chapter = ch.Title, text }, ct);
             var item = _book.SetSummary(ch, r.Text.Trim(), r.Provider.ToString(), r.Model, AiPrompts.ChapterSummary);
-            _dirty = true;
+            MarkDirty();
             BuildTree(select: item);
             return r;
         });
@@ -1042,7 +1403,7 @@ public partial class MainWindow : Window
             _ai.Prompts.Get(AiPrompts.ChapterAnalysis).Bind(new { book = _book.Title, section, chapter = ch.Title, context, text }, provider)) { Owner = this };
         dlg.ShowDialog();
         if (dlg.Created.Count == 0) return;
-        _dirty = true;
+        MarkDirty();
         BuildTree(select: dlg.Created[^1]);
         UpdateStatus($"{dlg.Created.Count} analysis item(s) added to \"{ch.Title}\".");
     }
@@ -1064,7 +1425,7 @@ public partial class MainWindow : Window
             if (names.Any(n => text.Contains(n, StringComparison.OrdinalIgnoreCase)) && !item.CharacterIds.Contains(c.Id))
                 item.CharacterIds.Add(c.Id);
         }
-        _dirty = true;
+        MarkDirty();
 
         if (!_ai.IsAvailable() || text.Trim().Length < 200)
         {
@@ -1091,7 +1452,7 @@ public partial class MainWindow : Window
                 if (!item.CharacterIds.Contains(match.Id)) item.CharacterIds.Add(match.Id);
                 if (line.Contains("(POV)", StringComparison.OrdinalIgnoreCase) && item.PovCharacterId == null) item.PovCharacterId = match.Id;
             }
-            _dirty = true;
+            MarkDirty();
             BuildTree(select: item);
             return r;
         });
@@ -1117,7 +1478,7 @@ public partial class MainWindow : Window
             var r = await _ai.RunTemplateAsync(AiPrompts.SectionOutline, new { book = _book.Title, section = s.Title, summaries = SectionSummaries(s) }, ct);
             var item = new Item { OwnerId = s.Id, Kind = ItemKind.Outline, Title = $"Outline · {DateTime.Now:yyyy-MM-dd}", Body = r.Text.Trim(), Provider = r.Provider.ToString(), Model = r.Model, PromptName = AiPrompts.SectionOutline };
             _book.Items.Add(item);
-            _dirty = true;
+            MarkDirty();
             BuildTree(select: item);
             return r;
         });
@@ -1136,7 +1497,7 @@ public partial class MainWindow : Window
         {
             var r = await _ai.RunTemplateAsync(AiPrompts.SectionSummary, new { book = _book.Title, section = s.Title, summaries = SectionSummaries(s) }, ct);
             s.Summary = r.Text.Trim();
-            _dirty = true;
+            MarkDirty();
             if (ReferenceEquals(_current, s)) ShowCurrent();
             return r;
         });
@@ -1155,7 +1516,7 @@ public partial class MainWindow : Window
             var r = await _ai.RunTemplateAsync(AiPrompts.CharacterProfile,
                 new { book = _book.Title, synopsis = _book.Synopsis, known, summaries }, ct);
             c.Notes = (c.Notes.Length > 0 ? c.Notes + "\n\n" : "") + $"— AI suggestions ({DateTime.Now:yyyy-MM-dd}) —\n{r.Text.Trim()}";
-            _dirty = true;
+            MarkDirty();
             ShowCurrent();
             return r;
         });

@@ -1,6 +1,7 @@
 <Window x:Class="AuthorPlus.App.MainWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:local="clr-namespace:AuthorPlus.App"
         Title="AuthorPlus" Height="800" Width="1280" MinHeight="560" MinWidth="900"
         WindowStartupLocation="CenterScreen"
         FontFamily="Segoe UI" FontSize="13">
@@ -10,16 +11,24 @@
         <CommandBinding Command="Open" Executed="OpenBook_Executed"/>
         <CommandBinding Command="Save" Executed="Save_Executed" CanExecute="HasBook_CanExecute"/>
     </Window.CommandBindings>
+    <Window.InputBindings>
+        <KeyBinding Key="F11" Command="{x:Static local:MainWindow.FocusCommand}"/>
+        <KeyBinding Key="F" Modifiers="Ctrl" Command="{x:Static local:MainWindow.FindCommand}"/>
+    </Window.InputBindings>
 
     <DockPanel>
         <!-- ── Menu ─────────────────────────────────────────────────────────── -->
-        <Menu DockPanel.Dock="Top">
+        <Menu DockPanel.Dock="Top" x:Name="MainMenu">
             <MenuItem Header="_File">
                 <MenuItem Header="_New Book…" Command="New" InputGestureText="Ctrl+N"/>
                 <MenuItem Header="_Open Book…" Command="Open" InputGestureText="Ctrl+O"/>
                 <MenuItem x:Name="MnuRecent" Header="Open _Recent"/>
                 <Separator/>
                 <MenuItem Header="_Save" Command="Save" InputGestureText="Ctrl+S"/>
+                <MenuItem Header="_Export">
+                    <MenuItem Header="_Word document (.docx)…" Click="ExportDocx_Click"/>
+                    <MenuItem Header="_Markdown (.md)…" Click="ExportMarkdown_Click"/>
+                </MenuItem>
                 <MenuItem Header="Open Book _Folder" Click="OpenFolder_Click"/>
                 <Separator/>
                 <MenuItem Header="E_xit" Click="Exit_Click"/>
@@ -46,6 +55,11 @@
                 <Separator/>
                 <MenuItem Header="Book _Properties" Click="BookProperties_Click"/>
             </MenuItem>
+            <MenuItem Header="_View">
+                <MenuItem Header="_Find and Replace" Click="Find_Click" InputGestureText="Ctrl+F"/>
+                <Separator/>
+                <MenuItem Header="_Distraction-free Writing" Click="Focus_Click" InputGestureText="F11" x:Name="MnuFocus"/>
+            </MenuItem>
             <MenuItem Header="_AI" x:Name="MnuAi">
                 <MenuItem Header="_Summarize This Chapter" Click="AiSummarize_Click"/>
                 <MenuItem Header="_Analyze This Chapter…" Click="AiAnalyze_Click"/>
@@ -67,8 +81,10 @@
         </Menu>
 
         <!-- ── Status bar ───────────────────────────────────────────────────── -->
-        <StatusBar DockPanel.Dock="Bottom">
+        <StatusBar DockPanel.Dock="Bottom" x:Name="StatusBar">
             <StatusBarItem><TextBlock x:Name="TxtStatus" Text="No book open — File › New Book or Open Book."/></StatusBarItem>
+            <Separator/>
+            <StatusBarItem><TextBlock x:Name="TxtSaved" Text="" Foreground="#555"/></StatusBarItem>
             <Separator/>
             <StatusBarItem><TextBlock x:Name="TxtWords" Text=""/></StatusBarItem>
             <Separator/>
@@ -78,20 +94,22 @@
         <!-- ── Body: tree | editor ──────────────────────────────────────────── -->
         <Grid>
             <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="320" MinWidth="220"/>
-                <ColumnDefinition Width="6"/>
+                <ColumnDefinition Width="320" MinWidth="220" x:Name="TreeColumn"/>
+                <ColumnDefinition Width="6" x:Name="SplitterColumn"/>
                 <ColumnDefinition Width="*"/>
             </Grid.ColumnDefinitions>
 
-            <DockPanel Grid.Column="0" Background="#FAFAFA">
+            <DockPanel Grid.Column="0" Background="#FAFAFA" x:Name="TreePane">
                 <TextBlock x:Name="TxtBookTitle" DockPanel.Dock="Top" Text="AuthorPlus"
                            FontSize="16" FontWeight="SemiBold" Margin="10,10,10,6" TextTrimming="CharacterEllipsis"/>
                 <TreeView x:Name="Tree" BorderThickness="0,1,0,0" BorderBrush="#DDD"
                           SelectedItemChanged="Tree_SelectedItemChanged" Padding="4"
-                          PreviewMouseRightButtonDown="Tree_PreviewMouseRightButtonDown"/>
+                          PreviewMouseRightButtonDown="Tree_PreviewMouseRightButtonDown"
+                          AllowDrop="True" PreviewMouseLeftButtonDown="Tree_PreviewMouseLeftButtonDown"
+                          PreviewMouseMove="Tree_PreviewMouseMove" DragOver="Tree_DragOver" Drop="Tree_Drop"/>
             </DockPanel>
 
-            <GridSplitter Grid.Column="1" Width="6" HorizontalAlignment="Stretch" Background="#EEE"/>
+            <GridSplitter Grid.Column="1" Width="6" HorizontalAlignment="Stretch" Background="#EEE" x:Name="Splitter"/>
 
             <Grid Grid.Column="2" Margin="12">
                 <Grid.RowDefinitions>

@@ -62,15 +62,15 @@ Exit: a novelist could draft a whole book here and not miss Word for the draftin
 
 | # | Task | Targets | Acceptance | Status |
 |---|---|---|---|---|
-| 1.1 | Autosave (idle timer + on focus loss) and a visible "saved" indicator | `MainWindow` | pull the plug mid-sentence; lose at most a few seconds | [ ] |
-| 1.2 | Formatting toolbar: headings (chapter title / scene break), font size, lists, undo/redo, find & replace | chapter editor | | [ ] |
-| 1.3 | Scene breaks within a chapter (`* * *`) and a scene list in the tree under each chapter | Models: `Scene`? — decide: keep prose flat, detect `* * *` | | [ ] |
-| 1.4 | Drag-and-drop reorder in the tree; multi-select delete | `MainWindow` | | [ ] |
-| 1.5 | Word-count goals: per chapter and per book, daily progress (words added today) | `Book.TargetWords`, a `progress.json` in the book folder | status bar shows today / total / target | [ ] |
-| 1.6 | Export: Markdown and DOCX (whole book, in chapter order, with a title page) | `Core/Services/Export/*` | opens in Word with headings | [ ] |
+| 1.1 | Autosave (idle timer + on focus loss) and a visible "saved" indicator | `MainWindow` | pull the plug mid-sentence; lose at most a few seconds | [x] 2026-09-12 |
+| 1.2 | Formatting toolbar: headings (chapter title / scene break), font size, lists, undo/redo, find & replace | chapter editor | | [x] 2026-09-12 |
+| 1.3 | Scene breaks within a chapter (`* * *`) — **decided: prose stays flat**; a toolbar button inserts a centred `* * *` paragraph, exports recognise it (`FlowDocumentXaml.IsSceneBreak`). No scene list in the tree (chapters are the unit) | editor toolbar, exporters | | [x] 2026-09-12 |
+| 1.4 | Drag-and-drop reorder in the tree (chapters onto chapters/sections/book, sections, items within an owner, characters/events/plotlines); multi-select delete **not done** (WPF TreeView is single-select; revisit if asked) | `MainWindow` | | [x] 2026-09-12 (DnD) |
+| 1.5 | Word-count goals: per chapter and per book, daily progress (words added today) | `Book.TargetWords`, a `progress.json` in the book folder | status bar shows today / total / target | [x] 2026-09-12 |
+| 1.6 | Export: Markdown and DOCX (whole book, in chapter order, with a title page) | `Core/Services/Export/*` | opens in Word with headings | [x] 2026-09-12 |
 | 1.7 | ~~Import a manuscript: DOCX or Markdown → chapters by heading~~ superseded by 1.12/1.13 (per-chapter files); the "one compiled DOCX split on headings" case stays here as a later add-on | `Core/Services/Import/*` | | [ ] |
-| 1.8 | Book properties page (title, author, synopsis, genre, target) as a tree root item instead of a dialog | | | [ ] |
-| 1.9 | Distraction-free / full-screen writing mode | `MainWindow` | F11 | [ ] |
+| 1.8 | Book properties page (title, author, synopsis, genre, target) as a tree root item instead of a dialog | | done with the tree rebuild (1.14) | [x] 2026-09-12 |
+| 1.9 | Distraction-free / full-screen writing mode | `MainWindow` | F11 | [x] 2026-09-12 |
 
 ## Phase 2 — Story bible
 
@@ -157,3 +157,16 @@ Chapters and any selected text can be turned into audio through the AI Manager's
   insert it via right-click chapter 22 › Insert Chapter from File After This…; (3) decide
   whether Part 2 titles should follow the in-document headings; (4) the OpenAI account has no
   API credits; (5) AiManager PLAN.md §13 open points.
+- **2026-09-12 — Phase 1B built (manuscript polish).** Autosave (12 s after the last edit,
+  and when the window loses focus; "Autosaved hh:mm:ss" / "Unsaved changes" in the status
+  bar); toolbar gains undo/redo, bullet and numbered lists, font size, Heading toggle, Scene
+  break, Find…, a per-chapter word goal; Find and Replace panel (Ctrl+F; next / replace /
+  replace all, case-insensitive); F11 distraction-free mode (Esc or F11 back); File › Export
+  › Word (.docx) and Markdown (.md) — both written by hand in Core (`Export/`), the Word file
+  read back by our own DOCX reader in tests; `progress.json` per book tracks words added
+  today; drag-and-drop in the tree. Exported the loaded trilogy headless through the same
+  code the menu calls: .docx 400 KB and .md 1.0 MB in 94 ms; the .docx read back by our reader
+  shows 3 part headings + title, 73 chapter headings, 163,193 words (chapter headings add the
+  ~300 extra words). 52 Core tests green. **Not hand-verified in the running app** (the window could
+  not take the foreground during the automated check): the find panel, F11 and the export
+  dialog — Ron, please try File › Export › Word on the trilogy and Ctrl+F in a chapter.

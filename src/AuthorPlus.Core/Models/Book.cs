@@ -132,6 +132,8 @@ public sealed class Chapter
     public Guid?         SectionId      { get; set; }
     public ChapterStatus Status         { get; set; } = ChapterStatus.Outline;
     public int           WordCount      { get; set; }
+    /// <summary>Optional per-chapter goal; 0 = none. The book-level goal is <see cref="Book.TargetWords"/>.</summary>
+    public int           TargetWords    { get; set; }
     public Guid?         PovCharacterId { get; set; }
     public List<Guid>    CharacterIds   { get; set; } = new();
     public List<Guid>    PlotlineIds    { get; set; } = new();
