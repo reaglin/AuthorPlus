@@ -173,7 +173,7 @@ public sealed class PlotlineBoard : DockPanel
     {
         var help = new TextBlock
         {
-            Text = "● the plotline runs through the chapter · ◆ it converges with another plotline there. Click a cell to toggle ●. Red names are plotlines not yet resolved.",
+            Text = "● the plotline runs through the chapter · ◆ it converges with another plotline there. Click a cell to toggle ●. Red names are plotlines not yet resolved. No plotlines yet? Right-click Plotlines › Find Plotlines (AI)… works from the chapter summaries.",
             Foreground = Brushes.Gray, TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 0, 0, 8)
         };
         SetDock(help, Dock.Top);
@@ -211,7 +211,7 @@ public sealed class PlotlineBoard : DockPanel
             var p = book.Plotlines[r];
             var name = new TextBlock
             {
-                Text = $"{p.Name}  ({p.Status})", Padding = new Thickness(4, 3, 10, 3), VerticalAlignment = VerticalAlignment.Center, Cursor = Cursors.Hand,
+                Text = $"{p.Name}  ({p.Kind.ToString().ToLowerInvariant()}, {p.Status.ToString().ToLowerInvariant()})", Padding = new Thickness(4, 3, 10, 3), VerticalAlignment = VerticalAlignment.Center, Cursor = Cursors.Hand,
                 Foreground = p.Status == PlotlineStatus.Resolved ? Brushes.Black : Brushes.Firebrick, FontWeight = FontWeights.SemiBold,
                 ToolTip = "Open this plotline"
             };

@@ -74,6 +74,7 @@
                 <Separator/>
                 <MenuItem Header="Continuity Chec_k (AI)…" Click="AiContinuity_Click" ToolTip="Contradictions across the selected section (or the whole book), checked against the characters and timeline"/>
                 <MenuItem Header="Plot Anal_ysis (AI)…" Click="AiPlot_Click" ToolTip="Acts, tension by chapter, slow stretches and suggested convergences, from the chapter summaries"/>
+                <MenuItem Header="Find P_lotlines (AI)…" Click="AiFindPlotlines_Click" ToolTip="Proposes the plotlines of the selected section (or the book) from the chapter summaries — primary, secondary, subplot — and adds the ones you keep"/>
                 <Separator/>
                 <MenuItem Header="_Outline This Section" Click="AiSectionOutline_Click"/>
                 <MenuItem Header="Summarize This S_ection" Click="AiSectionSummary_Click"/>

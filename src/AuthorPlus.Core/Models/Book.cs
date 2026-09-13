@@ -251,6 +251,9 @@ public sealed class TimelineEvent
 
 public enum PlotlineStatus { Planned, Active, Resolved }
 
+/// <summary>How much of the book a thread carries: the spine, a thread beside it, or a side story.</summary>
+public enum PlotlineKind { Primary, Secondary, Subplot }
+
 /// <summary>A thread of the story. Plotlines converge; that is recorded on both sides.</summary>
 public sealed class Plotline
 {
@@ -258,6 +261,7 @@ public sealed class Plotline
     public string         Name         { get; set; } = "New Plotline";
     public string         Summary      { get; set; } = string.Empty;
     public PlotlineStatus Status       { get; set; } = PlotlineStatus.Planned;
+    public PlotlineKind   Kind         { get; set; } = PlotlineKind.Secondary;
     public List<Guid>     ChapterIds   { get; set; } = new();
     public List<Guid>     CharacterIds { get; set; } = new();
     public List<PlotlineConvergence> Convergences { get; set; } = new();

@@ -47,13 +47,17 @@ the exe (`AuthorPlus.exe "<book folder>"` opens it). Books live in `Documents\Au
   "Characters" with who is introduced);
   **Analyze…** on one provider, then on "Every provider with a key" to compare — the run window
   says what it will produce; the Analysis item opens as one card per aspect (Pacing, Tension,
-  Stakes, Point of view and voice, Dialogue, Continuity, Prose habits, Three changes), each with
-  **Suggestions…** (rewrites for that point, saved under the analysis). When the run closes, a
+  Stakes, Point of view and voice, Dialogue, Continuity, Prose habits, Three changes) with the
+  editor's numbered points, each point with its own **Suggestions…** (rewrites for that one
+  point, saved under the analysis as "Suggestions · Aspect · n"). When the run closes, a
   short pass lists the chapter's characters and plotlines: known ones are linked, new ones are
   offered in a checklist, and **Chapter Characters** / **Chapter Plotlines** items appear;
   **Chapter Characters** on its own; **Style Report…** then **AI voice read…**.
 - Right-click a section › **Outline This Section**, **Summarize This Section**,
-  **Continuity Check (AI)…**, **Plot Analysis (AI)…** (these want chapter summaries first).
+  **Continuity Check (AI)…**, **Plot Analysis (AI)…**, **Find Plotlines (AI)…** (these want
+  chapter summaries first). Find Plotlines proposes the threads — primary / secondary /
+  subplot — with the chapters each runs through; tick the ones to keep and they are added and
+  linked. A plotline's kind can be changed on its page; the board shows it.
 - Character › **Suggest Profile (AI)**.
 - View › **Preview AI Prompts Before Sending** — turn it on and run anything: you see the
   exact text, tokens and cost before it goes. AI › **Prompt Library…** to change the wording;

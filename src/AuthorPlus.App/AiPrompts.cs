@@ -22,6 +22,7 @@ public static class AiPrompts
     public const string StyleRead           = "style-read";
     public const string AnalysisSuggestions = "analysis-suggestions";
     public const string ChapterExtract      = "chapter-extract";
+    public const string FindPlotlines       = "find-plotlines";
 
     /// <summary>
     /// Practical ceiling for one request's prose, in characters (≈ 100k tokens). Above it a
@@ -61,7 +62,8 @@ public static class AiPrompts
             system: "You are an experienced fiction editor giving a working author frank, specific, useful notes. " +
                     "Write the analysis under these headings, each on its own line exactly as \"## Heading\", in this order: " +
                     "## Pacing, ## Tension, ## Stakes, ## Point of view and voice, ## Dialogue, ## Continuity, ## Prose habits, ## Three changes. " +
-                    "Under each heading give 2–5 short paragraphs or bullets; quote short phrases from the text when you point at something; " +
+                    "Under each heading give 2–5 numbered points (\"1.\", \"2.\" …), each ONE specific observation about ONE place or habit in the text, " +
+                    "quoting the phrase or naming the passage it concerns, so that each point can be acted on separately. " +
                     "Continuity means clarity and consistency with what came before (the earlier summaries). " +
                     "Under Three changes give the three changes that would help most, numbered. No praise padding; nothing outside the headings.",
             user:   "Book: {book}\nSection: {section}\nChapter: {chapter}\n\nWhat has happened so far (summaries of earlier chapters):\n{context}\n\nThe chapter:\n{text}",
@@ -135,13 +137,27 @@ public static class AiPrompts
         new PromptTemplate(ChapterExtract,
             system: "You extract records for an author's story bible from one chapter. Output exactly two blocks and nothing else:\n\n" +
                     "CHARACTERS\nName | known or new | POV or - | what they do in this chapter (one short clause)\n\n" +
-                    "PLOTLINES\nName | known or new | what happens in this thread in this chapter (one short clause)\n\n" +
-                    "One line per character who appears or acts (not a passing mention); one line per story thread the chapter advances. " +
+                    "PLOTLINES\nName | known or new | primary or secondary or subplot | what happens in this thread in this chapter (one short clause)\n\n" +
+                    "One line per character who appears or acts (not a passing mention); one line per story thread the chapter advances or introduces. " +
+                    "A plotline is a question or conflict that runs across chapters (\"the mystery of the message\"), not a single event; " +
+                    "primary = a thread the whole book turns on, secondary = a thread beside it, subplot = a side story. " +
                     "Use the known names exactly when they match (an alias counts as known); mark anyone or anything not in the known lists as new. " +
                     "Give a new plotline a short descriptive name (2–5 words). Mark exactly one character POV when the chapter has a viewpoint character.",
             user:   "Chapter: {chapter}\n\nKnown characters (name — also called):\n{known_characters}\n\nKnown plotlines:\n{known_plotlines}\n\n{text}",
             description: "Runs after Analyze…: lists the chapter's characters and plotlines so they can be linked, and new ones added to the book.",
             maxTokens: 1200),
+
+        new PromptTemplate(FindPlotlines,
+            system: "You identify the plotlines of a novel for the author's story bible. A plotline is a question, conflict or relationship that runs " +
+                    "across chapters and is eventually answered, won, lost or resolved — not a single event. From the chapter summaries, list every thread you can see. " +
+                    "Output one line per plotline and nothing else:\n" +
+                    "Name | known or new | primary or secondary or subplot | chapters: the chapter numbers it runs through | one-line description (what question it asks)\n" +
+                    "primary = the spine the book turns on (usually one or two), secondary = threads beside it, subplot = side stories. " +
+                    "Use the known plotline names exactly when a thread matches one; mark the rest new. Give new ones short descriptive names (2–5 words). " +
+                    "Chapter numbers are the numbers shown in the summaries.",
+            user:   "Book: {book}\nScope: {scope}\n\nKnown plotlines:\n{known_plotlines}\n\nChapter summaries in reading order:\n{summaries}",
+            description: "Proposes the plotlines of a section or the book from the chapter summaries, with kind and chapters; new ones can be added and linked in one go.",
+            maxTokens: 2000),
 
         new PromptTemplate(StyleRead,
             system: "You are a line editor. You are given local statistics about a chapter's prose and the chapter itself. Describe the " +

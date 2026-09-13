@@ -16,7 +16,7 @@ public sealed class NewEntitiesWindow : Window
     public List<ExtractedEntity> ChosenCharacters { get; } = new();
     public List<ExtractedEntity> ChosenPlotlines { get; } = new();
 
-    public NewEntitiesWindow(string chapterTitle, IReadOnlyList<ExtractedEntity> newCharacters, IReadOnlyList<ExtractedEntity> newPlotlines)
+    public NewEntitiesWindow(string chapterTitle, IReadOnlyList<ExtractedEntity> newCharacters, IReadOnlyList<ExtractedEntity> newPlotlines, string? intro = null)
     {
         Title = $"New in \"{chapterTitle}\"";
         Width = 640; Height = 520; MinWidth = 480; MinHeight = 360;
@@ -26,7 +26,7 @@ public sealed class NewEntitiesWindow : Window
         var root = new DockPanel { Margin = new Thickness(16) };
         var head = new TextBlock
         {
-            Text = "The analysis found characters and plotlines that are not in the book yet. Ticked ones are added and linked to this chapter; untick anything that is a passing name rather than a character, or a beat rather than a thread. Known ones were linked already.",
+            Text = intro ?? "The analysis found characters and plotlines that are not in the book yet. Ticked ones are added and linked to this chapter; untick anything that is a passing name rather than a character, or a beat rather than a thread. Known ones were linked already.",
             TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 0, 0, 10)
         };
         DockPanel.SetDock(head, Dock.Top);
@@ -62,6 +62,8 @@ public sealed class NewEntitiesWindow : Window
             var text = new TextBlock { TextWrapping = TextWrapping.Wrap };
             text.Inlines.Add(new System.Windows.Documents.Run(e.Name) { FontWeight = FontWeights.SemiBold });
             if (e.IsPov) text.Inlines.Add(new System.Windows.Documents.Run("  (POV)") { Foreground = System.Windows.Media.Brushes.Gray });
+            if (e.Kind.Length > 0) text.Inlines.Add(new System.Windows.Documents.Run($"  [{e.Kind}]") { Foreground = System.Windows.Media.Brushes.Gray });
+            if (e.Chapters.Count > 0) text.Inlines.Add(new System.Windows.Documents.Run($"  chapters {string.Join(", ", e.Chapters)}") { Foreground = System.Windows.Media.Brushes.Gray });
             if (e.Note.Length > 0) text.Inlines.Add(new System.Windows.Documents.Run(" — " + e.Note));
             box.Content = text;
             panel.Children.Add(box);
