@@ -23,6 +23,7 @@ voices), plot and writing-style analyses.
 | `docs/DEVELOPMENT-PLAN.md` | **The work breakdown** — numbered tasks per phase with status. Start here. |
 | `docs/TRILOGY-TEST-CASE.md` | Ron's real trilogy (73 DOCX chapters on OneDrive) — the live test case every feature is checked against. |
 | `docs/MANUAL-TESTING.md` | The hand-test build (`manual-test\AuthorPlus.exe`, from `build-manual-test.ps1`), what to exercise, known gaps. |
+| `docs/STORE-SUBMISSION.md` | **The Microsoft Store submission** — identity, packaging commands, WACK, Partner Center field by field, listing copy ready to paste. |
 | `..\AiManager\docs\PLAN.md` | The shared AI layer this app consumes (package `Eaglin.AiManager`). |
 | `README.md` | What the app is, for a reader who is not building it. |
 
@@ -67,6 +68,10 @@ dotnet build AuthorPlus.sln
 dotnet test tests/AuthorPlus.Tests
 dotnet run --project src/AuthorPlus.App
 .\build-manual-test.ps1          # hand-test exe → manual-test\AuthorPlus.exe (gitignored; SMADA's pattern)
+
+.\packaging\make-store-assets.ps1   # tiles, listing images and AuthorPlus.ico, drawn from one mark
+.\packaging\make-msixupload.ps1     # the Store package → artifacts\ (see docs/STORE-SUBMISSION.md)
+.\packaging\run-wack.ps1            # certification kit, with a readable summary
 ```
 
 .NET SDK 10.0.400 is installed; `net10.0-windows` WPF builds from the CLI with no extra

@@ -262,3 +262,6 @@ __pycache__/
 # Hand-test build output (see docs/MANUAL-TESTING.md)
 manual-test/
 manual-test-*/
+
+# Store packaging: the staged/publish trees and the built packages are all reproducible.
+artifacts/

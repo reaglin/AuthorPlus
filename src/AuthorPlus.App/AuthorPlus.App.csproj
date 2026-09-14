@@ -9,6 +9,14 @@
     <RootNamespace>AuthorPlus.App</RootNamespace>
     <AssemblyName>AuthorPlus</AssemblyName>
     <ApplicationManifest Condition="Exists('app.manifest')">app.manifest</ApplicationManifest>
+    <!-- Drawn by packaging/make-store-assets.ps1 from the same mark as the Store tiles. -->
+    <ApplicationIcon Condition="Exists('AuthorPlus.ico')">AuthorPlus.ico</ApplicationIcon>
+    <!-- WFO0003 tells WinForms apps to set high DPI through ApplicationHighDpiMode instead of
+         the manifest. This is a WPF app (WinForms is here only for the folder dialog, and
+         ApplicationConfiguration.Initialize is never called), so the manifest is the only thing
+         that makes the process per-monitor aware - and WACK's DPIAwarenessValidation, a required
+         Store test, reads the manifest. -->
+    <NoWarn>$(NoWarn);WFO0003</NoWarn>
   </PropertyGroup>
 
   <ItemGroup>

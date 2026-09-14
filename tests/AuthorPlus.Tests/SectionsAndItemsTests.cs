@@ -1,4 +1,4 @@
-﻿﻿using AuthorPlus.Core.Models;
+﻿using AuthorPlus.Core.Models;
 using AuthorPlus.Core.Services;
 
 namespace AuthorPlus.Tests;

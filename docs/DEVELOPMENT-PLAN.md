@@ -138,13 +138,18 @@ Plotlines checklists that appear on a chapter.
 
 Exit: signed MSIX installs on a clean Windows 11 VM; Store listing submitted.
 
+**Start with `docs/STORE-SUBMISSION.md`** — the whole submission in order, with the values to type
+and the commands to run.
+
 | # | Task | Targets | Acceptance | Status |
 |---|---|---|---|---|
 | 4.1 | EPUB and PDF export | `Core/Services/Export` (PDFsharp, MIT) | validates in an EPUB checker | [ ] |
-| 4.2 | Packaging: `packaging/AppxManifest.xml`, `pack.ps1` (publish → makeappx → signtool), version from `Directory.Build.props` | `packaging/` | installs on a clean VM | [ ] |
-| 4.3 | Privacy policy page on PunchMonkeyServer (`/privacy/authorplus`) + `PRIVACY_POLICY.txt` | | | [ ] |
-| 4.4 | Store listing assets, screenshots, description; age rating; price | `store/` | | [ ] |
-| 4.5 | Store name reservation (Ron) and first submission | | | [ ] |
+| 4.2 | Packaging: `AppxManifest.xml`, `pack.ps1` (publish → makepri → makeappx → signtool), `make-msixupload.ps1` (bundle + symbols, unsigned as the Store wants, with a package-family-name check), `run-wack.ps1`, version from `Directory.Build.props`; `app.manifest` for PerMonitorV2 | `packaging/` | a 71.8 MB `.msixupload` builds end to end | [x] 2026-09-14 |
+| 4.3 | Privacy policy: `PRIVACY_POLICY.md` here, `PrivacyAuthorPlus.razor` in the PunchMonkeyServer repo at `/privacy/authorplus`, listed on `/privacy` | | committed; deploy with that repo's `deploy.ps1` | [x] 2026-09-14 |
+| 4.4 | Store art: `make-store-assets.ps1` draws the mark once and emits every tile at five scales, the taskbar target sizes, the five Partner Center listing images and `AuthorPlus.ico` — 52 assets, none over WACK's 204,800-byte cap | `packaging/Assets`, `store/images` | contact sheet reads at 16 px | [x] 2026-09-14 |
+| 4.5 | The submission guide: identity, the order to do everything in, Partner Center field by field, age-rating answers, certification notes, listing copy ready to paste | `docs/STORE-SUBMISSION.md` | | [x] 2026-09-14 |
+| 4.6 | Screenshots (≥ 1366×768, four or more) | `store/screenshots/` | | [ ] |
+| 4.7 | Deploy the privacy page; copy the package identity name out of Partner Center; set 1.0.0; build with the real identity; run WACK; submit | | Store listing live | [ ] |
 
 ## Version 2 — Audio (Ron, 2026-09-12: "not v1, but develop knowing where we are going")
 

@@ -1,4 +1,4 @@
-﻿﻿﻿using Eaglin.AiManager.Prompts;
+﻿using Eaglin.AiManager.Prompts;
 
 namespace AuthorPlus.App;
 

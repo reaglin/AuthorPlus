@@ -1,4 +1,4 @@
-﻿﻿using System.Windows;
+﻿using System.Windows;
 using System.Windows.Controls;
 using AuthorPlus.Core.Services;
 using Brushes = System.Windows.Media.Brushes;
