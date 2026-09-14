@@ -1,4 +1,4 @@
-using System.Text.RegularExpressions;
+﻿using System.Text.RegularExpressions;
 
 namespace AuthorPlus.Core.Services;
 
@@ -100,7 +100,7 @@ public sealed class ChapterExtract
     public List<ExtractedEntity> Characters { get; } = new();
     public List<ExtractedEntity> Plotlines { get; } = new();
 
-    private static readonly string[] Kinds = { "primary", "secondary", "subplot", "main", "side" };
+    private static readonly string[] Kinds = { "primary", "secondary", "chapter", "subplot", "extra", "main", "side" };
 
     internal static string NormalizeKind(string s)
     {

@@ -114,6 +114,13 @@
             <Separator/>
             <StatusBarItem><TextBlock x:Name="TxtWords" Text=""/></StatusBarItem>
             <Separator/>
+            <StatusBarItem><TextBlock x:Name="TxtChapChars" Text="" Foreground="#1A5FB4" Cursor="Hand"
+                                      MouseLeftButtonUp="StatusCharacters_Click"
+                                      ToolTip="Who is in the open chapter — click to open Characters, where the chart says who is in which chapter"/></StatusBarItem>
+            <StatusBarItem><TextBlock x:Name="TxtChapPlots" Text="" Foreground="#1A5FB4" Cursor="Hand"
+                                      MouseLeftButtonUp="StatusPlotlines_Click"
+                                      ToolTip="The threads running through the open chapter — click to open Plotlines"/></StatusBarItem>
+            <Separator/>
             <StatusBarItem><TextBlock x:Name="TxtAi" Text="" Foreground="#555"/></StatusBarItem>
         </StatusBar>
 

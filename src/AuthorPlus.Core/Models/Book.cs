@@ -1,4 +1,4 @@
-using System.Text.Json.Serialization;
+﻿using System.Text.Json.Serialization;
 
 namespace AuthorPlus.Core.Models;
 
@@ -297,7 +297,13 @@ public sealed class TimelineEvent
 public enum PlotlineStatus { Planned, Active, Resolved }
 
 /// <summary>How much of the book a thread carries: the spine, a thread beside it, or a side story.</summary>
-public enum PlotlineKind { Primary, Secondary, Subplot }
+/// <summary>
+/// How much of the book a thread carries. <b>Primary</b> is a spine the book turns on;
+/// <b>Secondary</b> runs beside it across chapters; <b>Chapter</b> opens and closes inside one
+/// chapter; <b>Subplot</b> is a side story; <b>Extra</b> is a thread the author is watching that
+/// carries no weight yet.
+/// </summary>
+public enum PlotlineKind { Primary, Secondary, Chapter, Subplot, Extra }
 
 /// <summary>A thread of the story. Plotlines converge; that is recorded on both sides.</summary>
 public sealed class Plotline

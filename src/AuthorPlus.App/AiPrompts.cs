@@ -216,10 +216,10 @@ public static class AiPrompts
         new PromptTemplate(ChapterExtract,
             system: "You extract records for an author's story bible from one chapter. Output exactly two blocks and nothing else:\n\n" +
                     "CHARACTERS\nName | known or new | POV or - | what they do in this chapter (one short clause)\n\n" +
-                    "PLOTLINES\nName | known or new | primary or secondary or subplot | what happens in this thread in this chapter (one short clause)\n\n" +
+                    "PLOTLINES\nName | known or new | primary or secondary or chapter or subplot | what happens in this thread in this chapter (one short clause)\n\n" +
                     "One line per character who appears or acts (not a passing mention); one line per story thread the chapter advances or introduces. " +
                     "A plotline is a question or conflict that runs across chapters (\"the mystery of the message\"), not a single event; " +
-                    "primary = a thread the whole book turns on, secondary = a thread beside it, subplot = a side story. " +
+                    "primary = a thread the whole book turns on, secondary = a thread beside it, chapter = one that opens and closes inside this chapter, subplot = a side story. " +
                     "Use the known names exactly when they match (an alias counts as known); mark anyone or anything not in the known lists as new. " +
                     "Give a new plotline a short descriptive name (2–5 words). Mark exactly one character POV when the chapter has a viewpoint character.",
             user:   "Chapter: {chapter}\n\nKnown characters (name — also called):\n{known_characters}\n\nKnown plotlines:\n{known_plotlines}\n\n{text}",

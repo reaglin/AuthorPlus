@@ -1,4 +1,4 @@
-using System.Windows;
+﻿﻿using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
@@ -173,7 +173,7 @@ public sealed class PlotlineBoard : DockPanel
     {
         var help = new TextBlock
         {
-            Text = "● the plotline runs through the chapter · ◆ it converges with another plotline there. Click a cell to toggle ●. Red names are plotlines not yet resolved. No plotlines yet? Right-click Plotlines › Find Plotlines (AI)… works from the chapter summaries.",
+            Text = "● the plotline runs through the chapter · ◆ it converges with another plotline there. Click a cell to toggle ●. The tint behind a name is its kind — primary, secondary, chapter, subplot, extra; a red name is not yet resolved. No plotlines yet? Right-click Plotlines › Find Plotlines (AI)… works from the chapter summaries.",
             Foreground = Brushes.Gray, TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 0, 0, 8)
         };
         SetDock(help, Dock.Top);
@@ -209,10 +209,12 @@ public sealed class PlotlineBoard : DockPanel
         for (int r = 0; r < book.Plotlines.Count; r++)
         {
             var p = book.Plotlines[r];
+            var rowBg = r % 2 == 1 ? Palette.RowAltBg : Brushes.Transparent;
             var name = new TextBlock
             {
-                Text = $"{p.Name}  ({p.Kind.ToString().ToLowerInvariant()}, {p.Status.ToString().ToLowerInvariant()})", Padding = new Thickness(4, 3, 10, 3), VerticalAlignment = VerticalAlignment.Center, Cursor = Cursors.Hand,
+                Text = $"{p.Name}  ({p.Kind.ToString().ToLowerInvariant()}, {p.Status.ToString().ToLowerInvariant()})", Padding = new Thickness(6, 3, 10, 3), VerticalAlignment = VerticalAlignment.Center, Cursor = Cursors.Hand,
                 Foreground = p.Status == PlotlineStatus.Resolved ? Brushes.Black : Brushes.Firebrick, FontWeight = FontWeights.SemiBold,
+                Background = Palette.KindBg(p.Kind),
                 ToolTip = "Open this plotline"
             };
             name.MouseLeftButtonUp += (_, _) => navigate(p);
@@ -222,14 +224,14 @@ public sealed class PlotlineBoard : DockPanel
             for (int c = 0; c < book.Chapters.Count; c++)
             {
                 var ch = book.Chapters[c];
-                var cell = new Border { BorderBrush = new SolidColorBrush(Color.FromRgb(0xE3, 0xE6, 0xEB)), BorderThickness = new Thickness(0, 0, 1, 1), Cursor = Cursors.Hand, Background = Brushes.Transparent };
+                var cell = new Border { BorderBrush = Palette.Line, BorderThickness = new Thickness(0, 0, 1, 1), Cursor = Cursors.Hand, Background = rowBg };
                 var mark = new TextBlock { HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center, FontSize = 12 };
                 void Paint()
                 {
                     bool runs = p.ChapterIds.Contains(ch.Id);
                     bool conv = p.Convergences.Any(x => x.ChapterId == ch.Id);
                     mark.Text = conv ? "◆" : runs ? "●" : "";
-                    mark.Foreground = conv ? Brushes.DarkOrange : Brushes.SteelBlue;
+                    mark.Foreground = conv ? Brushes.DarkOrange : Palette.KindInk(p.Kind);
                 }
                 Paint();
                 cell.Child = mark;
@@ -249,14 +251,18 @@ public sealed class PlotlineBoard : DockPanel
     }
 }
 
-/// <summary>Shown when the "Characters" group is selected: who appears where.</summary>
+/// <summary>
+/// Shown when the "Characters" group is selected, and the one place characters are linked to
+/// chapters: the cast as a table, and under it the same chapter-by-chapter chart the Plotlines
+/// page uses — one row per character, one column per chapter.
+/// </summary>
 public sealed class CharactersView : DockPanel
 {
     private sealed record Row(Character Character, string Name, string Role, int Chapters, int Pov, string First, string Aliases);
 
-    public CharactersView(Book book, Action<object> navigate)
+    public CharactersView(Book book, Action<object> navigate, Action changed)
     {
-        var help = new TextBlock { Text = "Chapters = chapters that list the character as present; POV = chapters told from their point of view. Double-click to open.", Foreground = Brushes.Gray, TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 0, 0, 8) };
+        var help = new TextBlock { Text = "The cast above, who is in which chapter below. Double-click a row to open a character; everything about them is edited on their own page.", Foreground = Brushes.Gray, TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 0, 0, 8) };
         SetDock(help, Dock.Top);
         Children.Add(help);
         var grid = TimelineView.MakeGrid();
@@ -275,7 +281,127 @@ public sealed class CharactersView : DockPanel
                 string.Join(", ", MentionFinder.NamesOf(c).Skip(1)));
         }).ToList();
         grid.MouseDoubleClick += (_, _) => { if (grid.SelectedItem is Row r) navigate(r.Character); };
-        Children.Add(grid);
+
+        // The cast above, the chapter-by-chapter chart below, each scrolling on its own.
+        var split = new Grid();
+        split.RowDefinitions.Add(new RowDefinition { Height = new GridLength(2, GridUnitType.Star), MinHeight = 90 });
+        split.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+        split.RowDefinitions.Add(new RowDefinition { Height = new GridLength(3, GridUnitType.Star), MinHeight = 120 });
+        Grid.SetRow(grid, 0);
+        split.Children.Add(grid);
+        var splitter = new GridSplitter { Height = 6, HorizontalAlignment = HorizontalAlignment.Stretch, Background = Brushes.Transparent };
+        Grid.SetRow(splitter, 1);
+        split.Children.Add(splitter);
+        var board = new CharacterBoard(book, navigate, changed);
+        Grid.SetRow(board, 2);
+        split.Children.Add(board);
+        Children.Add(split);
+    }
+}
+
+/// <summary>
+/// Who is in each chapter: one row per character, one column per chapter, the same chart as the
+/// Plotlines board. Click a cell to put a character in a chapter or take them out; double-click to
+/// make them its point-of-view character. This is where those links are made, so the chapter
+/// editor can stay the manuscript and nothing else.
+/// </summary>
+public sealed class CharacterBoard : DockPanel
+{
+    public CharacterBoard(Book book, Action<object> navigate, Action changed)
+    {
+        var help = new TextBlock
+        {
+            Text = "● the character is in the chapter · ★ the chapter is told from their point of view. Click a cell to put them in or take them out; double-click to make them its point of view. Click a name to open the character. A red name is in no chapter yet.",
+            Foreground = Brushes.Gray, TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 8, 0, 8)
+        };
+        SetDock(help, Dock.Top);
+        Children.Add(help);
+
+        if (book.Characters.Count == 0)
+        {
+            Children.Add(new TextBlock { Text = "No characters yet — right-click Characters in the tree to add one, or run Analyze… (AI) on a chapter and keep the ones it finds.", Foreground = Brushes.Gray });
+            return;
+        }
+
+        var grid = new Grid { Margin = new Thickness(0, 0, 0, 12) };
+        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        foreach (var _ in book.Chapters) grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(26) });
+        grid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+        foreach (var _ in book.Characters) grid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+
+        for (int c = 0; c < book.Chapters.Count; c++)
+        {
+            var ch = book.Chapters[c];
+            var sec = book.SectionOf(ch);
+            var hdr = new TextBlock
+            {
+                Text = book.ChapterNumber(ch).ToString(), FontSize = 10, HorizontalAlignment = HorizontalAlignment.Center, Padding = new Thickness(0, 2, 0, 2),
+                ToolTip = $"{(sec != null ? sec.Title + " — " : "")}{book.ChapterNumber(ch)}. {ch.Title}",
+                Background = sec != null && book.Sections.IndexOf(sec) % 2 == 1 ? new SolidColorBrush(Color.FromRgb(0xEE, 0xF2, 0xF7)) : Brushes.Transparent
+            };
+            Grid.SetRow(hdr, 0); Grid.SetColumn(hdr, c + 1);
+            grid.Children.Add(hdr);
+        }
+
+        var repaint = new List<Action>();
+        for (int r = 0; r < book.Characters.Count; r++)
+        {
+            var person = book.Characters[r];
+            var rowBg = r % 2 == 1 ? Palette.RowAltBg : Brushes.Transparent;
+            int appears = book.Chapters.Count(ch => ch.CharacterIds.Contains(person.Id));
+            var name = new TextBlock
+            {
+                Text = person.Name + (person.Role.Length > 0 ? $"  ({person.Role})" : ""),
+                Padding = new Thickness(6, 3, 10, 3), VerticalAlignment = VerticalAlignment.Center, Cursor = Cursors.Hand,
+                FontWeight = FontWeights.SemiBold, Foreground = appears == 0 ? Brushes.Firebrick : Brushes.Black, Background = rowBg,
+                ToolTip = appears == 0 ? "No chapter lists this character yet — click the cells to say where they are" : "Open this character"
+            };
+            name.MouseLeftButtonUp += (_, _) => navigate(person);
+            Grid.SetRow(name, r + 1); Grid.SetColumn(name, 0);
+            grid.Children.Add(name);
+
+            for (int c = 0; c < book.Chapters.Count; c++)
+            {
+                var ch = book.Chapters[c];
+                var cell = new Border { BorderBrush = Palette.Line, BorderThickness = new Thickness(0, 0, 1, 1), Cursor = Cursors.Hand, Background = rowBg };
+                var mark = new TextBlock { HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center, FontSize = 12 };
+                var who = person; var chapter = ch;
+                void Paint()
+                {
+                    bool present = chapter.CharacterIds.Contains(who.Id);
+                    bool pov = chapter.PovCharacterId == who.Id;
+                    mark.Text = pov ? "★" : present ? "●" : "";
+                    mark.Foreground = pov ? Brushes.DarkGoldenrod : Brushes.SteelBlue;
+                    cell.Background = pov ? Palette.PovBg : rowBg;
+                }
+                Paint();
+                repaint.Add(Paint);
+                cell.Child = mark;
+                cell.ToolTip = $"{book.ChapterNumber(ch)}. {ch.Title} — {person.Name}";
+                cell.MouseLeftButtonDown += (_, e) =>
+                {
+                    if (e.ClickCount >= 2)                                   // double-click: point of view
+                    {
+                        if (!chapter.CharacterIds.Contains(who.Id)) chapter.CharacterIds.Add(who.Id);
+                        chapter.PovCharacterId = chapter.PovCharacterId == who.Id ? null : who.Id;
+                    }
+                    else if (chapter.CharacterIds.Contains(who.Id))          // single click: in or out
+                    {
+                        chapter.CharacterIds.Remove(who.Id);
+                        if (chapter.PovCharacterId == who.Id) chapter.PovCharacterId = null;
+                    }
+                    else chapter.CharacterIds.Add(who.Id);
+
+                    foreach (var paint in repaint) paint();                  // one POV per chapter: repaint the column too
+                    changed();
+                    e.Handled = true;
+                };
+                Grid.SetRow(cell, r + 1); Grid.SetColumn(cell, c + 1);
+                grid.Children.Add(cell);
+            }
+        }
+
+        Children.Add(new ScrollViewer { Content = grid, HorizontalScrollBarVisibility = ScrollBarVisibility.Auto, VerticalScrollBarVisibility = ScrollBarVisibility.Auto });
     }
 }
 

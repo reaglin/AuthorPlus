@@ -77,6 +77,18 @@ the exe (`AuthorPlus.exe "<book folder>"` opens it). Books live in `Documents\Au
   AI › **Suggestions for Selection…**; or use AI › **Choose a Passage…** (also on a chapter's
   right-click menu) to see the chapter paragraph by paragraph with a **Select** on each — tick
   several to take them together. The rewrites are saved as a Suggestions item on the chapter.
+- **The chapter editor is now only the manuscript.** Who is in the chapter and which threads run
+  through it show in the **status bar** ("Characters: 4 · POV Roland ▸", "Plotlines: 3 ▸"); each is a
+  link to that page, and hovering shows the full list.
+- **Characters page**: the cast table as before, and under it a chart of one row per character and
+  one column per chapter. ● means they are in the chapter, ★ that it is told from their point of
+  view. Click a cell to put them in or take them out; double-click to make them the point of view.
+  This is where those links are made now.
+- **Chapter Characters** and **Chapter Plotlines** items are tables to read, not forms. Plotlines
+  shows the name, the type as a tinted chip, whether the thread is introduced here or continued
+  from an earlier chapter, and its description; every name opens the plotline, where it is edited.
+  Characters shows the name, role, point of view or where else they appear, and their other names.
+  The AI’s notes stay editable under each table.
 - Character › **Suggest Profile (AI)**.
 - View › **Preview AI Prompts Before Sending** — turn it on and run anything: you see the
   exact text, tokens and cost before it goes. AI › **Prompt Library…** to change the wording;
@@ -86,6 +98,8 @@ the exe (`AuthorPlus.exe "<book folder>"` opens it). Books live in `Documents\Au
 
 - No EPUB / PDF export yet (phase 4); no MSIX / Store packaging yet (phase 4).
 - Multi-select delete in the tree is not implemented (WPF TreeView is single-select).
+- Plotline kinds now include **chapter** (opens and closes in one chapter) and **extra**; existing
+  plotlines keep the kind they had.
 - Part 3 chapter 23 is not on disk — insert it when found (task 1.19).
 - Several Part 2 chapter titles differ between file name and in-document heading; titles came
   from the file names. Rename in the tree, or re-import Part 2 with "Titles from: headings".

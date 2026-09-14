@@ -1,4 +1,4 @@
-﻿﻿﻿﻿using System.Diagnostics;
+﻿﻿﻿﻿﻿using System.Diagnostics;
 using System.IO;
 using System.Windows;
 using System.Windows.Controls;
@@ -632,7 +632,7 @@ public partial class MainWindow : Window, ISuggestionActions
                 {
                     TimelineHeader   => new TimelineView(_book, SelectNode, MarkDirty),
                     PlotlinesHeader  => new PlotlineBoard(_book, SelectNode, MarkDirty),
-                    CharactersHeader => new CharactersView(_book, SelectNode),
+                    CharactersHeader => new CharactersView(_book, SelectNode, MarkDirty),
                     _                => new TextBlock()
                 };
                 break;
@@ -647,6 +647,7 @@ public partial class MainWindow : Window, ISuggestionActions
                 };
                 break;
         }
+        UpdateChapterLinks(CurrentChapter());
         _loading = false;
     }
 
@@ -670,7 +671,7 @@ public partial class MainWindow : Window, ISuggestionActions
         var box = new ComboBox { ItemsSource = Enum.GetValues<PlotlineKind>(), SelectedItem = p.Kind, Width = 130 };
         box.SelectionChanged += (_, _) => { if (!_loading && box.SelectedItem is PlotlineKind k) { p.Kind = k; MarkDirty(); } };
         panel.Children.Add(box);
-        panel.Children.Add(new TextBlock { Text = "primary = the spine the book turns on · secondary = a thread beside it · subplot = a side story", Foreground = System.Windows.Media.Brushes.Gray, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(10, 0, 0, 0), TextWrapping = TextWrapping.Wrap });
+        panel.Children.Add(new TextBlock { Text = "primary = the spine the book turns on · secondary = a thread beside it · chapter = it opens and closes here · subplot = a side story · extra = one you are watching", Foreground = System.Windows.Media.Brushes.Gray, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(10, 0, 0, 0), TextWrapping = TextWrapping.Wrap });
         return panel;
     }
 
@@ -849,14 +850,8 @@ public partial class MainWindow : Window, ISuggestionActions
         Grid.SetRow(_findPanel, 1);
         grid.Children.Add(_findPanel);
 
-        // Links: who is in the chapter (with POV) and which plotlines run through it.
-        grid.RowDefinitions.Insert(2, new RowDefinition { Height = GridLength.Auto });
-        var links = new StackPanel { Margin = new Thickness(0, 0, 0, 4) };
-        links.Children.Add(new LinkPicker("Characters present", CharacterCandidates(), ch.CharacterIds, () => { MarkDirty(); SyncCharactersItem(ch); },
-            single: ch.PovCharacterId, singleChanged: id => ch.PovCharacterId = id));
-        links.Children.Add(new LinkPicker("Plotlines in this chapter", PlotlineCandidates(), ch.PlotlineIds, () => { MarkDirty(); foreach (var p in _book!.Plotlines) { if (ch.PlotlineIds.Contains(p.Id)) { if (!p.ChapterIds.Contains(ch.Id)) p.ChapterIds.Add(ch.Id); } else p.ChapterIds.Remove(ch.Id); } }));
-        Grid.SetRow(links, 2);
-        grid.Children.Add(links);
+        // Who is in the chapter and which plotlines run through it are shown in the status bar and
+        // edited on the Characters and Plotlines pages — the editor is the manuscript, nothing else.
 
         // The manuscript.
         _rtb = new RichTextBox
@@ -870,7 +865,7 @@ public partial class MainWindow : Window, ISuggestionActions
             Document = LoadDocument(ch)
         };
         _rtb.TextChanged += (_, _) => { if (!_loading) { MarkDirty(); UpdateWordCount(ch); } };
-        Grid.SetRow(_rtb, 3);
+        Grid.SetRow(_rtb, 2);
         grid.Children.Add(_rtb);
 
         UpdateWordCount(ch);
@@ -1196,6 +1191,37 @@ public partial class MainWindow : Window, ISuggestionActions
         try { return PlainText((FlowDocument)XamlReader.Parse(xaml)); } catch { return ""; }
     }
 
+    // ── The open chapter's links, in the status bar ───────────────────────────
+
+    /// <summary>
+    /// The status bar carries what the chapter editor used to: how many characters are in the open
+    /// chapter and how many threads run through it, each a link to the page where it is edited.
+    /// </summary>
+    private void UpdateChapterLinks(Chapter? ch)
+    {
+        if (_book == null || ch == null)
+        {
+            TxtChapChars.Text = "";
+            TxtChapPlots.Text = "";
+            return;
+        }
+        var people = _book.Characters.Where(c => ch.CharacterIds.Contains(c.Id)).ToList();
+        var pov = _book.Characters.FirstOrDefault(c => c.Id == ch.PovCharacterId);
+        TxtChapChars.Text = $"Characters: {people.Count}{(pov != null ? $" · POV {pov.Name}" : "")} ▸";
+        TxtChapChars.ToolTip = people.Count == 0
+            ? "Nobody is linked to this chapter yet. Click to open Characters and mark the chart."
+            : string.Join(", ", people.Select(c => c.Name + (c.Id == ch.PovCharacterId ? " (POV)" : ""))) + "  —  click to open Characters";
+
+        var threads = _book.Plotlines.Where(p => ch.PlotlineIds.Contains(p.Id) || p.ChapterIds.Contains(ch.Id)).ToList();
+        TxtChapPlots.Text = $"Plotlines: {threads.Count} ▸";
+        TxtChapPlots.ToolTip = threads.Count == 0
+            ? "No thread is linked to this chapter yet. Click to open Plotlines and mark the chart."
+            : string.Join(", ", threads.Select(p => $"{p.Name} ({p.Kind.ToString().ToLowerInvariant()})")) + "  —  click to open Plotlines";
+    }
+
+    private void StatusCharacters_Click(object sender, MouseButtonEventArgs e) { if (_book != null) SelectNode(CharactersHeader); }
+    private void StatusPlotlines_Click(object sender, MouseButtonEventArgs e) { if (_book != null) SelectNode(PlotlinesHeader); }
+
     private void UpdateWordCount(Chapter ch)
     {
         if (_rtb == null) return;
@@ -1260,42 +1286,85 @@ public partial class MainWindow : Window, ISuggestionActions
         return panel;
     }
 
+    /// <summary>
+    /// Who is in the chapter, as a table to read. Who appears where is set on the Characters page
+    /// (its chart), and a character's own page holds everything about them; a row here opens it.
+    /// </summary>
     private UIElement BuildCharactersInChapterEditor(Item it)
     {
-        var grid = new Grid();
-        grid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
-        grid.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
+        var chapter = _book!.Chapters.FirstOrDefault(c => c.Id == it.OwnerId);
+        var ids = it.CharacterIds.Count > 0 ? it.CharacterIds : chapter?.CharacterIds ?? new List<Guid>();
+        var povId = it.PovCharacterId ?? chapter?.PovCharacterId;
+        var rows = _book.Characters.Where(c => ids.Contains(c.Id)).ToList();
 
-        var list = new StackPanel { Margin = new Thickness(0, 0, 0, 8) };
-        list.Children.Add(new TextBlock { Text = "Tick who appears; choose the point-of-view character.", FontWeight = FontWeights.SemiBold, Margin = new Thickness(0, 0, 0, 4) });
-        if (_book!.Characters.Count == 0)
-            list.Children.Add(new TextBlock { Text = "No characters yet — add them under Characters in the tree, then come back.", Foreground = System.Windows.Media.Brushes.Gray });
-        foreach (var c in _book.Characters)
+        var root = new DockPanel();
+        var head = new TextBlock
         {
-            var row = new DockPanel { Margin = new Thickness(0, 2, 0, 2) };
-            var pov = new RadioButton { Content = "POV", GroupName = "pov-" + it.Id, IsChecked = it.PovCharacterId == c.Id, Margin = new Thickness(12, 0, 0, 0), VerticalAlignment = VerticalAlignment.Center };
-            var check = new CheckBox { Content = c.Name, IsChecked = it.CharacterIds.Contains(c.Id), VerticalAlignment = VerticalAlignment.Center };
-            check.Checked   += (_, _) => { if (_loading) return; if (!it.CharacterIds.Contains(c.Id)) it.CharacterIds.Add(c.Id); Touch(it); SyncChapterFromItem(it); };
-            check.Unchecked += (_, _) => { if (_loading) return; it.CharacterIds.Remove(c.Id); if (it.PovCharacterId == c.Id) { it.PovCharacterId = null; pov.IsChecked = false; } Touch(it); SyncChapterFromItem(it); };
-            pov.Checked += (_, _) => { if (_loading) return; it.PovCharacterId = c.Id; if (!it.CharacterIds.Contains(c.Id)) { it.CharacterIds.Add(c.Id); check.IsChecked = true; } Touch(it); SyncChapterFromItem(it); };
-            DockPanel.SetDock(pov, Dock.Right);
-            row.Children.Add(pov);
-            row.Children.Add(check);
-            list.Children.Add(row);
-        }
-        Grid.SetRow(list, 0);
-        grid.Children.Add(list);
+            Text = "Who is in this chapter, from the analysis. Click a name to open the character — that page holds their role, motivations and arc. Who appears in which chapter is set on the Characters page, on the chart under the cast.",
+            Foreground = System.Windows.Media.Brushes.Gray, TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 0, 0, 8)
+        };
+        DockPanel.SetDock(head, Dock.Top);
+        root.Children.Add(head);
 
-        var notes = new DockPanel();
-        notes.Children.Add(new TextBlock { Text = "What each does in this chapter (the AI's list, editable)", FontWeight = FontWeights.SemiBold, Margin = new Thickness(0, 0, 0, 4) });
-        DockPanel.SetDock(notes.Children[0], Dock.Top);
-        var body = new TextBox { Text = it.Body, AcceptsReturn = true, TextWrapping = TextWrapping.Wrap, VerticalScrollBarVisibility = ScrollBarVisibility.Auto, Padding = new Thickness(8) };
+        var table = new Grid { Margin = new Thickness(0, 0, 0, 10) };
+        foreach (var w in new[] { 200d, 150d, 190d, 0d })
+            table.ColumnDefinitions.Add(new ColumnDefinition { Width = w > 0 ? new GridLength(w) : new GridLength(1, GridUnitType.Star) });
+        table.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+        foreach (var _ in rows) table.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+
+        var headers = new[] { "Character", "Role", "In this chapter", "Also called" };
+        for (int c = 0; c < headers.Length; c++)
+        {
+            var cell = Palette.HeaderCell(headers[c]);
+            Grid.SetRow(cell, 0); Grid.SetColumn(cell, c);
+            table.Children.Add(cell);
+        }
+
+        for (int r = 0; r < rows.Count; r++)
+        {
+            var person = rows[r];
+            bool alt = r % 2 == 1;
+            int appears = _book.Chapters.Count(c => c.CharacterIds.Contains(person.Id));
+            var first = _book.Chapters.FirstOrDefault(c => c.CharacterIds.Contains(person.Id));
+            bool introduced = chapter != null && first != null && first.Id == chapter.Id;
+            var pov = povId == person.Id;
+
+            var (state, tint, why) =
+                pov        ? ("Point of view", Palette.PovBg, "The chapter is told from this character's point of view.")
+                : introduced ? ("Introduced here", Palette.IntroducedBg, "This is the first chapter that lists them.")
+                             : ($"Also in {appears - 1} other chapter{(appears == 2 ? "" : "s")}", Palette.ContinuedBg, "Open the character to see every chapter they are in.");
+
+            var open = Palette.LinkText(person.Name, () => SelectNode(person), "Open this character");
+            open.FontWeight = FontWeights.SemiBold;
+            var cells = new UIElement[]
+            {
+                Palette.Cell(open, alt),
+                Palette.Cell(person.Role.Trim().Length > 0 ? person.Role.Trim() : "—", alt),
+                Palette.Cell(Palette.Chip(state, tint, why), alt),
+                Palette.Cell(string.Join(", ", MentionFinder.NamesOf(person).Skip(1)) is { Length: > 0 } also ? also : "—", alt)
+            };
+            for (int c = 0; c < cells.Length; c++)
+            {
+                Grid.SetRow(cells[c], r + 1); Grid.SetColumn(cells[c], c);
+                table.Children.Add(cells[c]);
+            }
+        }
+
+        if (rows.Count == 0)
+            root.Children.Add(WithTopDock(new TextBlock { Text = "No characters are linked to this chapter yet. Run Analyze… (AI) on the chapter, or open Characters and mark the chapter on the chart.", Foreground = System.Windows.Media.Brushes.Gray, Margin = new Thickness(0, 0, 0, 10) }));
+        else
+            root.Children.Add(WithTopDock(new Border { BorderBrush = Palette.Line, BorderThickness = new Thickness(1, 1, 0, 0), Child = table }));
+
+        var label = new TextBlock { Text = "What each does in this chapter (the AI's list, editable)", FontWeight = FontWeights.SemiBold, Margin = new Thickness(0, 8, 0, 4) };
+        DockPanel.SetDock(label, Dock.Top);
+        root.Children.Add(label);
+        var body = new TextBox { Text = it.Body, AcceptsReturn = true, TextWrapping = TextWrapping.Wrap, VerticalScrollBarVisibility = ScrollBarVisibility.Auto, Padding = new Thickness(8), MinHeight = 120 };
         body.TextChanged += (_, _) => { if (!_loading) { it.Body = body.Text; Touch(it); } };
-        notes.Children.Add(body);
-        Grid.SetRow(notes, 1);
-        grid.Children.Add(notes);
-        return grid;
+        root.Children.Add(body);
+        return new ScrollViewer { Content = root, VerticalScrollBarVisibility = ScrollBarVisibility.Auto };
     }
+
+    private static UIElement WithTopDock(UIElement element) { DockPanel.SetDock(element, Dock.Top); return element; }
 
     /// <summary>The analysis as one card per aspect, each with a Suggestions… button that asks for rewrites for that aspect alone.</summary>
     private UIElement BuildAnalysisEditor(Item it)
@@ -1500,27 +1569,98 @@ public partial class MainWindow : Window, ISuggestionActions
         if (_current is Item) ShowCurrent();
     }
 
+    /// <summary>
+    /// The chapter's plotlines as a table to read, not a form to fill in: what each thread is, how
+    /// much of the book it carries, whether it starts here or was already running, and what it is
+    /// about. Every row opens the plotline, which is where it is edited.
+    /// </summary>
     private UIElement BuildChapterPlotlinesEditor(Item it)
     {
         var chapter = _book!.Chapters.FirstOrDefault(c => c.Id == it.OwnerId);
-        var stack = new DockPanel();
-        var picker = new LinkPicker("Plotlines running through this chapter", PlotlineCandidates(), it.PlotlineIds, () =>
+        var ids = it.PlotlineIds.Count > 0 ? it.PlotlineIds : chapter?.PlotlineIds ?? new List<Guid>();
+        var rows = _book.Plotlines.Where(p => ids.Contains(p.Id)).ToList();
+
+        var root = new DockPanel();
+        var head = new TextBlock
         {
-            Touch(it);
-            if (chapter == null) return;
-            chapter.PlotlineIds = it.PlotlineIds.ToList();
-            foreach (var p in _book.Plotlines) { if (it.PlotlineIds.Contains(p.Id)) { if (!p.ChapterIds.Contains(chapter.Id)) p.ChapterIds.Add(chapter.Id); } else p.ChapterIds.Remove(chapter.Id); }
-        }, expanded: true);
-        DockPanel.SetDock(picker, Dock.Top);
-        stack.Children.Add(picker);
+            Text = "The threads running through this chapter, from the analysis. Everything here is edited on the Plotlines page — click a name to open it; the chart there says which chapters each thread runs through.",
+            Foreground = System.Windows.Media.Brushes.Gray, TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 0, 0, 8)
+        };
+        DockPanel.SetDock(head, Dock.Top);
+        root.Children.Add(head);
+
+        var table = new Grid { Margin = new Thickness(0, 0, 0, 10) };
+        foreach (var w in new[] { 200d, 110d, 190d, 0d })
+            table.ColumnDefinitions.Add(new ColumnDefinition { Width = w > 0 ? new GridLength(w) : new GridLength(1, GridUnitType.Star) });
+        table.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+        foreach (var _ in rows) table.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+
+        var headers = new[] { "Plotline", "Type", "In this chapter", "Description" };
+        for (int c = 0; c < headers.Length; c++)
+        {
+            var cell = Palette.HeaderCell(headers[c]);
+            Grid.SetRow(cell, 0); Grid.SetColumn(cell, c);
+            table.Children.Add(cell);
+        }
+
+        for (int r = 0; r < rows.Count; r++)
+        {
+            var p = rows[r];
+            bool alt = r % 2 == 1;
+            var runs = _book.Chapters.Where(c => p.ChapterIds.Contains(c.Id)).ToList();
+            var here = chapter != null && p.ChapterIds.Contains(chapter.Id);
+            var before = chapter == null ? null : runs.LastOrDefault(c => _book.Chapters.IndexOf(c) < _book.Chapters.IndexOf(chapter));
+
+            var (state, tint, why) =
+                !here                  ? ("Named here, not linked", Palette.UnlinkedBg, "The analysis named this thread for the chapter but the plotline does not list the chapter — link it on the Plotlines page.")
+                : before == null       ? ("Introduced here", Palette.IntroducedBg, "This is the first chapter the thread runs through.")
+                                       : ($"Continued from ch. {_book.ChapterNumber(before)}", Palette.ContinuedBg, $"Last seen in {_book.ChapterNumber(before)}. {before.Title}");
+
+            var open = Palette.LinkText(p.Name, () => SelectNode(p), "Open this plotline");
+            open.FontWeight = FontWeights.SemiBold;
+            var cells = new UIElement[]
+            {
+                Palette.Cell(open, alt),
+                Palette.Cell(Palette.Chip(p.Kind.ToString().ToLowerInvariant(), Palette.KindBg(p.Kind), KindMeaning(p.Kind)), alt),
+                Palette.Cell(Palette.Chip(state, tint, why), alt),
+                Palette.Cell(p.Summary.Trim().Length > 0 ? p.Summary.Trim() : "— no description yet; write one on the Plotlines page —", alt)
+            };
+            for (int c = 0; c < cells.Length; c++)
+            {
+                Grid.SetRow(cells[c], r + 1); Grid.SetColumn(cells[c], c);
+                table.Children.Add(cells[c]);
+            }
+        }
+
+        var tableHost = new Border { BorderBrush = Palette.Line, BorderThickness = new Thickness(1, 1, 0, 0), Child = table };
+        if (rows.Count == 0)
+        {
+            DockPanel.SetDock(tableHost, Dock.Top);
+            root.Children.Add(new TextBlock { Text = "No plotlines are linked to this chapter yet. Run Analyze… (AI) on the chapter, or open Plotlines and mark the chapter on the chart.", Foreground = System.Windows.Media.Brushes.Gray, Margin = new Thickness(0, 0, 0, 10) });
+        }
+        else
+        {
+            DockPanel.SetDock(tableHost, Dock.Top);
+            root.Children.Add(tableHost);
+        }
+
         var label = new TextBlock { Text = "What happens in each thread here (the AI's notes, editable)", FontWeight = FontWeights.SemiBold, Margin = new Thickness(0, 8, 0, 4) };
         DockPanel.SetDock(label, Dock.Top);
-        stack.Children.Add(label);
-        var body = new TextBox { Text = it.Body, AcceptsReturn = true, TextWrapping = TextWrapping.Wrap, VerticalScrollBarVisibility = ScrollBarVisibility.Auto, Padding = new Thickness(8) };
+        root.Children.Add(label);
+        var body = new TextBox { Text = it.Body, AcceptsReturn = true, TextWrapping = TextWrapping.Wrap, VerticalScrollBarVisibility = ScrollBarVisibility.Auto, Padding = new Thickness(8), MinHeight = 120 };
         body.TextChanged += (_, _) => { if (!_loading) { it.Body = body.Text; Touch(it); } };
-        stack.Children.Add(body);
-        return stack;
+        root.Children.Add(body);
+        return new ScrollViewer { Content = root, VerticalScrollBarVisibility = ScrollBarVisibility.Auto };
     }
+
+    private static string KindMeaning(PlotlineKind kind) => kind switch
+    {
+        PlotlineKind.Primary   => "A spine the whole book turns on.",
+        PlotlineKind.Secondary => "A thread running beside the spine, across chapters.",
+        PlotlineKind.Chapter   => "Opens and closes inside this one chapter.",
+        PlotlineKind.Subplot   => "A side story of its own.",
+        _                      => "Something you are keeping an eye on; it carries no weight yet."
+    };
 
     private void Touch(Item it) { it.ModifiedUtc = DateTime.UtcNow; MarkDirty(); }
 
@@ -2234,7 +2374,11 @@ public partial class MainWindow : Window, ISuggestionActions
 
     private static PlotlineKind KindOf(ExtractedEntity e) => e.Kind switch
     {
-        "primary" => PlotlineKind.Primary, "subplot" => PlotlineKind.Subplot, _ => PlotlineKind.Secondary
+        "primary" or "main" => PlotlineKind.Primary,
+        "chapter"           => PlotlineKind.Chapter,
+        "subplot"           => PlotlineKind.Subplot,
+        "extra"             => PlotlineKind.Extra,
+        _                   => PlotlineKind.Secondary
     };
 
     private async void AiFindPlotlines_Click(object sender, RoutedEventArgs e)
