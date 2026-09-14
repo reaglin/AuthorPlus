@@ -1,4 +1,4 @@
-﻿﻿﻿using System.Windows;
+﻿﻿﻿﻿﻿using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
@@ -336,7 +336,8 @@ public sealed class CharacterBoard : DockPanel
     {
         var help = new TextBlock
         {
-            Text = "● the character is in the chapter · ★ the chapter is told from their point of view. Click a cell to put them in or take them out; double-click to make them its point of view. Click a name to open the character. A red name is in no chapter yet.",
+            Text = "What each character does in each chapter:  ● green they are introduced  ·  ● blue they appear  ·  ● purple they leave the story  ·  ★ the chapter is told from their point of view (the star keeps the colour of their part). " +
+                   "Click a cell to say which. Click a name to open the character. A red name is in no chapter yet.",
             Foreground = Brushes.Gray, TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 8, 0, 8)
         };
         SetDock(help, Dock.Top);
@@ -393,33 +394,50 @@ public sealed class CharacterBoard : DockPanel
                 var who = person; var chapter = ch;
                 void Paint()
                 {
-                    bool present = chapter.CharacterIds.Contains(who.Id);
+                    var role = who.RoleIn(chapter.Id);
                     bool pov = chapter.PovCharacterId == who.Id;
-                    mark.Text = pov ? "★" : present ? "●" : "";
-                    mark.Foreground = pov ? Brushes.DarkGoldenrod : Brushes.SteelBlue;
+                    mark.Text = role is null ? (pov ? "★" : "") : pov ? "★" : "●";
+                    mark.Foreground = Palette.RoleInk(role ?? CharacterRole.Appears);
                     cell.Background = pov ? Palette.PovBg : rowBg;
+                    cell.ToolTip = $"{book.ChapterNumber(chapter)}. {chapter.Title} — {who.Name}\n" +
+                                   (role is { } r4 ? Palette.RoleWord(r4).ToLowerInvariant() + " here" : "not in this chapter") +
+                                   (pov ? ", and it is told from their point of view" : "") + "\nClick to change it.";
                 }
                 Paint();
                 repaint.Add(Paint);
                 cell.Child = mark;
-                cell.ToolTip = $"{book.ChapterNumber(ch)}. {ch.Title} — {person.Name}";
-                cell.MouseLeftButtonDown += (_, e) =>
-                {
-                    if (e.ClickCount >= 2)                                   // double-click: point of view
-                    {
-                        if (!chapter.CharacterIds.Contains(who.Id)) chapter.CharacterIds.Add(who.Id);
-                        chapter.PovCharacterId = chapter.PovCharacterId == who.Id ? null : who.Id;
-                    }
-                    else if (chapter.CharacterIds.Contains(who.Id))          // single click: in or out
-                    {
-                        chapter.CharacterIds.Remove(who.Id);
-                        if (chapter.PovCharacterId == who.Id) chapter.PovCharacterId = null;
-                    }
-                    else chapter.CharacterIds.Add(who.Id);
 
-                    foreach (var paint in repaint) paint();                  // one POV per chapter: repaint the column too
-                    changed();
-                    e.Handled = true;
+                // Clicking the dot says what the character does here, the same way a plotline's does.
+                cell.MouseLeftButtonUp += (_, _) =>
+                {
+                    var menu = new ContextMenu { PlacementTarget = cell, IsOpen = true };
+                    void Choice(string header, CharacterRole? role)
+                    {
+                        var mi = new MenuItem { Header = header };
+                        mi.Click += (_, _) => { book.SetRole(who, chapter.Id, role); foreach (var paint in repaint) paint(); changed(); };
+                        menu.Items.Add(mi);
+                    }
+                    menu.Items.Add(new MenuItem { Header = $"{who.Name} in chapter {book.ChapterNumber(chapter)} — {chapter.Title}", IsEnabled = false });
+                    menu.Items.Add(new Separator());
+                    Choice("Introduced here", CharacterRole.Introduced);
+                    Choice("Appears here", CharacterRole.Appears);
+                    Choice("Leaves the story here", CharacterRole.Leaves);
+                    menu.Items.Add(new Separator());
+                    var povItem = new MenuItem { Header = chapter.PovCharacterId == who.Id ? "Not the point of view after all" : "Told from their point of view" };
+                    povItem.Click += (_, _) =>
+                    {
+                        if (chapter.PovCharacterId == who.Id) chapter.PovCharacterId = null;
+                        else
+                        {
+                            if (who.RoleIn(chapter.Id) is null) book.SetRole(who, chapter.Id, CharacterRole.Appears);
+                            chapter.PovCharacterId = who.Id;
+                        }
+                        foreach (var paint in repaint) paint();               // one point of view per chapter: the column changes too
+                        changed();
+                    };
+                    menu.Items.Add(povItem);
+                    menu.Items.Add(new Separator());
+                    Choice("Not in this chapter", null);
                 };
                 Grid.SetRow(cell, r + 1); Grid.SetColumn(cell, c + 1);
                 grid.Children.Add(cell);

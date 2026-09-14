@@ -99,6 +99,10 @@ the exe (`AuthorPlus.exe "<book folder>"` opens it). Books live in `Documents\Au
   summaries of the chapters it runs through and adds what they say.
 - **The plotlines chart** now colour-codes what a thread does in each chapter: green introduced,
   blue continuing, purple resolved. Click a cell for the menu that sets it.
+- **The characters chart** reads the same way: green where a character is introduced, blue where
+  they appear, purple where they leave the story, and a star for the chapter told from their point
+  of view (the star keeps the colour of their part). Clicking a cell opens the same kind of menu,
+  with point of view as a fourth choice in it.
 - View › **Preview AI Prompts Before Sending** — turn it on and run anything: you see the
   exact text, tokens and cost before it goes. AI › **Prompt Library…** to change the wording;
   AI › **AI Usage…** for the month's calls.

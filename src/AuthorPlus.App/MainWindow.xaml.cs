@@ -1,4 +1,4 @@
-﻿﻿﻿﻿﻿﻿﻿using System.Diagnostics;
+﻿﻿﻿﻿﻿﻿﻿﻿using System.Diagnostics;
 using System.IO;
 using System.Windows;
 using System.Windows.Controls;
@@ -760,14 +760,33 @@ public partial class MainWindow : Window, ISuggestionActions
         Field("Arc", () => c.Arc, v => c.Arc = v, "How they change, and what changes them.");
         Field("Notes", () => c.Notes, v => c.Notes = v, "Anything that does not fit the other fields.");
 
-        var appears = _book!.Chapters.Where(ch => ch.CharacterIds.Contains(c.Id))
-            .Select(ch => $"{(_book.SectionOf(ch) is { } s ? s.Title + " · " : "")}{_book.ChapterNumber(ch)}. {ch.Title}{(ch.PovCharacterId == c.Id ? "  (POV)" : "")}").ToList();
-        panel.Children.Add(new TextBlock { Text = "Appears in", FontWeight = FontWeights.SemiBold, Margin = new Thickness(0, 16, 0, 2) });
+        // Where they are in the book, and what they do in each chapter.
+        var appears = _book!.Chapters.Where(ch => ch.CharacterIds.Contains(c.Id)).ToList();
+        panel.Children.Add(new TextBlock { Text = "In the book", FontWeight = FontWeights.SemiBold, Margin = new Thickness(0, 16, 0, 2) });
         panel.Children.Add(new TextBlock
         {
-            Text = appears.Count == 0 ? "No chapter lists this character yet — mark them on the chart under the cast on the Characters page." : string.Join("\n", appears),
-            TextWrapping = TextWrapping.Wrap, Foreground = appears.Count == 0 ? System.Windows.Media.Brushes.Gray : System.Windows.Media.Brushes.Black
+            Text = appears.Count == 0
+                ? "No chapter lists this character yet — say where they are on the chart under the cast on the Characters page."
+                : _book.RoleSpan(c),
+            TextWrapping = TextWrapping.Wrap, Foreground = System.Windows.Media.Brushes.DimGray, Margin = new Thickness(0, 0, 0, 6)
         });
+        if (appears.Count > 0)
+        {
+            var wrapChapters = new WrapPanel();
+            foreach (var ch in appears)
+            {
+                var role = c.RoleIn(ch.Id) ?? CharacterRole.Appears;
+                bool pov = ch.PovCharacterId == c.Id;
+                var chip = Palette.Chip($"{_book.ChapterNumber(ch)}. {ch.Title} — {Palette.RoleWord(role)}{(pov ? " · POV" : "")}",
+                                        pov ? Palette.PovBg : Palette.RoleBg(role), "Open this chapter");
+                chip.Margin = new Thickness(0, 0, 8, 6);
+                chip.Cursor = Cursors.Hand;
+                var target = ch;
+                chip.MouseLeftButtonUp += (_, _) => SelectNode(target);
+                wrapChapters.Children.Add(chip);
+            }
+            panel.Children.Add(wrapChapters);
+        }
         var buttons = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 8, 0, 0) };
         var scan = new Button { Content = "Scan chapters for mentions…", Padding = new Thickness(10, 3, 10, 3), Margin = new Thickness(0, 0, 8, 0) };
         scan.Click += ScanMentions_Click;
@@ -1427,14 +1446,15 @@ public partial class MainWindow : Window, ISuggestionActions
             var person = rows[r];
             bool alt = r % 2 == 1;
             int appears = _book.Chapters.Count(c => c.CharacterIds.Contains(person.Id));
-            var first = _book.Chapters.FirstOrDefault(c => c.CharacterIds.Contains(person.Id));
-            bool introduced = chapter != null && first != null && first.Id == chapter.Id;
+            var role = chapter == null ? null : person.RoleIn(chapter.Id);
             var pov = povId == person.Id;
 
             var (state, tint, why) =
-                pov        ? ("Point of view", Palette.PovBg, "The chapter is told from this character's point of view.")
-                : introduced ? ("Introduced here", Palette.IntroducedBg, "This is the first chapter that lists them.")
-                             : ($"Also in {appears - 1} other chapter{(appears == 2 ? "" : "s")}", Palette.ContinuedBg, "Open the character to see every chapter they are in.");
+                role is null                        ? ("Named here, not linked", Palette.UnlinkedBg, "The analysis named them for this chapter but no chapter lists them — say where they are on the Characters chart.")
+                : role == CharacterRole.Introduced  ? ("Introduced here" + (pov ? " · POV" : ""), pov ? Palette.PovBg : Palette.RoleBg(CharacterRole.Introduced), "They come into the story in this chapter." + (pov ? " It is told from their point of view." : ""))
+                : role == CharacterRole.Leaves      ? ("Leaves here" + (pov ? " · POV" : ""), pov ? Palette.PovBg : Palette.RoleBg(CharacterRole.Leaves), "They leave the story in this chapter." + (pov ? " It is told from their point of view." : ""))
+                : pov                               ? ("Point of view", Palette.PovBg, "The chapter is told from their point of view.")
+                                                    : ($"Appears · also in {appears - 1} other chapter{(appears == 2 ? "" : "s")}", Palette.RoleBg(CharacterRole.Appears), "Open the character to see every chapter they are in.");
 
             var open = Palette.LinkText(person.Name, () => SelectNode(person), "Open this character");
             open.FontWeight = FontWeights.SemiBold;
@@ -1774,6 +1794,18 @@ public partial class MainWindow : Window, ISuggestionActions
         if (_book?.Chapters.FirstOrDefault(c => c.Id == it.OwnerId) is not { } ch) return;
         ch.CharacterIds = it.CharacterIds.ToList();
         ch.PovCharacterId = it.PovCharacterId;
+        SeedCharacterRoles();
+    }
+
+    /// <summary>
+    /// Gives every character a part in each chapter that lists them, leaving alone any the author
+    /// has already set. Run after anything links characters to chapters, so the chart is never
+    /// blank where the book says someone is present.
+    /// </summary>
+    private void SeedCharacterRoles()
+    {
+        if (_book == null) return;
+        foreach (var c in _book.Characters) _book.SeedRoles(c);
     }
 
     private void SyncCharactersItem(Chapter ch)
@@ -2065,6 +2097,7 @@ public partial class MainWindow : Window, ISuggestionActions
             if (!ch.CharacterIds.Contains(c.Id)) ch.CharacterIds.Add(c.Id);
             SyncCharactersItem(ch);
         }
+        _book.SeedRoles(c);
         MarkDirty();
         ShowCurrent();
         UpdateStatus($"Linked {c.Name} to {dlg.ToLink.Count} chapter(s).");

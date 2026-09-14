@@ -1,4 +1,4 @@
-using System.Text.Json;
+﻿using System.Text.Json;
 using System.Text.Json.Serialization;
 using AuthorPlus.Core.Models;
 
@@ -119,8 +119,9 @@ public sealed class BookStore
 
     /// <summary>
     /// Format 1 → 2: chapter summaries become Summary items.
-    /// Format 2 → 3: a character's single "Description" becomes their Physical description, and a
-    /// plotline's chapters get a part to play (the first introduces it, the rest continue it).
+    /// Format 2 → 3: a character's single "Description" becomes their Physical description, and
+    /// plotlines and characters get a part to play in each chapter (the first introduces them, the
+    /// rest continue or appear).
     /// Idempotent; in memory only until the next save.
     /// </summary>
     private static void Migrate(Book book)
@@ -140,6 +141,7 @@ public sealed class BookStore
             c.LegacyDescription = null;
         }
         foreach (var p in book.Plotlines) book.SeedRoles(p);
+        foreach (var c in book.Characters) book.SeedRoles(c);
         if (book.FormatVersion < Book.CurrentFormatVersion) book.FormatVersion = Book.CurrentFormatVersion;
     }
 

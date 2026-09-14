@@ -68,6 +68,30 @@ public static class Palette
         _                       => "Continuing"
     };
 
+    // A character's part in a chapter reads in the same three colours as a thread's: green where
+    // they arrive, blue while they are about, purple where they leave the story.
+
+    public static Brush RoleBg(CharacterRole role) => role switch
+    {
+        CharacterRole.Introduced => IntroducedBg,
+        CharacterRole.Leaves     => Rgb(0xE6, 0xDD, 0xF3),
+        _                        => ContinuedBg
+    };
+
+    public static Brush RoleInk(CharacterRole role) => role switch
+    {
+        CharacterRole.Introduced => Rgb(0x1B, 0x84, 0x4B),
+        CharacterRole.Leaves     => Rgb(0x6B, 0x45, 0xA8),
+        _                        => Rgb(0x1A, 0x5F, 0xB4)
+    };
+
+    public static string RoleWord(CharacterRole role) => role switch
+    {
+        CharacterRole.Introduced => "Introduced",
+        CharacterRole.Leaves     => "Leaves",
+        _                        => "Appears"
+    };
+
     /// <summary>The tint behind a plotline kind — strongest for the threads that carry the most.</summary>
     public static Brush KindBg(PlotlineKind kind) => kind switch
     {

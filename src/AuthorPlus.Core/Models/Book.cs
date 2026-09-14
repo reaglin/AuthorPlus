@@ -146,6 +146,65 @@ public sealed class Book
         return string.Join(", ", parts) + $"  ({runs.Count} chapter{(runs.Count == 1 ? "" : "s")})";
     }
 
+    // ── Characters: what they do in each chapter ──────────────────────────────
+
+    /// <summary>
+    /// Gives every chapter a character is in a part to play, without changing one already set: the
+    /// first chapter in reading order introduces them, the rest are appearances. The chapters that
+    /// list a character (<see cref="Chapter.CharacterIds"/>) stay the record of where they are.
+    /// </summary>
+    public void SeedRoles(Character character)
+    {
+        var inOrder = Chapters.Where(c => c.CharacterIds.Contains(character.Id)).Select(c => c.Id).ToList();
+        character.ChapterRoles.RemoveAll(r => !inOrder.Contains(r.ChapterId));
+        for (int i = 0; i < inOrder.Count; i++)
+        {
+            if (character.ChapterRoles.Any(r => r.ChapterId == inOrder[i])) continue;
+            character.ChapterRoles.Add(new CharacterChapterRole { ChapterId = inOrder[i], Role = i == 0 ? CharacterRole.Introduced : CharacterRole.Appears });
+        }
+    }
+
+    /// <summary>
+    /// Sets what a character does in one chapter, or takes them out of it when
+    /// <paramref name="role"/> is null (which also drops them as its point-of-view character).
+    /// Keeps the chapter's own list in step, so the chart, the tables and the status bar agree.
+    /// </summary>
+    public void SetRole(Character character, Guid chapterId, CharacterRole? role)
+    {
+        var chapter = Chapters.FirstOrDefault(c => c.Id == chapterId);
+        character.ChapterRoles.RemoveAll(r => r.ChapterId == chapterId);
+        if (role is { } r2)
+        {
+            character.ChapterRoles.Add(new CharacterChapterRole { ChapterId = chapterId, Role = r2 });
+            if (chapter is not null && !chapter.CharacterIds.Contains(character.Id)) chapter.CharacterIds.Add(character.Id);
+        }
+        else if (chapter is not null)
+        {
+            chapter.CharacterIds.Remove(character.Id);
+            if (chapter.PovCharacterId == character.Id) chapter.PovCharacterId = null;
+        }
+    }
+
+    /// <summary>
+    /// The character's life in chapter numbers: "Introduced ch. 2, through ch. 40, leaves ch. 52".
+    /// Empty when no chapter lists them yet.
+    /// </summary>
+    public string RoleSpan(Character character)
+    {
+        var inOrder = Chapters.Where(c => c.CharacterIds.Contains(character.Id)).ToList();
+        if (inOrder.Count == 0) return "";
+        string Num(Chapter c) => $"ch. {ChapterNumber(c)}";
+        var introduced = inOrder.FirstOrDefault(c => character.RoleIn(c.Id) == CharacterRole.Introduced) ?? inOrder[0];
+        var leaves = inOrder.LastOrDefault(c => character.RoleIn(c.Id) == CharacterRole.Leaves);
+
+        var parts = new List<string> { $"Introduced {Num(introduced)}" };
+        if (inOrder.Count > 1 && (leaves is null || leaves.Id != inOrder[^1].Id || inOrder.Count > 2))
+            parts.Add($"through {Num(leaves is not null && leaves.Id == inOrder[^1].Id && inOrder.Count > 1 ? inOrder[^2] : inOrder[^1])}");
+        if (leaves is not null) parts.Add($"leaves {Num(leaves)}");
+        int pov = Chapters.Count(c => c.PovCharacterId == character.Id);
+        return string.Join(", ", parts) + $"  ({inOrder.Count} chapter{(inOrder.Count == 1 ? "" : "s")}" + (pov > 0 ? $", {pov} told from their point of view)" : ")");
+    }
+
     /// <summary>1-based position of a chapter within its section (or among the unsectioned chapters).</summary>
     public int ChapterNumber(Chapter chapter)
     {
@@ -346,11 +405,35 @@ public sealed class Character
     public string Aliases     { get; set; } = string.Empty;
 
     /// <summary>
+    /// What the character does in each chapter they are in: they arrive, they are about, or they
+    /// leave the story. Seeded from the chapters that list them.
+    /// </summary>
+    public List<CharacterChapterRole> ChapterRoles { get; set; } = new();
+
+    /// <summary>Their part in a chapter, or null when they are not in it.</summary>
+    public CharacterRole? RoleIn(Guid chapterId) =>
+        ChapterRoles.FirstOrDefault(r => r.ChapterId == chapterId)?.Role;
+
+    /// <summary>
     /// Format-2 books kept appearance and manner in one "Description". On load it moves into
     /// <see cref="PhysicalDescription"/> and this is cleared, so it is never written again.
     /// </summary>
     [JsonPropertyName("Description"), JsonInclude]
     internal string? LegacyDescription { get; set; }
+}
+
+/// <summary>
+/// What a character does in one chapter: they arrive in the story here, they are about, or this is
+/// where they leave it. The same three parts a plotline plays, in a character's terms — and, like a
+/// plotline's, they are what the boards colour.
+/// </summary>
+public enum CharacterRole { Introduced, Appears, Leaves }
+
+/// <summary>A character's part in one chapter. Absent = they are not in that chapter.</summary>
+public sealed class CharacterChapterRole
+{
+    public Guid          ChapterId { get; set; }
+    public CharacterRole Role      { get; set; } = CharacterRole.Appears;
 }
 
 /// <summary>
