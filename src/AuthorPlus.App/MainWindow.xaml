@@ -1,4 +1,4 @@
-<Window x:Class="AuthorPlus.App.MainWindow"
+﻿<Window x:Class="AuthorPlus.App.MainWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:local="clr-namespace:AuthorPlus.App"
@@ -81,6 +81,10 @@
                     <MenuItem Header="P_rose habits…" Tag="Prose habits" Click="AiAspect_Click"/>
                 </MenuItem>
                 <MenuItem Header="_Chapter Characters" Click="AiCharactersInChapter_Click" ToolTip="Who appears in the chapter (name scan + AI), as a Chapter Characters item"/>
+                <MenuItem Header="Suggestions for Se_lection…" Click="AiPassageSuggestions_Click"
+                          ToolTip="Rewrites of the text you have selected in the chapter; with nothing selected you pick the paragraphs instead"/>
+                <MenuItem Header="C_hoose a Passage…" Click="AiChoosePassage_Click"
+                          ToolTip="The chapter paragraph by paragraph — Select the one you want rewrites for, or tick several"/>
                 <MenuItem Header="Style _Report…" Click="Style_Click" ToolTip="Local prose statistics for the chapter, with an optional AI read"/>
                 <Separator/>
                 <MenuItem Header="Continuity Chec_k (AI)…" Click="AiContinuity_Click" ToolTip="Contradictions across the selected section (or the whole book), checked against the characters and timeline"/>

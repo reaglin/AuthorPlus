@@ -66,7 +66,7 @@ public static class SuggestionsEditor
         foreach (var group in GroupByPassage(item.Suggestions))
         {
             n++;
-            stack.Children.Add(PassageBlock(item, chapter, group, actions, $"Passage {n}", showChapterTitle: false));
+            stack.Children.Add(PassageBlock(item, chapter, group, actions, $"Passage {n:00}", $"P{n:00}", showChapterTitle: false));
         }
         return new ScrollViewer { Content = stack, VerticalScrollBarVisibility = ScrollBarVisibility.Auto };
     }
@@ -87,8 +87,12 @@ public static class SuggestionsEditor
         static string Key(string s) => new string(s.Where(c => !char.IsWhiteSpace(c) && !char.IsPunctuation(c)).ToArray()).ToLowerInvariant();
     }
 
-    /// <summary>One passage with every suggestion made for it.</summary>
-    public static Border PassageBlock(Item item, Chapter? chapter, List<SuggestionEntry> group, ISuggestionActions actions, string label, bool showChapterTitle)
+    /// <summary>
+    /// One passage with every suggestion made for it. <paramref name="tag"/> is the passage's short
+    /// name ("P01"): the suggestions inside it are numbered within the passage, "P01 - Suggestion 1",
+    /// "P01 - Suggestion 2", so the count does not run on from the passage above.
+    /// </summary>
+    public static Border PassageBlock(Item item, Chapter? chapter, List<SuggestionEntry> group, ISuggestionActions actions, string label, string tag, bool showChapterTitle)
     {
         var block = new Border { Background = BlockBg, BorderBrush = Line, BorderThickness = new Thickness(1), CornerRadius = new CornerRadius(5), Padding = new Thickness(12), Margin = new Thickness(0, 0, 0, 14) };
         var body = new StackPanel();
@@ -129,10 +133,12 @@ public static class SuggestionsEditor
             MaxHeight = 170, VerticalScrollBarVisibility = ScrollBarVisibility.Auto, Margin = new Thickness(0, 0, 0, 8)
         });
 
-        // One collapsible frame per suggestion.
+        // One collapsible frame per suggestion, numbered within this passage.
+        int within = 0;
         foreach (var e in group)
         {
-            var frame = Frame(item, chapter, e, actions, expanded: group.Count == 1);
+            within++;
+            var frame = Frame(item, chapter, e, actions, expanded: group.Count == 1, label: $"{tag} - Suggestion {within}");
             frames.Add(frame);
             body.Children.Add(frame);
         }
@@ -151,8 +157,8 @@ public static class SuggestionsEditor
         return parts.Count == 0 ? "" : ", " + string.Join(", ", parts);
     }
 
-    /// <summary>One suggestion: a collapsible frame that never repeats the passage.</summary>
-    public static Expander Frame(Item item, Chapter? chapter, SuggestionEntry e, ISuggestionActions actions, bool expanded)
+    /// <summary>One suggestion: a collapsible frame that never repeats the passage. <paramref name="label"/> names it within its passage ("P01 - Suggestion 2").</summary>
+    public static Expander Frame(Item item, Chapter? chapter, SuggestionEntry e, ISuggestionActions actions, bool expanded, string label)
     {
         var headerText = new TextBlock { VerticalAlignment = VerticalAlignment.Center, TextTrimming = TextTrimming.CharacterEllipsis };
         var status = new TextBlock { VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(8, 0, 0, 0), Foreground = Brushes.Gray, FontSize = 11 };
@@ -222,7 +228,7 @@ public static class SuggestionsEditor
         {
             var preview = e.Rewrite.Replace("\n", " ");
             if (preview.Length > 90) preview = preview[..90].TrimEnd() + "…";
-            headerText.Text = $"Suggestion {e.Index}{(e.IsRefinement ? " (asked again)" : "")} — {preview}";
+            headerText.Text = $"{label}{(e.IsRefinement ? " (asked again)" : "")} — {preview}";
             status.Text = e.Status switch
             {
                 SuggestionStatus.Applied  => $"✓ applied {e.ActedUtc?.ToLocalTime():MMM d}",
@@ -261,7 +267,7 @@ public static class SuggestionsEditor
         askAgain.Click += (_, _) => { if (chapter != null) actions.AskAgain(chapter, item, e); };
         dismiss.Click += (_, _) =>
         {
-            if (MessageBox.Show($"Delete suggestion {e.Index}? This cannot be undone.", "Dismiss suggestion", MessageBoxButton.YesNo, MessageBoxImage.Warning) != MessageBoxResult.Yes) return;
+            if (MessageBox.Show($"Delete {label}? This cannot be undone.", "Dismiss suggestion", MessageBoxButton.YesNo, MessageBoxImage.Warning) != MessageBoxResult.Yes) return;
             actions.Dismiss(item, e);
         };
         Paint();
@@ -324,7 +330,7 @@ public sealed class MarkedPassagesWindow : Window
             {
                 n++;
                 stack.Children.Add(SuggestionsEditor.PassageBlock(item, ch, new List<SuggestionEntry> { marked }, actions,
-                    $"Marked passage {n}", showChapterTitle: chapter == null));
+                    $"Marked passage {n:00}", $"M{n:00}", showChapterTitle: chapter == null));
             }
         }
         if (n == 0) stack.Children.Add(new TextBlock { Text = "Nothing is marked. On a suggestion, click Mark to keep it here.", Foreground = Brushes.Gray });

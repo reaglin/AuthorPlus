@@ -1,4 +1,4 @@
-using Eaglin.AiManager.Prompts;
+﻿﻿using Eaglin.AiManager.Prompts;
 
 namespace AuthorPlus.App;
 
@@ -20,6 +20,7 @@ public static class AiPrompts
     public const string AnalysisAspect      = "analysis-aspect";
     public const string AnalysisSuggestions = "analysis-suggestions";
     public const string SuggestionRefine    = "suggestion-refine";
+    public const string PassageSuggestions  = "passage-suggestions";
     public const string ChapterExtract      = "chapter-extract";
     public const string FindPlotlines       = "find-plotlines";
     public const string CharactersInChapter = "characters-in-chapter";
@@ -177,6 +178,19 @@ public static class AiPrompts
                     "where it is meant to unsettle, make it worse, not smoother. " + SuggestionFormat,
             user:   "Book: {book}\nChapter: {chapter}\nAspect: {aspect}\n\nWhat the analysis said about it:\n{finding}\n\nWhat the author is aiming for (may be blank):\n{intent}\n\nThe chapter:\n{text}",
             description: "Rewrite suggestions for one point of a chapter analysis (the Suggestions… button beside a point). Saved as a Suggestions item under the analysis.",
+            maxTokens: 8000),
+
+        new PromptTemplate(PassageSuggestions,
+            system: Purpose +
+                    "You are a line editor working on ONE passage the author has chosen out of their own chapter — not on the chapter as a whole. " +
+                    "They may have said what they want it to do; if they have, that governs, and each rewrite should reach it by a different route — through rhythm, " +
+                    "through a concrete image, through what is left unsaid, through dialogue or silence. If they have said nothing, read the passage in the context of the " +
+                    "chapter and work out what it is reaching for before you touch it. Offer 3–6 rewrites: of the whole passage, or of single sentences inside it where that is " +
+                    "where the work is. Every ORIGINAL must be quoted from the chosen passage itself, never from elsewhere in the chapter. " + SuggestionFormat,
+            user:   "Book: {book}\nChapter: {chapter}\n\nThe passage the author chose:\n{passage}\n\n" +
+                    "The effect they want (may be blank): {intent}\n\nWhat they say they are trying to convey (may be blank):\n{request}\n\n" +
+                    "What the author is aiming for in this chapter (may be blank):\n{chapter_intent}\n\nThe chapter, for context:\n{text}",
+            description: "Rewrites of a passage the author picked themselves — by selecting it in the editor or choosing paragraphs — guided by what they say it is for.",
             maxTokens: 8000),
 
         new PromptTemplate(SuggestionRefine,

@@ -1,4 +1,4 @@
-﻿using System.Diagnostics;
+﻿﻿﻿﻿using System.Diagnostics;
 using System.IO;
 using System.Windows;
 using System.Windows.Controls;
@@ -492,6 +492,7 @@ public partial class MainWindow : Window, ISuggestionActions
                 }
                 m.Items.Add(aspects);
                 Add("Chapter Characters", AiCharactersInChapter_Click);
+                Add("Suggestions for a Passage… (AI)", AiChoosePassage_Click, _ai.IsAvailable());
                 Add("Style Report…", Style_Click);
                 Add("Marked Passages…", MarkedPassages_Click);
                 Add("Add Notes", AddNotesItem_Click);
@@ -837,7 +838,10 @@ public partial class MainWindow : Window, ISuggestionActions
         analyze.Click += AiAnalyze_Click;
         var who = new Button { Content = "Chapter Characters", Padding = new Thickness(8, 2, 8, 2), Margin = new Thickness(4, 0, 0, 0) };
         who.Click += AiCharactersInChapter_Click;
-        bar.Items.Add(summarize); bar.Items.Add(analyze); bar.Items.Add(who);
+        var passage = new Button { Content = "Suggestions… (AI)", Padding = new Thickness(8, 2, 8, 2), Margin = new Thickness(4, 0, 0, 0),
+                                   ToolTip = "Rewrites of one passage: select the text you mean first, or click with nothing selected to pick paragraphs" };
+        passage.Click += AiPassageSuggestions_Click;
+        bar.Items.Add(summarize); bar.Items.Add(analyze); bar.Items.Add(who); bar.Items.Add(passage);
         Grid.SetRow(bar, 0);
         grid.Children.Add(bar);
 
@@ -1353,6 +1357,75 @@ public partial class MainWindow : Window, ISuggestionActions
             $"Concrete rewrites for this one point ({aspect}, point {index}): the passage, a rewritten version, and why. Saved under the analysis as a Suggestions item.\n\nThe point: {finding}",
             provider => _ai.Prompts.Get(AiPrompts.AnalysisSuggestions).Bind(new { book = _book!.Title, chapter = chapter.Title, aspect = $"{aspect} — point {index}", finding, text, intent = IntentOf(chapter) }, provider),
             ConfirmSend, nextLabel: "Next: review the suggestions →") { Owner = this };
+        dlg.ShowDialog();
+        if (dlg.Created.Count == 0) return;
+        foreach (var created in dlg.Created) created.Suggestions = SuggestionParser.Parse(created.Body);
+        MarkDirty();
+        BuildTree(select: dlg.Created[^1]);
+    }
+
+    // ── Suggestions for a passage the author chose ────────────────────────────
+
+    /// <summary>
+    /// "Suggestions for selection": the passage is whatever is selected in the chapter editor. With
+    /// nothing selected the paragraph picker opens instead, so the action never dead-ends.
+    /// </summary>
+    private void AiPassageSuggestions_Click(object sender, RoutedEventArgs e)
+    {
+        var ch = CurrentChapter();
+        if (_book == null || ch == null) { UpdateStatus("Open a chapter first — suggestions work on a passage of its text."); return; }
+        var selected = ReferenceEquals(_current, ch) && _rtb != null ? _rtb.Selection.Text.Trim() : "";
+        if (selected.Length == 0) { AiChoosePassage_Click(sender, e); return; }
+        if (!EnsureAiOrExplain()) return;
+        CommitCurrent();
+        RunPassageSuggestions(ch, selected);
+    }
+
+    /// <summary>"Choose a passage": the chapter paragraph by paragraph, with Select on each.</summary>
+    private void AiChoosePassage_Click(object sender, RoutedEventArgs e)
+    {
+        var ch = CurrentChapter();
+        if (_book == null || ch == null) { UpdateStatus("Open a chapter first — suggestions work on a passage of its text."); return; }
+        if (!EnsureAiOrExplain()) return;
+        CommitCurrent();
+        var paragraphs = PassagePickerWindow.Paragraphs(ChapterText(ch));
+        if (paragraphs.Count == 0) { MessageBox.Show(this, "This chapter has no text yet.", "Choose a passage", MessageBoxButton.OK, MessageBoxImage.Information); return; }
+        var picker = new PassagePickerWindow(ch, paragraphs) { Owner = this };
+        if (picker.ShowDialog() != true || picker.Passage.Length == 0) return;
+        RunPassageSuggestions(ch, picker.Passage);
+    }
+
+    /// <summary>Asks for rewrites of one passage, guided by what the author says it is for. Saved as a Suggestions item on the chapter.</summary>
+    private void RunPassageSuggestions(Chapter ch, string passage)
+    {
+        if (_book == null) return;
+        if (passage.Length < 20)
+        {
+            MessageBox.Show(this, "That is too short to rewrite usefully. Choose at least a full sentence.", "Suggestions", MessageBoxButton.OK, MessageBoxImage.Information);
+            return;
+        }
+        if (passage.Length > 8000 &&
+            MessageBox.Show(this, $"That passage is {passage.Length:N0} characters — about {passage.Length / 5:N0} words. Suggestions work best on a few paragraphs at a time; a long stretch tends to come back with vaguer rewrites.\n\nAsk anyway?",
+                            "Suggestions", MessageBoxButton.YesNo, MessageBoxImage.Question) != MessageBoxResult.Yes) return;
+
+        var form = new SuggestionRequestWindow(ch, passage, "the passage you chose") { Owner = this };
+        if (form.ShowDialog() != true) return;
+
+        var text = ChapterText(ch);
+        var values = new
+        {
+            book = _book.Title, chapter = ch.Title, passage,
+            intent = form.Intent.Length > 0 ? form.Intent : "(not stated)",
+            request = form.Request.Length > 0 ? form.Request : "(not stated)",
+            chapter_intent = IntentOf(ch), text
+        };
+        var preview = passage.Replace("\n", " ").Replace("\r", " ");
+        if (preview.Length > 60) preview = preview[..60].TrimEnd() + "…";
+        var dlg = new AiRunWindow(_ai, _book, ch.Id, ItemKind.Suggestions, $"Suggestions — \"{preview}\"", "Suggestions · Chosen passage", AiPrompts.PassageSuggestions,
+            "Rewrites of the passage you chose" + (form.Intent.Length > 0 ? ", aimed at " + form.Intent : "") +
+            ". They are saved as a Suggestions item on this chapter, where you can apply, mark or ask again for each one.",
+            provider => _ai.Prompts.Get(AiPrompts.PassageSuggestions).Bind(values, provider), ConfirmSend,
+            nextLabel: "Next: review the suggestions →") { Owner = this };
         dlg.ShowDialog();
         if (dlg.Created.Count == 0) return;
         foreach (var created in dlg.Created) created.Suggestions = SuggestionParser.Parse(created.Body);

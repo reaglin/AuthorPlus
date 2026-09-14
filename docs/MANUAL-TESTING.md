@@ -71,6 +71,12 @@ the exe (`AuthorPlus.exe "<book folder>"` opens it). Books live in `Documents\Au
   chapter summaries first). Find Plotlines proposes the threads — primary / secondary /
   subplot — with the chapters each runs through; tick the ones to keep and they are added and
   linked. A plotline's kind can be changed on its page; the board shows it.
+- **Suggestions for a passage you chose.** Two ways in, both leading to the same form where you
+  say what the passage is for (the mood chips and your own words) before anything is sent:
+  select text in the chapter editor and use the toolbar's **Suggestions… (AI)** or
+  AI › **Suggestions for Selection…**; or use AI › **Choose a Passage…** (also on a chapter's
+  right-click menu) to see the chapter paragraph by paragraph with a **Select** on each — tick
+  several to take them together. The rewrites are saved as a Suggestions item on the chapter.
 - Character › **Suggest Profile (AI)**.
 - View › **Preview AI Prompts Before Sending** — turn it on and run anything: you see the
   exact text, tokens and cost before it goes. AI › **Prompt Library…** to change the wording;

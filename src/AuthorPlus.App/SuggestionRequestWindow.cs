@@ -1,4 +1,4 @@
-﻿using System.Windows;
+﻿﻿using System.Windows;
 using System.Windows.Controls;
 using AuthorPlus.Core.Models;
 using Brushes = System.Windows.Media.Brushes;
@@ -44,9 +44,18 @@ public sealed class SuggestionRequestWindow : Window
     /// <summary>The effects they picked, comma separated ("menace, dry wit, shorter and harder").</summary>
     public string Intent { get; private set; } = "";
 
+    /// <summary>"Ask again" about a suggestion the author has already been offered.</summary>
     public SuggestionRequestWindow(Chapter chapter, SuggestionEntry entry, string aspect)
+        : this(chapter, entry, entry.Original, aspect) { }
+
+    /// <summary>The first ask about a passage the author picked themselves — same form, nothing offered yet.</summary>
+    public SuggestionRequestWindow(Chapter chapter, string passage, string aspect)
+        : this(chapter, null, passage, aspect) { }
+
+    private SuggestionRequestWindow(Chapter chapter, SuggestionEntry? entry, string passage, string aspect)
     {
-        Title = $"Ask again — {chapter.Title}";
+        bool fresh = entry is null;
+        Title = fresh ? $"Suggestions for this passage — {chapter.Title}" : $"Ask again — {chapter.Title}";
         Width = 900; Height = 760; MinWidth = 700; MinHeight = 560;
         WindowStartupLocation = WindowStartupLocation.CenterOwner;
         FontFamily = new FontFamily("Segoe UI"); FontSize = 13;
@@ -56,7 +65,8 @@ public sealed class SuggestionRequestWindow : Window
         var head = new TextBlock
         {
             Text = "Tell the AI what this passage is for. What is the reader meant to feel, know or suspect here? What is the joke, the threat, the loss? " +
-                   "Pick the effect you are after and say it in your own words; the next set of rewrites will aim at that, in your voice.",
+                   "Pick the effect you are after and say it in your own words; the rewrites will aim at that, in your voice." +
+                   (fresh ? " You can also leave both blank and simply ask for rewrites." : " The next set will aim at that, in your voice."),
             TextWrapping = TextWrapping.Wrap, Foreground = Brushes.Gray, Margin = new Thickness(0, 0, 0, 10)
         };
         DockPanel.SetDock(head, Dock.Top);
@@ -64,13 +74,13 @@ public sealed class SuggestionRequestWindow : Window
 
         // Buttons
         var buttons = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Right, Margin = new Thickness(0, 12, 0, 0) };
-        var ok = new Button { Content = "Ask for new suggestions", Padding = new Thickness(14, 4, 14, 4), IsDefault = true, FontWeight = FontWeights.SemiBold, Margin = new Thickness(0, 0, 8, 0) };
+        var ok = new Button { Content = fresh ? "Ask for suggestions" : "Ask for new suggestions", Padding = new Thickness(14, 4, 14, 4), IsDefault = true, FontWeight = FontWeights.SemiBold, Margin = new Thickness(0, 0, 8, 0) };
         var cancel = new Button { Content = "Cancel", Width = 90, IsCancel = true };
         ok.Click += (_, _) =>
         {
             Intent = string.Join(", ", _moodBoxes.Concat(_craftBoxes).Where(b => b.IsChecked == true).Select(b => (string)b.Content));
             Request = _request.Text.Trim();
-            if (Intent.Length == 0 && Request.Length == 0)
+            if (!fresh && Intent.Length == 0 && Request.Length == 0)
             {
                 MessageBox.Show(this, "Pick an effect or write a line about what you are trying to convey — that is what makes this different from running Suggestions again.",
                     "Ask again", MessageBoxButton.OK, MessageBoxImage.Information);
@@ -85,20 +95,23 @@ public sealed class SuggestionRequestWindow : Window
 
         var panel = new StackPanel();
 
-        // The passage and the suggestion that did not fit
-        panel.Children.Add(Label($"The passage as it stands ({aspect})"));
-        panel.Children.Add(ReadOnly(entry.Original, "Georgia"));
-        panel.Children.Add(Label("The suggestion you were offered"));
-        panel.Children.Add(ReadOnly(entry.Rewrite, "Georgia"));
-        if (entry.Why.Length > 0)
+        // The passage, and — when there is one — the suggestion that did not fit
+        panel.Children.Add(Label(fresh ? "The passage you chose" : $"The passage as it stands ({aspect})"));
+        panel.Children.Add(ReadOnly(passage, "Georgia"));
+        if (entry != null)
         {
-            panel.Children.Add(Label("Why it was suggested"));
-            panel.Children.Add(ReadOnly(entry.Why, "Segoe UI"));
-        }
-        if (entry.AuthorRequest.Length > 0)
-        {
-            panel.Children.Add(Label("What you asked for last time"));
-            panel.Children.Add(ReadOnly((entry.Intent.Length > 0 ? entry.Intent + " — " : "") + entry.AuthorRequest, "Segoe UI"));
+            panel.Children.Add(Label("The suggestion you were offered"));
+            panel.Children.Add(ReadOnly(entry.Rewrite, "Georgia"));
+            if (entry.Why.Length > 0)
+            {
+                panel.Children.Add(Label("Why it was suggested"));
+                panel.Children.Add(ReadOnly(entry.Why, "Segoe UI"));
+            }
+            if (entry.AuthorRequest.Length > 0)
+            {
+                panel.Children.Add(Label("What you asked for last time"));
+                panel.Children.Add(ReadOnly((entry.Intent.Length > 0 ? entry.Intent + " — " : "") + entry.AuthorRequest, "Segoe UI"));
+            }
         }
 
         // Effect wanted
@@ -109,7 +122,7 @@ public sealed class SuggestionRequestWindow : Window
 
         // Author's own words
         panel.Children.Add(Label("What you are trying to convey (your words)"));
-        _request.Text = entry.AuthorRequest;
+        _request.Text = entry?.AuthorRequest ?? "";
         panel.Children.Add(_request);
         panel.Children.Add(new TextBlock
         {

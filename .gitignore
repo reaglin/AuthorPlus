@@ -261,3 +261,4 @@ __pycache__/
 *.pyc
 # Hand-test build output (see docs/MANUAL-TESTING.md)
 manual-test/
+manual-test-*/
