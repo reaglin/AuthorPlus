@@ -1,4 +1,4 @@
-using System.Diagnostics;
+﻿using System.Diagnostics;
 using System.IO;
 using System.Windows;
 using System.Windows.Controls;
@@ -2138,6 +2138,18 @@ public partial class MainWindow : Window, ISuggestionActions
                     (request.Length > 0 ? $"; \"{request}\"" : "") + $" ---\n{response.Text.Trim()}";
         item.ModifiedUtc = DateTime.UtcNow;
         MarkDirty();
+    }
+
+    /// <summary>Throws a suggestion away for good. The view confirms before calling this.</summary>
+    public void Dismiss(Item item, SuggestionEntry entry)
+    {
+        if (!item.Suggestions.Remove(entry)) return;
+        foreach (var child in item.Suggestions.Where(s => s.RefinesId == entry.Id)) child.RefinesId = null;
+        for (int i = 0; i < item.Suggestions.Count; i++) item.Suggestions[i].Index = i + 1;
+        item.ModifiedUtc = DateTime.UtcNow;
+        MarkDirty();
+        RefreshTreeTexts();
+        Refresh(item);
     }
 
     public void Refresh(Item item)

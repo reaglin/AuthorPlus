@@ -1,4 +1,4 @@
-using System.Windows;
+﻿using System.Windows;
 using System.Windows.Controls;
 using AuthorPlus.Core.Models;
 using Brushes = System.Windows.Media.Brushes;
@@ -17,9 +17,10 @@ public sealed class SuggestionRequestWindow : Window
     /// <summary>Moods and effects an author reaches for. Picked ones go into the prompt as the effect wanted.</summary>
     public static readonly IReadOnlyList<string> Moods = new[]
     {
-        "seriousness", "humour", "dry wit", "anger", "menace", "dread", "grief", "tenderness",
-        "warmth", "irony", "urgency", "calm", "wonder", "cold detachment", "hope", "resignation",
-        "confusion", "relief", "suspicion", "intimacy"
+        "seriousness", "humour", "dry wit", "anger", "menace", "dread", "fear", "grief",
+        "tenderness", "love", "hate", "warmth", "irony", "urgency", "calm", "wonder",
+        "curiosity", "cold detachment", "hope", "regret", "resignation", "confusion",
+        "relief", "suspicion", "intimacy"
     };
 
     /// <summary>Craft directions that sit beside the mood.</summary>

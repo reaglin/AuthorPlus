@@ -7,11 +7,11 @@ using Eaglin.AiManager.Wpf;
 namespace AuthorPlus.App;
 
 /// <summary>
-/// Runs one prompt on one provider or on every provider that has a key, streaming each answer
-/// into an <see cref="AiRunPanel"/>, and turns each finished answer into a dated item on the
-/// owner (a chapter, a section or the book). Used for chapter analysis, continuity checks,
-/// plot analysis and the style read. Closing the window mid-run stops the run; answers already
-/// finished are kept.
+/// The prompt console. It opens showing the request that is about to go out, in a box the author
+/// can edit; <b>Send Prompt</b> empties the box, runs the request with a timer, and fills it with
+/// the answer as it arrives. Each finished answer becomes a dated item on the owner (a chapter, a
+/// section or the book), unless the caller handles it itself. A <b>Next</b> button says what to do
+/// with the result. Closing mid-run stops it; answers already finished are kept.
 /// </summary>
 public sealed class AiRunWindow : Window
 {
@@ -26,9 +26,10 @@ public sealed class AiRunWindow : Window
     private readonly Func<AiProviderType, AiRequest> _requestFor;
     private readonly Func<AiRequest, bool> _confirm;
     private readonly Action<AiResponse>? _handleResponse;
-    private readonly Button _next;
     private readonly ComboBox _providerBox = new() { MinWidth = 240 };
-    private readonly Button _run = new() { Content = "Run", Width = 90, FontWeight = FontWeights.SemiBold };
+    private readonly Button _send = new() { Content = "Send Prompt", Padding = new Thickness(14, 4, 14, 4), FontWeight = FontWeights.SemiBold, Margin = new Thickness(6, 0, 0, 0) };
+    private readonly Button _editPrompt = new() { Content = "Edit prompt", Padding = new Thickness(10, 4, 10, 4), ToolTip = "Put the request back in the box to change it and send again" };
+    private readonly Button _next;
     private readonly AiRunPanel _panel = new();
     private readonly TextBlock _progress = new() { Foreground = System.Windows.Media.Brushes.Gray, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(12, 0, 0, 0) };
 
@@ -38,7 +39,7 @@ public sealed class AiRunWindow : Window
     /// <summary>True when the author pressed the "next step" button rather than closing.</summary>
     public bool NextRequested { get; private set; }
 
-    /// <param name="requestFor">Builds the bound request for a provider (so the preview shows exactly what is sent).</param>
+    /// <param name="requestFor">Builds the bound request for a provider (so the console shows exactly what is sent).</param>
     /// <param name="confirm">The prompt-preview gate: returns false to skip sending.</param>
     /// <param name="nextLabel">The next step offered when the run finishes ("Next: review the suggestions →").</param>
     /// <param name="handleResponse">When set, the answer goes here instead of becoming a new item.</param>
@@ -49,8 +50,9 @@ public sealed class AiRunWindow : Window
         _ai = ai; _book = book; _ownerId = ownerId; _kind = kind; _itemPrefix = itemPrefix; _promptName = promptName;
         _requestFor = requestFor; _confirm = confirm; _handleResponse = handleResponse;
         _next = new Button { Content = nextLabel, Padding = new Thickness(14, 4, 14, 4), IsEnabled = false, FontWeight = FontWeights.SemiBold, Margin = new Thickness(8, 0, 0, 0) };
+
         Title = title;
-        Width = 880; Height = 660; MinWidth = 640; MinHeight = 420;
+        Width = 920; Height = 720; MinWidth = 660; MinHeight = 460;
         WindowStartupLocation = WindowStartupLocation.CenterOwner;
         FontFamily = new System.Windows.Media.FontFamily("Segoe UI");
         FontSize = 13;
@@ -62,31 +64,60 @@ public sealed class AiRunWindow : Window
         _providerBox.SelectedItem = items.OfType<ProviderItem>().FirstOrDefault(i => i.Provider == ai.DefaultProvider) ?? items.FirstOrDefault();
 
         var top = new DockPanel { Margin = new Thickness(0, 0, 0, 8) };
-        DockPanel.SetDock(_run, Dock.Right);
-        top.Children.Add(_run);
+        var topButtons = new StackPanel { Orientation = Orientation.Horizontal };
+        DockPanel.SetDock(topButtons, Dock.Right);
+        topButtons.Children.Add(_editPrompt);
+        topButtons.Children.Add(_send);
+        top.Children.Add(topButtons);
         top.Children.Add(new TextBlock { Text = "Provider:", VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(0, 0, 8, 0) });
         top.Children.Add(_providerBox);
         top.Children.Add(_progress);
 
-        _panel.Hub = ai;
         var bottom = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Right, Margin = new Thickness(0, 10, 0, 0) };
         var close = new Button { Content = "Close", Width = 90, IsCancel = true };
         _next.Click += (_, _) => { NextRequested = true; DialogResult = true; Close(); };
-        bottom.Children.Add(close); bottom.Children.Add(_next);
+        bottom.Children.Add(close);
+        bottom.Children.Add(_next);
 
+        _panel.Hub = ai;
         var root = new DockPanel { Margin = new Thickness(16) };
-        DockPanel.SetDock(bottom, Dock.Bottom);
         DockPanel.SetDock(top, Dock.Top);
         root.Children.Add(top);
         var noteBlock = new TextBlock { Text = note, Foreground = System.Windows.Media.Brushes.Gray, TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 0, 0, 8) };
         DockPanel.SetDock(noteBlock, Dock.Top);
         root.Children.Add(noteBlock);
+        DockPanel.SetDock(bottom, Dock.Bottom);
         root.Children.Add(bottom);
         root.Children.Add(_panel);
         Content = root;
 
-        _run.Click += async (_, _) => await RunAsync();
+        _send.Click += async (_, _) => await RunAsync();
+        _editPrompt.Click += (_, _) => ShowPrompt();
         Closing += (_, _) => _panel.Stop();
+        Loaded += (_, _) => ShowPrompt();
+    }
+
+    /// <summary>The provider a single run goes to (the first one when several are selected).</summary>
+    private AiProviderType FirstProvider =>
+        _providerBox.SelectedItem is ProviderItem pi ? pi.Provider
+        : _ai.ProvidersWithKeys.FirstOrDefault(_ai.DefaultProvider);
+
+    /// <summary>Puts the request in the console for the author to read and change before sending.</summary>
+    private void ShowPrompt()
+    {
+        if (_panel.IsRunning) return;
+        if (_ai.ProvidersWithKeys.Count == 0)
+        {
+            _progress.Text = "No provider has a key — open AI › AI Settings.";
+            _send.IsEnabled = false;
+            return;
+        }
+        try
+        {
+            _panel.ShowPrompt(_requestFor(FirstProvider).User);
+            _editPrompt.IsEnabled = false;            // the request is already in the box
+        }
+        catch (Exception ex) { _progress.Text = ex.Message; }
     }
 
     private async Task RunAsync()
@@ -97,7 +128,9 @@ public sealed class AiRunWindow : Window
             : _providerBox.SelectedItem is ProviderItem pi ? new List<AiProviderType> { pi.Provider } : new List<AiProviderType>();
         if (providers.Count == 0) { MessageBox.Show(this, "No provider has a key. Open AI › AI Settings first.", Title, MessageBoxButton.OK, MessageBoxImage.Information); return; }
 
-        _run.IsEnabled = false;
+        var edited = _panel.PromptText;                    // what the author has in the box, edits and all
+        _send.IsEnabled = false;
+        _editPrompt.IsEnabled = false;
         _providerBox.IsEnabled = false;
         try
         {
@@ -107,14 +140,17 @@ public sealed class AiRunWindow : Window
                 n++;
                 _progress.Text = providers.Count > 1 ? $"{n} of {providers.Count}: {AiHub.DisplayName(p)}" : AiHub.DisplayName(p);
                 var request = _requestFor(p);
+                if (edited.Length > 0 && edited != request.User) request = request.With(p, null, edited);
                 if (!_confirm(request)) { _progress.Text = "Not sent."; continue; }
+
                 var response = await _panel.RunAsync(request);
                 if (response is null)
                 {
                     if (_panel.LastError is { } err) { _progress.Text = $"{AiHub.DisplayName(p)}: {err.Kind}"; continue; }
                     break;                                   // stopped by the user
                 }
-                if (_handleResponse != null) { _handleResponse(response); _next.IsEnabled = true; _next.IsDefault = true; continue; }
+                if (_handleResponse != null) { _handleResponse(response); Ready(); continue; }
+
                 var item = new Item
                 {
                     OwnerId = _ownerId, Kind = _kind,
@@ -123,16 +159,22 @@ public sealed class AiRunWindow : Window
                 };
                 _book.Items.Add(item);
                 Created.Add(item);
-                _next.IsEnabled = true;
-                _next.IsDefault = true;
+                Ready();
             }
-            if (Created.Count > 0) _progress.Text = $"{Created.Count} item(s) saved — use the button below to go on.";
+            if (_panel.LastWasCutOff)
+                _progress.Text = "The answer was cut off — see the red note below.";
+            else if (Created.Count > 0)
+                _progress.Text = $"{Created.Count} item(s) saved — use the button below to go on.";
         }
         finally
         {
-            _run.IsEnabled = true;
+            _send.IsEnabled = true;
+            _send.Content = "Send Prompt again";
+            _editPrompt.IsEnabled = true;
             _providerBox.IsEnabled = true;
         }
+
+        void Ready() { _next.IsEnabled = true; _next.IsDefault = true; }
     }
 
     private sealed record ProviderItem(AiProviderType Provider)
