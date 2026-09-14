@@ -20,6 +20,10 @@ public interface ISuggestionActions
     bool GoTo(Chapter chapter, SuggestionEntry entry);
     /// <summary>Something on an item changed: save state, refresh labels.</summary>
     void Changed(Item item);
+    /// <summary>Opens the "Ask again" form for this suggestion and, if the author asks, runs the guided rewrite.</summary>
+    void AskAgain(Chapter chapter, Item item, SuggestionEntry entry);
+    /// <summary>Rebuilds the screen showing <paramref name="item"/> (after new suggestions arrive).</summary>
+    void Refresh(Item item);
 }
 
 /// <summary>
@@ -46,6 +50,12 @@ public static class SuggestionsEditor
             return new ScrollViewer { Content = stack, VerticalScrollBarVisibility = ScrollBarVisibility.Auto };
         }
 
+        stack.Children.Add(new TextBlock
+        {
+            Text = "What to do with these: Apply puts the rewrite straight into the chapter. Mark keeps the passage for you to rewrite in your own words (they collect under Marked Passages). " +
+                   "Ask again… is the one to reach for when a suggestion misses what you were going for — you tell it what the passage is doing, and it tries again. Resolve when you are done with one.",
+            Foreground = Brushes.Gray, TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 0, 0, 10)
+        });
         foreach (var e in item.Suggestions) stack.Children.Add(Card(item, chapter, e, actions));
         return new ScrollViewer { Content = stack, VerticalScrollBarVisibility = ScrollBarVisibility.Auto };
     }
@@ -61,11 +71,21 @@ public static class SuggestionsEditor
         var buttons = new StackPanel { Orientation = Orientation.Horizontal };
         DockPanel.SetDock(buttons, Dock.Right);
         var status = new TextBlock { VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(8, 0, 0, 0), Foreground = Brushes.Gray };
-        var title = new TextBlock { Text = (showChapterTitle && chapter != null ? chapter.Title + " — " : "") + $"Suggestion {e.Index}", FontWeight = FontWeights.SemiBold, VerticalAlignment = VerticalAlignment.Center };
+        var title = new TextBlock { Text = (showChapterTitle && chapter != null ? chapter.Title + " — " : "") + $"Suggestion {e.Index}" + (e.IsRefinement ? " (asked again)" : ""), FontWeight = FontWeights.SemiBold, VerticalAlignment = VerticalAlignment.Center };
         header.Children.Add(buttons);
         header.Children.Add(title);
         header.Children.Add(status);
         body.Children.Add(header);
+
+        if (e.IsRefinement && (e.Intent.Length > 0 || e.AuthorRequest.Length > 0))
+        {
+            var asked = new TextBlock { TextWrapping = TextWrapping.Wrap, Foreground = Brushes.Gray, Margin = new Thickness(0, 0, 0, 6) };
+            asked.Inlines.Add(new Run("You asked for: ") { FontWeight = FontWeights.SemiBold });
+            asked.Inlines.Add(new Run(e.Intent.Length > 0 ? e.Intent : ""));
+            if (e.Intent.Length > 0 && e.AuthorRequest.Length > 0) asked.Inlines.Add(new Run(" — "));
+            if (e.AuthorRequest.Length > 0) asked.Inlines.Add(new Run(e.AuthorRequest));
+            body.Children.Add(asked);
+        }
 
         // Diff: left = current, right = rewrite
         var diff = WordDiff.Compute(e.Original, e.Rewrite);
@@ -96,7 +116,7 @@ public static class SuggestionsEditor
 
         // Author's own rewrite (marked passages)
         var mine = new StackPanel { Margin = new Thickness(0, 8, 0, 0), Visibility = e.Status == SuggestionStatus.Marked ? Visibility.Visible : Visibility.Collapsed };
-        mine.Children.Add(new TextBlock { Text = "Your rewrite (in your own words)", FontWeight = FontWeights.SemiBold, Margin = new Thickness(0, 0, 0, 2) });
+        mine.Children.Add(new TextBlock { Text = "Your rewrite (in your own words) — Apply mine puts this into the chapter in place of the passage", FontWeight = FontWeights.SemiBold, Margin = new Thickness(0, 0, 0, 2), TextWrapping = TextWrapping.Wrap });
         var mineBox = new TextBox { Text = e.AuthorRewrite, AcceptsReturn = true, TextWrapping = TextWrapping.Wrap, MinLines = 2, Padding = new Thickness(6), FontFamily = new FontFamily("Georgia"), FontSize = 14 };
         mineBox.TextChanged += (_, _) => { e.AuthorRewrite = mineBox.Text; actions.Changed(item); };
         mine.Children.Add(mineBox);
@@ -110,7 +130,10 @@ public static class SuggestionsEditor
         var resolve = new Button { Content = "Resolve", Padding = new Thickness(8, 2, 8, 2), Margin = new Thickness(4, 0, 0, 0), ToolTip = "Done with this one" };
         var reopen  = new Button { Content = "Reopen", Padding = new Thickness(8, 2, 8, 2), Margin = new Thickness(4, 0, 0, 0) };
         var goTo    = new Button { Content = "Go to passage", Padding = new Thickness(8, 2, 8, 2), Margin = new Thickness(4, 0, 0, 0), ToolTip = "Open the chapter and select the passage" };
-        buttons.Children.Add(goTo); buttons.Children.Add(apply); buttons.Children.Add(mark); buttons.Children.Add(resolve); buttons.Children.Add(reopen);
+        var askAgain = new Button { Content = "Ask again…", Padding = new Thickness(8, 2, 8, 2), Margin = new Thickness(4, 0, 0, 0), FontWeight = FontWeights.SemiBold,
+                                    ToolTip = "Tell the AI what this passage is meant to convey — the mood, the joke, the threat — and get fresh rewrites aimed at that" };
+        buttons.Children.Add(goTo); buttons.Children.Add(askAgain); buttons.Children.Add(apply); buttons.Children.Add(mark); buttons.Children.Add(resolve); buttons.Children.Add(reopen);
+        askAgain.Click += (_, _) => { if (chapter != null) actions.AskAgain(chapter, item, e); };
 
         void Paint()
         {
@@ -124,6 +147,7 @@ public static class SuggestionsEditor
             };
             apply.IsEnabled  = chapter != null && open;
             mark.IsEnabled   = chapter != null && open;
+            askAgain.IsEnabled = chapter != null && e.Status != SuggestionStatus.Applied;
             resolve.Visibility = e.Status == SuggestionStatus.Resolved ? Visibility.Collapsed : Visibility.Visible;
             reopen.Visibility  = e.Status == SuggestionStatus.Resolved ? Visibility.Visible : Visibility.Collapsed;
             goTo.IsEnabled   = chapter != null && e.Status != SuggestionStatus.Applied;

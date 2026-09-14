@@ -70,6 +70,16 @@
             <MenuItem Header="_AI" x:Name="MnuAi">
                 <MenuItem Header="_Summarize This Chapter" Click="AiSummarize_Click"/>
                 <MenuItem Header="_Analyze This Chapter…" Click="AiAnalyze_Click"/>
+                <MenuItem Header="Analyze _One Aspect" x:Name="MnuAspect"
+                          ToolTip="A deeper read of a single aspect, with its own prompt you can edit in the Prompt Library">
+                    <MenuItem Header="_Pacing…" Tag="Pacing" Click="AiAspect_Click"/>
+                    <MenuItem Header="_Tension…" Tag="Tension" Click="AiAspect_Click"/>
+                    <MenuItem Header="_Stakes…" Tag="Stakes" Click="AiAspect_Click"/>
+                    <MenuItem Header="Point of _view and voice…" Tag="Point of view and voice" Click="AiAspect_Click"/>
+                    <MenuItem Header="_Dialogue…" Tag="Dialogue" Click="AiAspect_Click"/>
+                    <MenuItem Header="_Continuity…" Tag="Continuity" Click="AiAspect_Click"/>
+                    <MenuItem Header="P_rose habits…" Tag="Prose habits" Click="AiAspect_Click"/>
+                </MenuItem>
                 <MenuItem Header="_Chapter Characters" Click="AiCharactersInChapter_Click" ToolTip="Who appears in the chapter (name scan + AI), as a Chapter Characters item"/>
                 <MenuItem Header="Style _Report…" Click="Style_Click" ToolTip="Local prose statistics for the chapter, with an optional AI read"/>
                 <Separator/>

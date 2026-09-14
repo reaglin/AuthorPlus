@@ -25,6 +25,8 @@ public sealed class AiRunWindow : Window
     private readonly string _promptName;
     private readonly Func<AiProviderType, AiRequest> _requestFor;
     private readonly Func<AiRequest, bool> _confirm;
+    private readonly Action<AiResponse>? _handleResponse;
+    private readonly Button _next;
     private readonly ComboBox _providerBox = new() { MinWidth = 240 };
     private readonly Button _run = new() { Content = "Run", Width = 90, FontWeight = FontWeights.SemiBold };
     private readonly AiRunPanel _panel = new();
@@ -33,13 +35,20 @@ public sealed class AiRunWindow : Window
     /// <summary>Items added to the book by this window.</summary>
     public List<Item> Created { get; } = new();
 
+    /// <summary>True when the author pressed the "next step" button rather than closing.</summary>
+    public bool NextRequested { get; private set; }
+
     /// <param name="requestFor">Builds the bound request for a provider (so the preview shows exactly what is sent).</param>
     /// <param name="confirm">The prompt-preview gate: returns false to skip sending.</param>
+    /// <param name="nextLabel">The next step offered when the run finishes ("Next: review the suggestions →").</param>
+    /// <param name="handleResponse">When set, the answer goes here instead of becoming a new item.</param>
     public AiRunWindow(AiHub ai, Book book, Guid ownerId, ItemKind kind, string title, string itemPrefix, string promptName, string note,
-                       Func<AiProviderType, AiRequest> requestFor, Func<AiRequest, bool> confirm)
+                       Func<AiProviderType, AiRequest> requestFor, Func<AiRequest, bool> confirm,
+                       string nextLabel = "Next: review the result →", Action<AiResponse>? handleResponse = null)
     {
         _ai = ai; _book = book; _ownerId = ownerId; _kind = kind; _itemPrefix = itemPrefix; _promptName = promptName;
-        _requestFor = requestFor; _confirm = confirm;
+        _requestFor = requestFor; _confirm = confirm; _handleResponse = handleResponse;
+        _next = new Button { Content = nextLabel, Padding = new Thickness(14, 4, 14, 4), IsEnabled = false, FontWeight = FontWeights.SemiBold, Margin = new Thickness(8, 0, 0, 0) };
         Title = title;
         Width = 880; Height = 660; MinWidth = 640; MinHeight = 420;
         WindowStartupLocation = WindowStartupLocation.CenterOwner;
@@ -60,12 +69,19 @@ public sealed class AiRunWindow : Window
         top.Children.Add(_progress);
 
         _panel.Hub = ai;
+        var bottom = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Right, Margin = new Thickness(0, 10, 0, 0) };
+        var close = new Button { Content = "Close", Width = 90, IsCancel = true };
+        _next.Click += (_, _) => { NextRequested = true; DialogResult = true; Close(); };
+        bottom.Children.Add(close); bottom.Children.Add(_next);
+
         var root = new DockPanel { Margin = new Thickness(16) };
+        DockPanel.SetDock(bottom, Dock.Bottom);
         DockPanel.SetDock(top, Dock.Top);
         root.Children.Add(top);
         var noteBlock = new TextBlock { Text = note, Foreground = System.Windows.Media.Brushes.Gray, TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 0, 0, 8) };
         DockPanel.SetDock(noteBlock, Dock.Top);
         root.Children.Add(noteBlock);
+        root.Children.Add(bottom);
         root.Children.Add(_panel);
         Content = root;
 
@@ -98,6 +114,7 @@ public sealed class AiRunWindow : Window
                     if (_panel.LastError is { } err) { _progress.Text = $"{AiHub.DisplayName(p)}: {err.Kind}"; continue; }
                     break;                                   // stopped by the user
                 }
+                if (_handleResponse != null) { _handleResponse(response); _next.IsEnabled = true; _next.IsDefault = true; continue; }
                 var item = new Item
                 {
                     OwnerId = _ownerId, Kind = _kind,
@@ -106,8 +123,10 @@ public sealed class AiRunWindow : Window
                 };
                 _book.Items.Add(item);
                 Created.Add(item);
+                _next.IsEnabled = true;
+                _next.IsDefault = true;
             }
-            if (Created.Count > 0) _progress.Text = $"{Created.Count} item(s) saved.";
+            if (Created.Count > 0) _progress.Text = $"{Created.Count} item(s) saved — use the button below to go on.";
         }
         finally
         {

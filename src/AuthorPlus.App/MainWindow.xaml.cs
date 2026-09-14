@@ -483,6 +483,14 @@ public partial class MainWindow : Window, ISuggestionActions
             case Chapter:
                 Add("Summarize (AI)", AiSummarize_Click, _ai.IsAvailable());
                 Add("Analyze… (AI)", AiAnalyze_Click, _ai.IsAvailable());
+                var aspects = new MenuItem { Header = "Analyze one aspect (AI)", IsEnabled = _ai.IsAvailable() };
+                foreach (var a in AiPrompts.AspectTemplates.Keys)
+                {
+                    var mi = new MenuItem { Header = a + "…", Tag = a };
+                    mi.Click += AiAspect_Click;
+                    aspects.Items.Add(mi);
+                }
+                m.Items.Add(aspects);
                 Add("Chapter Characters", AiCharactersInChapter_Click);
                 Add("Style Report…", Style_Click);
                 Add("Marked Passages…", MarkedPassages_Click);
@@ -1290,10 +1298,26 @@ public partial class MainWindow : Window, ISuggestionActions
     {
         var chapter = _book!.Chapters.FirstOrDefault(c => c.Id == it.OwnerId);
         var stack = new StackPanel();
+        stack.Children.Add(new TextBlock
+        {
+            Text = "What to do with this: each point is one thing you could act on. Click Suggestions… beside a point to get rewrites of the actual passage, which you can apply, mark for your own rewrite, " +
+                   "or send back with what you were trying to convey. Go deeper… re-reads the chapter for that one aspect alone.",
+            Foreground = System.Windows.Media.Brushes.Gray, TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 0, 0, 10)
+        });
         var existing = _book.ItemsOf(it.Id).Where(s => s.Kind == ItemKind.Suggestions).ToList();
         foreach (var section in AnalysisSections.Parse(it.Body))
         {
+            var titleRow = new StackPanel { Orientation = Orientation.Horizontal };
             var title = new TextBlock { Text = section.Heading.Length > 0 ? section.Heading : "Overview", FontWeight = FontWeights.SemiBold, VerticalAlignment = VerticalAlignment.Center };
+            titleRow.Children.Add(title);
+            if (section.Heading.Length > 0 && chapter != null && !section.Heading.StartsWith("Three changes", StringComparison.OrdinalIgnoreCase))
+            {
+                var deeper = new Button { Content = "Go deeper…", Padding = new Thickness(8, 1, 8, 1), Margin = new Thickness(10, 0, 0, 0), IsEnabled = _ai.IsAvailable(),
+                                          ToolTip = $"Read the whole chapter again for {section.Heading} alone, with a prompt written for it" };
+                var aspectName = section.Heading;
+                deeper.Click += (_, _) => AnalyzeAspect(chapter, aspectName);
+                titleRow.Children.Add(deeper);
+            }
             var points = new StackPanel { Margin = new Thickness(4, 2, 0, 6) };
             int n = 0;
             foreach (var point in section.Points)
@@ -1315,7 +1339,7 @@ public partial class MainWindow : Window, ISuggestionActions
                 row.Children.Add(body);
                 points.Children.Add(row);
             }
-            stack.Children.Add(new Expander { Header = title, Content = points, IsExpanded = true, Margin = new Thickness(0, 0, 0, 6) });
+            stack.Children.Add(new Expander { Header = titleRow, Content = points, IsExpanded = true, Margin = new Thickness(0, 0, 0, 6) });
         }
         return new ScrollViewer { Content = stack, VerticalScrollBarVisibility = ScrollBarVisibility.Auto };
     }
@@ -1327,7 +1351,8 @@ public partial class MainWindow : Window, ISuggestionActions
         var text = ChapterText(chapter);
         var dlg = new AiRunWindow(_ai, _book!, analysis.Id, ItemKind.Suggestions, $"Suggestions — {aspect} · {index}", $"Suggestions · {aspect} · {index}", AiPrompts.AnalysisSuggestions,
             $"Concrete rewrites for this one point ({aspect}, point {index}): the passage, a rewritten version, and why. Saved under the analysis as a Suggestions item.\n\nThe point: {finding}",
-            provider => _ai.Prompts.Get(AiPrompts.AnalysisSuggestions).Bind(new { book = _book!.Title, chapter = chapter.Title, aspect = $"{aspect} — point {index}", finding, text }, provider), ConfirmSend) { Owner = this };
+            provider => _ai.Prompts.Get(AiPrompts.AnalysisSuggestions).Bind(new { book = _book!.Title, chapter = chapter.Title, aspect = $"{aspect} — point {index}", finding, text, intent = IntentOf(chapter) }, provider),
+            ConfirmSend, nextLabel: "Next: review the suggestions →") { Owner = this };
         dlg.ShowDialog();
         if (dlg.Created.Count == 0) return;
         foreach (var created in dlg.Created) created.Suggestions = SuggestionParser.Parse(created.Body);
@@ -1866,7 +1891,7 @@ public partial class MainWindow : Window, ISuggestionActions
             "When the run finishes, a second short pass lists the chapter's characters and plotlines: known ones are linked, new ones are offered for adding. " +
             "The prompt is \"chapter-analysis\" in AI › Prompt Library.",
             provider => _ai.Prompts.Get(AiPrompts.ChapterAnalysis).Bind(new { book = _book.Title, section, chapter = ch.Title, context, text }, provider),
-            ConfirmSend) { Owner = this };
+            ConfirmSend, nextLabel: "Next: read the analysis and ask for suggestions →") { Owner = this };
         dlg.ShowDialog();
         if (dlg.Created.Count == 0) return;
         MarkDirty();
@@ -2022,6 +2047,104 @@ public partial class MainWindow : Window, ISuggestionActions
         if (dlg.Created.Count == 0) return;
         MarkDirty();
         BuildTree(select: dlg.Created[^1]);
+    }
+
+    /// <summary>What the author says this chapter is for: its Notes field, used as intent in the editorial prompts.</summary>
+    private static string IntentOf(Chapter ch) => ch.Notes.Trim().Length > 0 ? ch.Notes.Trim() : "(the author has not said; judge from the text)";
+
+    private void AiAspect_Click(object sender, RoutedEventArgs e)
+    {
+        if (_book == null || CurrentChapter() is not { } ch) { UpdateStatus("Select a chapter first."); return; }
+        if (sender is MenuItem { Tag: string aspect }) AnalyzeAspect(ch, aspect);
+    }
+
+    /// <summary>A deep read of one aspect of one chapter, with the prompt written for that aspect.</summary>
+    private void AnalyzeAspect(Chapter ch, string aspect)
+    {
+        if (_book == null) return;
+        if (!EnsureAiOrExplain()) return;
+        CommitCurrent();
+        var text = ChapterText(ch);
+        var section = _book.SectionOf(ch)?.Title ?? "(none)";
+        var context = EarlierSummaries(ch);
+        var template = AiPrompts.AspectTemplate(aspect);
+        var values = new { book = _book.Title, section, chapter = ch.Title, aspect, context, intent = IntentOf(ch), text };
+        var dlg = new AiRunWindow(_ai, _book, ch.Id, ItemKind.Analysis, $"{aspect} — \"{ch.Title}\"", $"Analysis · {aspect}", template,
+            $"A deeper read of this chapter for {aspect.ToLowerInvariant()} alone, with a prompt written for it (\"{template}\" in AI › Prompt Library). " +
+            "The points come back the same way, so each one has its own Suggestions… button. What you put in the chapter's Notes field is passed on as what you are aiming for.",
+            provider => _ai.Prompts.Get(template).Bind(values, provider), ConfirmSend,
+            nextLabel: "Next: read it and ask for suggestions →") { Owner = this };
+        dlg.ShowDialog();
+        if (dlg.Created.Count == 0) return;
+        MarkDirty();
+        BuildTree(select: dlg.Created[^1]);
+        UpdateStatus($"{aspect} analysis added to \"{ch.Title}\".");
+    }
+
+    /// <summary>The aspect a Suggestions or Analysis item is about, taken from its title ("Suggestions · Pacing · 1").</summary>
+    private static string AspectOf(Item item)
+    {
+        var parts = item.Title.Split('·', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        return parts.Length >= 2 ? parts[1] : "this passage";
+    }
+
+    /// <summary>"Ask again": the author says what the passage is for, and the AI tries fresh rewrites aimed at that.</summary>
+    public void AskAgain(Chapter chapter, Item item, SuggestionEntry entry)
+    {
+        if (_book == null) return;
+        if (!EnsureAiOrExplain()) return;
+        var aspect = AspectOf(item);
+        var form = new SuggestionRequestWindow(chapter, entry, aspect) { Owner = this };
+        if (form.ShowDialog() != true) return;
+
+        CommitCurrent();
+        var text = ChapterText(chapter);
+        var values = new
+        {
+            book = _book.Title, chapter = chapter.Title, aspect,
+            original = entry.Original, previous_rewrite = entry.Rewrite, previous_why = entry.Why,
+            intent = form.Intent.Length > 0 ? form.Intent : "(not stated)", request = form.Request.Length > 0 ? form.Request : "(not stated)", text
+        };
+        var run = new AiRunWindow(_ai, _book, item.OwnerId, ItemKind.Suggestions, $"Ask again — {aspect}", "Suggestions", AiPrompts.SuggestionRefine,
+            $"Fresh rewrites of the same passage, aimed at what you said you are conveying{(form.Intent.Length > 0 ? ": " + form.Intent : "")}. " +
+            "They are added to this same Suggestions item, under the one you asked about, so you can compare them.",
+            provider => _ai.Prompts.Get(AiPrompts.SuggestionRefine).Bind(values, provider), ConfirmSend,
+            nextLabel: "Next: compare the new suggestions →",
+            handleResponse: r => AppendRefinements(item, entry, r, form.Intent, form.Request)) { Owner = this };
+        run.ShowDialog();
+        Refresh(item);
+    }
+
+    /// <summary>Adds the rewrites from an "ask again" run to the item, just after the suggestion they answer.</summary>
+    private void AppendRefinements(Item item, SuggestionEntry source, AiResponse response, string intent, string request)
+    {
+        var fresh = SuggestionParser.Parse(response.Text);
+        if (fresh.Count == 0)
+        {
+            MessageBox.Show(this, "That reply did not come back in the suggestion format, so there is nothing to show as a diff. It is kept in the item's text.", "Ask again", MessageBoxButton.OK, MessageBoxImage.Information);
+        }
+        foreach (var f in fresh)
+        {
+            f.RefinesId = source.Id;
+            f.Intent = intent;
+            f.AuthorRequest = request;
+            f.Provider = response.Provider.ToString();
+            f.Model = response.Model;
+        }
+        int at = item.Suggestions.IndexOf(source);
+        item.Suggestions.InsertRange(at < 0 ? item.Suggestions.Count : at + 1, fresh);
+        for (int i = 0; i < item.Suggestions.Count; i++) item.Suggestions[i].Index = i + 1;
+        item.Body = item.Body.TrimEnd() + $"\n\n--- asked again ({DateTime.Now:yyyy-MM-dd HH:mm}) — {(intent.Length > 0 ? intent : "no effect chosen")}" +
+                    (request.Length > 0 ? $"; \"{request}\"" : "") + $" ---\n{response.Text.Trim()}";
+        item.ModifiedUtc = DateTime.UtcNow;
+        MarkDirty();
+    }
+
+    public void Refresh(Item item)
+    {
+        RefreshTreeTexts();
+        if (ReferenceEquals(_current, item)) ShowCurrent();
+        else BuildTree(select: item);
     }
 
     private static PlotlineKind KindOf(ExtractedEntity e) => e.Kind switch

@@ -55,10 +55,17 @@ the exe (`AuthorPlus.exe "<book folder>"` opens it). Books live in `Documents\Au
   chapter), **Mark** (keeps it for your own rewrite — a box appears, then **Apply mine**),
   **Resolve**, **Go to passage**. **Marked Passages…** (right-click a chapter, or Book menu for
   the whole book) brings every marked passage back. Right-click any item › **Mark as
-  Resolved** puts a ✓ on it in the tree. When the run closes, a
+  Resolved** puts a ✓ on it in the tree. **Ask again…** on a suggestion opens a form —
+  the passage, the suggestion, its reasoning, moods to pick from, and a box for what you are
+  trying to convey; the new rewrites land under the one you asked about, labelled with what you
+  asked for. Every run window now ends with a **Next: …** button saying what to do next. When the run closes, a
   short pass lists the chapter's characters and plotlines: known ones are linked, new ones are
   offered in a checklist, and **Chapter Characters** / **Chapter Plotlines** items appear;
   **Chapter Characters** on its own; **Style Report…** then **AI voice read…**.
+- AI › **Analyze One Aspect** (or right-click a chapter › Analyze one aspect): a deeper read of
+  Pacing, Tension, Stakes, Point of view and voice, Dialogue, Continuity or Prose habits alone,
+  each with its own prompt. **Go deeper…** on an aspect card of an existing analysis does the
+  same. What you write in a chapter's Notes is passed on as what you are aiming for.
 - Right-click a section › **Outline This Section**, **Summarize This Section**,
   **Continuity Check (AI)…**, **Plot Analysis (AI)…**, **Find Plotlines (AI)…** (these want
   chapter summaries first). Find Plotlines proposes the threads — primary / secondary /

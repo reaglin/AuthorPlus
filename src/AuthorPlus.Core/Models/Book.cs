@@ -244,6 +244,18 @@ public sealed class SuggestionEntry
     /// <summary>The author's own version, written against a marked passage.</summary>
     public string           AuthorRewrite { get; set; } = string.Empty;
     public DateTime?        ActedUtc      { get; set; }
+
+    /// <summary>When the author asked again: what they said they were trying to convey.</summary>
+    public string           AuthorRequest { get; set; } = string.Empty;
+    /// <summary>When the author asked again: the effect they were after ("menace, dry humour").</summary>
+    public string           Intent        { get; set; } = string.Empty;
+    /// <summary>The suggestion this one was asked to improve on, when it came from "Ask again".</summary>
+    public Guid?            RefinesId     { get; set; }
+    /// <summary>Which provider and model wrote this entry (a later "ask again" may use another).</summary>
+    public string?          Provider      { get; set; }
+    public string?          Model         { get; set; }
+
+    [JsonIgnore] public bool IsRefinement => RefinesId is not null;
 }
 
 /// <summary>

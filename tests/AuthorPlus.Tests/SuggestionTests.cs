@@ -114,4 +114,34 @@ public class SuggestionPersistenceTests
         Assert.Equal("mine", e.AuthorRewrite);
         Assert.Contains("\"Status\": \"Marked\"", File.ReadAllText(Directory.GetFiles(Path.Combine(book.FolderPath, "items"))[0]));
     }
+
+    [Fact]
+    public void An_asked_again_suggestion_keeps_what_the_author_asked_for_and_what_it_refines()
+    {
+        using var t = new TempDir();
+        var store = new BookStore(t.Path);
+        var book = store.Create("Refine");
+        var ch = new Chapter();
+        book.Chapters.Add(ch);
+        var item = new Item { OwnerId = ch.Id, Kind = ItemKind.Suggestions, Title = "Suggestions · Tension · 2" };
+        var first = new SuggestionEntry { Index = 1, Original = "a", Rewrite = "b", Why = "c" };
+        var again = new SuggestionEntry
+        {
+            Index = 2, Original = "a", Rewrite = "b2", Why = "c2", RefinesId = first.Id,
+            Intent = "menace, more subtext, say it sideways",
+            AuthorRequest = "The reader should feel watched, not told he is in danger.",
+            Provider = "Claude", Model = "claude-opus-5"
+        };
+        item.Suggestions.AddRange(new[] { first, again });
+        book.Items.Add(item);
+        store.Save(book);
+
+        var back = store.Load(book.FolderPath).Items.Single().Suggestions;
+        Assert.False(back[0].IsRefinement);
+        Assert.True(back[1].IsRefinement);
+        Assert.Equal(back[0].Id, back[1].RefinesId);
+        Assert.Contains("menace", back[1].Intent);
+        Assert.StartsWith("The reader should feel watched", back[1].AuthorRequest);
+        Assert.Equal("claude-opus-5", back[1].Model);
+    }
 }
