@@ -40,6 +40,34 @@ public static class Palette
     // Point of view.
     public static readonly Brush PovBg = Rgb(0xFA, 0xE8, 0xC8);
 
+    // Something the AI wrote, on a character or a plotline, that the author has kept.
+    public static readonly Brush AiBg    = Rgb(0xDD, 0xE6, 0xF6);
+    public static readonly Brush AiRowBg = Rgb(0xF3, 0xF7, 0xFD);
+
+    /// <summary>What a thread does in one chapter — the same three colours on the board and in the tables.</summary>
+    public static Brush RoleBg(PlotlineRole role) => role switch
+    {
+        PlotlineRole.Introduced => IntroducedBg,
+        PlotlineRole.Resolved   => Rgb(0xE6, 0xDD, 0xF3),
+        _                       => ContinuedBg
+    };
+
+    /// <summary>The dot for a thread's part in a chapter: green it starts, blue it runs on, purple it ends.</summary>
+    public static Brush RoleInk(PlotlineRole role) => role switch
+    {
+        PlotlineRole.Introduced => Rgb(0x1B, 0x84, 0x4B),
+        PlotlineRole.Resolved   => Rgb(0x6B, 0x45, 0xA8),
+        _                       => Rgb(0x1A, 0x5F, 0xB4)
+    };
+
+    /// <summary>The word for a thread's part in a chapter.</summary>
+    public static string RoleWord(PlotlineRole role) => role switch
+    {
+        PlotlineRole.Introduced => "Introduced",
+        PlotlineRole.Resolved   => "Resolved",
+        _                       => "Continuing"
+    };
+
     /// <summary>The tint behind a plotline kind — strongest for the threads that carry the most.</summary>
     public static Brush KindBg(PlotlineKind kind) => kind switch
     {

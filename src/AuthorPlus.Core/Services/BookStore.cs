@@ -117,7 +117,12 @@ public sealed class BookStore
         return book;
     }
 
-    /// <summary>Format 1 → 2: chapter summaries become Summary items. Idempotent; in memory only until the next save.</summary>
+    /// <summary>
+    /// Format 1 → 2: chapter summaries become Summary items.
+    /// Format 2 → 3: a character's single "Description" becomes their Physical description, and a
+    /// plotline's chapters get a part to play (the first introduces it, the rest continue it).
+    /// Idempotent; in memory only until the next save.
+    /// </summary>
     private static void Migrate(Book book)
     {
         foreach (var ch in book.Chapters)
@@ -126,6 +131,15 @@ public sealed class BookStore
                 book.SetSummary(ch, ch.LegacySummary.Trim());
             ch.LegacySummary = null;
         }
+        foreach (var c in book.Characters)
+        {
+            if (!string.IsNullOrWhiteSpace(c.LegacyDescription))
+                c.PhysicalDescription = string.IsNullOrWhiteSpace(c.PhysicalDescription)
+                    ? c.LegacyDescription.Trim()
+                    : c.PhysicalDescription.TrimEnd() + "\n" + c.LegacyDescription.Trim();
+            c.LegacyDescription = null;
+        }
+        foreach (var p in book.Plotlines) book.SeedRoles(p);
         if (book.FormatVersion < Book.CurrentFormatVersion) book.FormatVersion = Book.CurrentFormatVersion;
     }
 

@@ -1,4 +1,4 @@
-﻿using System.Text.Json.Serialization;
+﻿﻿using System.Text.Json.Serialization;
 
 namespace AuthorPlus.Core.Models;
 
@@ -14,7 +14,7 @@ namespace AuthorPlus.Core.Models;
 /// </summary>
 public sealed class Book
 {
-    public const int CurrentFormatVersion = 2;
+    public const int CurrentFormatVersion = 3;
 
     public Guid     Id          { get; set; } = Guid.NewGuid();
     public string   Title       { get; set; } = "Untitled";
@@ -78,6 +78,72 @@ public sealed class Book
         item.PromptName = promptName;
         item.ModifiedUtc = DateTime.UtcNow;
         return item;
+    }
+
+    // ── Plotlines: what a thread does in each chapter ─────────────────────────
+
+    /// <summary>
+    /// Gives every chapter the thread runs through a part to play, without changing one already
+    /// set: the first chapter in reading order introduces it, the rest continue it. Run on load
+    /// and whenever chapters are linked from somewhere that does not say more.
+    /// </summary>
+    public void SeedRoles(Plotline plotline)
+    {
+        plotline.ChapterRoles.RemoveAll(r => !plotline.ChapterIds.Contains(r.ChapterId));
+        var inOrder = Chapters.Where(c => plotline.ChapterIds.Contains(c.Id)).Select(c => c.Id).ToList();
+        for (int i = 0; i < inOrder.Count; i++)
+        {
+            if (plotline.ChapterRoles.Any(r => r.ChapterId == inOrder[i])) continue;
+            plotline.ChapterRoles.Add(new ChapterRole { ChapterId = inOrder[i], Role = i == 0 ? PlotlineRole.Introduced : PlotlineRole.Continuing });
+        }
+        RecomputeStatus(plotline);
+    }
+
+    /// <summary>
+    /// Sets what a thread does in one chapter, or takes it out of the chapter when
+    /// <paramref name="role"/> is null. Keeps <see cref="Plotline.ChapterIds"/> and the thread's
+    /// overall status in step, so the board, the tables and the tree never disagree.
+    /// </summary>
+    public void SetRole(Plotline plotline, Guid chapterId, PlotlineRole? role)
+    {
+        plotline.ChapterRoles.RemoveAll(r => r.ChapterId == chapterId);
+        if (role is { } r2)
+        {
+            plotline.ChapterRoles.Add(new ChapterRole { ChapterId = chapterId, Role = r2 });
+            if (!plotline.ChapterIds.Contains(chapterId)) plotline.ChapterIds.Add(chapterId);
+        }
+        else plotline.ChapterIds.Remove(chapterId);
+        RecomputeStatus(plotline);
+    }
+
+    /// <summary>
+    /// The thread's status follows its chapters: resolved once a chapter resolves it, active while
+    /// it runs anywhere, planned while it runs nowhere yet.
+    /// </summary>
+    public void RecomputeStatus(Plotline plotline) =>
+        plotline.Status =
+            plotline.ChapterRoles.Any(r => r.Role == PlotlineRole.Resolved) ? PlotlineStatus.Resolved
+            : plotline.ChapterIds.Count > 0                                 ? PlotlineStatus.Active
+                                                                            : PlotlineStatus.Planned;
+
+    /// <summary>
+    /// The thread's life in chapter numbers, as a sentence: "Introduced ch. 1, continuing through
+    /// ch. 23, resolved ch. 25". Empty when it runs through no chapter yet.
+    /// </summary>
+    public string RoleSpan(Plotline plotline)
+    {
+        var runs = Chapters.Where(c => plotline.ChapterIds.Contains(c.Id)).ToList();
+        if (runs.Count == 0) return "";
+        string Num(Chapter c) => $"ch. {ChapterNumber(c)}";
+        var introduced = runs.FirstOrDefault(c => plotline.RoleIn(c.Id) == PlotlineRole.Introduced) ?? runs[0];
+        var resolved = runs.LastOrDefault(c => plotline.RoleIn(c.Id) == PlotlineRole.Resolved);
+        var last = runs[^1];
+
+        var parts = new List<string> { $"Introduced {Num(introduced)}" };
+        if (runs.Count > 1 && (resolved is null || resolved.Id != last.Id || runs.Count > 2))
+            parts.Add($"continuing through {Num(resolved is not null && resolved.Id == last.Id && runs.Count > 1 ? runs[^2] : last)}");
+        if (resolved is not null) parts.Add($"resolved {Num(resolved)}");
+        return string.Join(", ", parts) + $"  ({runs.Count} chapter{(runs.Count == 1 ? "" : "s")})";
     }
 
     /// <summary>1-based position of a chapter within its section (or among the unsectioned chapters).</summary>
@@ -268,13 +334,23 @@ public sealed class Character
     public string Name        { get; set; } = "New Character";
     public string Role        { get; set; } = string.Empty;   // protagonist, antagonist, supporting…
     public string Origin      { get; set; } = string.Empty;
-    public string Description { get; set; } = string.Empty;  // appearance, voice, mannerisms
+    /// <summary>Appearance: build, face, voice, how they carry themselves. One entry per line (see <see cref="Services.Bullets"/>).</summary>
+    public string PhysicalDescription { get; set; } = string.Empty;
+    /// <summary>Temperament, manner, habits of mind — what they are like to be in a room with.</summary>
+    public string Personality { get; set; } = string.Empty;
     public string Motivations { get; set; } = string.Empty;  // what they want, what they fear
     public string Actions     { get; set; } = string.Empty;  // what they do across the book
     public string Arc         { get; set; } = string.Empty;  // how they change
     public string Notes       { get; set; } = string.Empty;
     /// <summary>Other names the text uses for this character ("Lucy", "Detective Dalgo"), one per line.</summary>
     public string Aliases     { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Format-2 books kept appearance and manner in one "Description". On load it moves into
+    /// <see cref="PhysicalDescription"/> and this is cleared, so it is never written again.
+    /// </summary>
+    [JsonPropertyName("Description"), JsonInclude]
+    internal string? LegacyDescription { get; set; }
 }
 
 /// <summary>
@@ -305,18 +381,39 @@ public enum PlotlineStatus { Planned, Active, Resolved }
 /// </summary>
 public enum PlotlineKind { Primary, Secondary, Chapter, Subplot, Extra }
 
+/// <summary>What a thread is doing in one chapter: it starts here, it runs on, or it ends here.</summary>
+public enum PlotlineRole { Introduced, Continuing, Resolved }
+
+/// <summary>A plotline's part in one chapter. Absent = the thread does not run through that chapter.</summary>
+public sealed class ChapterRole
+{
+    public Guid         ChapterId { get; set; }
+    public PlotlineRole Role      { get; set; } = PlotlineRole.Continuing;
+}
+
 /// <summary>A thread of the story. Plotlines converge; that is recorded on both sides.</summary>
 public sealed class Plotline
 {
     public Guid           Id           { get; set; } = Guid.NewGuid();
     public string         Name         { get; set; } = "New Plotline";
+    /// <summary>What the thread is, one entry per line; the AI adds to it as later chapters say more.</summary>
     public string         Summary      { get; set; } = string.Empty;
+    /// <summary>Planned while it is still an intention, Active once it runs, Resolved when a chapter closes it.</summary>
     public PlotlineStatus Status       { get; set; } = PlotlineStatus.Planned;
+    /// <summary>Why it stands where it does: the plan while it is planned, how it plays out once it runs.</summary>
+    public string         StatusNote   { get; set; } = string.Empty;
     public PlotlineKind   Kind         { get; set; } = PlotlineKind.Secondary;
+    /// <summary>The chapters the thread runs through. <see cref="ChapterRoles"/> says what it does in each.</summary>
     public List<Guid>     ChapterIds   { get; set; } = new();
+    /// <summary>Introduced / continuing / resolved, per chapter. Seeded from <see cref="ChapterIds"/> on load.</summary>
+    public List<ChapterRole> ChapterRoles { get; set; } = new();
     public List<Guid>     CharacterIds { get; set; } = new();
     public List<PlotlineConvergence> Convergences { get; set; } = new();
     public string         Notes        { get; set; } = string.Empty;
+
+    /// <summary>What the thread does in a chapter, or null when it does not run through it.</summary>
+    public PlotlineRole? RoleIn(Guid chapterId) =>
+        ChapterRoles.FirstOrDefault(r => r.ChapterId == chapterId)?.Role;
 }
 
 /// <summary>Where this plotline meets another one.</summary>

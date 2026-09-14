@@ -1,4 +1,4 @@
-using AuthorPlus.Core.Models;
+﻿﻿using AuthorPlus.Core.Models;
 using AuthorPlus.Core.Services;
 
 namespace AuthorPlus.Tests;
@@ -120,7 +120,7 @@ public class SectionsAndItemsTests
         var store = new BookStore(t.Path);
         var book = store.Load(folder);
 
-        Assert.Equal(2, book.FormatVersion);
+        Assert.Equal(Book.CurrentFormatVersion, book.FormatVersion);
         Assert.Empty(book.Sections);
         var ch = book.Chapters.Single();
         Assert.Equal("Old-style summary.", book.SummaryText(ch));
@@ -130,7 +130,7 @@ public class SectionsAndItemsTests
         store.Save(book);
         var chapterJson = File.ReadAllText(Path.Combine(folder, "chapters", chId.ToString("N") + ".json"));
         Assert.DoesNotContain("\"Summary\"", chapterJson);
-        Assert.Contains("\"FormatVersion\": 2", File.ReadAllText(Path.Combine(folder, "book.json")));
+        Assert.Contains($"\"FormatVersion\": {Book.CurrentFormatVersion}", File.ReadAllText(Path.Combine(folder, "book.json")));
         Assert.Equal("Old-style summary.", store.Load(folder).SummaryText(store.Load(folder).Chapters.Single()));
     }
 }

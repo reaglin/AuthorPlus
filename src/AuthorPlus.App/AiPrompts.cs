@@ -1,4 +1,4 @@
-﻿﻿using Eaglin.AiManager.Prompts;
+﻿﻿﻿using Eaglin.AiManager.Prompts;
 
 namespace AuthorPlus.App;
 
@@ -25,6 +25,7 @@ public static class AiPrompts
     public const string FindPlotlines       = "find-plotlines";
     public const string CharactersInChapter = "characters-in-chapter";
     public const string CharacterProfile    = "character-profile";
+    public const string PlotlineSummary     = "plotline-summary";
     public const string SectionOutline      = "section-outline";
     public const string SectionSummary      = "section-summary";
     public const string ContinuityCheck     = "continuity-check";
@@ -239,11 +240,30 @@ public static class AiPrompts
             maxTokens: 2500),
 
         new PromptTemplate(CharacterProfile,
-            system: "You are a story-development assistant. Given what the author already knows about a character and the chapter " +
-                    "summaries, suggest additions for the blank or thin fields. Return plain text with headings exactly: " +
-                    "Description, Motivations, Actions, Arc. Keep each under 120 words. Never contradict what is given.",
-            user:   "Book: {book}\nSynopsis: {synopsis}\n\nCharacter as known:\n{known}\n\nChapter summaries:\n{summaries}",
-            description: "Suggestions for a character's Description, Motivations, Actions and Arc, appended to the character's Notes.",
+            system: "You are a story-development assistant filling in an author's character sheet from their own book. " +
+                    "Read the chapter summaries for what they actually say about this character, and give back only what is new — " +
+                    "never repeat what the author has already written, never contradict it, never invent what the book does not support.\n\n" +
+                    "Reply as lines in exactly this shape and nothing else:\n" +
+                    "FIELD | one specific detail\n\n" +
+                    "FIELD is one of ROLE, ORIGIN, PHYSICAL, PERSONALITY, MOTIVATIONS, ACTIONS, ARC, ALSO CALLED. " +
+                    "One detail per line, a dozen words or so, written as the author would note it (\"5 ft 11, dark black hair\", not \"He is described as being…\"). " +
+                    "Between 3 and 12 lines. No headings, no preamble, no commentary. If the book says nothing new about a field, leave that field out.",
+            user:   "Book: {book}\nSynopsis: {synopsis}\nCharacter: {character}\n\nWhat the author has already written:\n{known}\n\nChapter summaries:\n{summaries}",
+            description: "Reads the chapter summaries and adds what they say about a character to their fields, one entry per line, each marked as the AI's.",
+            maxTokens: 2000),
+
+        new PromptTemplate(PlotlineSummary,
+            system: "You are keeping an author's plotline sheet up to date. A thread was described once, early; the chapters it runs " +
+                    "through since have said more about it. Read those chapter summaries and give back what the summary does not yet say — " +
+                    "how the thread develops, what it turns on, what it is now asking. Never repeat what the summary already has, " +
+                    "never contradict it, never invent what the summaries do not support.\n\n" +
+                    "Reply as lines in exactly this shape and nothing else:\n" +
+                    "SUMMARY | one point about what this thread is or does\n" +
+                    "NOTE | something worth knowing that is not part of the summary (a loose end, a contradiction, a chapter where it goes quiet)\n\n" +
+                    "One point per line, a sentence at most, naming the chapter where it happens when that matters. " +
+                    "Between 2 and 8 lines. No headings, no preamble, no commentary.",
+            user:   "Book: {book}\nPlotline: {plotline} ({kind})\nIn the book: {span}\n\nThe summary as it stands:\n{summary}\n\nThe chapters it runs through:\n{summaries}",
+            description: "Adds to a plotline's summary from the chapters it runs through, one entry per line, each marked as the AI's.",
             maxTokens: 2000),
 
         new PromptTemplate(SectionOutline,

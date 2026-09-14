@@ -1,4 +1,4 @@
-﻿﻿using System.Windows;
+﻿﻿﻿using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
@@ -173,7 +173,10 @@ public sealed class PlotlineBoard : DockPanel
     {
         var help = new TextBlock
         {
-            Text = "● the plotline runs through the chapter · ◆ it converges with another plotline there. Click a cell to toggle ●. The tint behind a name is its kind — primary, secondary, chapter, subplot, extra; a red name is not yet resolved. No plotlines yet? Right-click Plotlines › Find Plotlines (AI)… works from the chapter summaries.",
+            Text = "What each thread does in each chapter:  ● green it is introduced  ·  ● blue it continues  ·  ● purple it is resolved  ·  ◆ it converges with another thread there. " +
+                   "Click a cell to say which — that is where a thread's status comes from, so a thread is planned until it runs anywhere, active once it does, and resolved when a chapter resolves it. " +
+                   "The tint behind a name is its kind: primary, secondary, chapter, subplot, extra. Click a name to open the thread. " +
+                   "No plotlines yet? Right-click Plotlines › Find Plotlines (AI)… works from the chapter summaries.",
             Foreground = Brushes.Gray, TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 0, 0, 8)
         };
         SetDock(help, Dock.Top);
@@ -212,11 +215,16 @@ public sealed class PlotlineBoard : DockPanel
             var rowBg = r % 2 == 1 ? Palette.RowAltBg : Brushes.Transparent;
             var name = new TextBlock
             {
-                Text = $"{p.Name}  ({p.Kind.ToString().ToLowerInvariant()}, {p.Status.ToString().ToLowerInvariant()})", Padding = new Thickness(6, 3, 10, 3), VerticalAlignment = VerticalAlignment.Center, Cursor = Cursors.Hand,
-                Foreground = p.Status == PlotlineStatus.Resolved ? Brushes.Black : Brushes.Firebrick, FontWeight = FontWeights.SemiBold,
-                Background = Palette.KindBg(p.Kind),
-                ToolTip = "Open this plotline"
+                Padding = new Thickness(6, 3, 10, 3), VerticalAlignment = VerticalAlignment.Center, Cursor = Cursors.Hand,
+                FontWeight = FontWeights.SemiBold, Background = Palette.KindBg(p.Kind), ToolTip = "Open this plotline"
             };
+            var line = p;
+            void PaintName()
+            {
+                name.Text = $"{line.Name}  ({line.Kind.ToString().ToLowerInvariant()}, {line.Status.ToString().ToLowerInvariant()})";
+                name.Foreground = line.Status == PlotlineStatus.Resolved ? Brushes.Black : Brushes.Firebrick;
+            }
+            PaintName();
             name.MouseLeftButtonUp += (_, _) => navigate(p);
             Grid.SetRow(name, r + 1); Grid.SetColumn(name, 0);
             grid.Children.Add(name);
@@ -226,21 +234,38 @@ public sealed class PlotlineBoard : DockPanel
                 var ch = book.Chapters[c];
                 var cell = new Border { BorderBrush = Palette.Line, BorderThickness = new Thickness(0, 0, 1, 1), Cursor = Cursors.Hand, Background = rowBg };
                 var mark = new TextBlock { HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center, FontSize = 12 };
+                var thread = p; var chapter = ch;
                 void Paint()
                 {
-                    bool runs = p.ChapterIds.Contains(ch.Id);
-                    bool conv = p.Convergences.Any(x => x.ChapterId == ch.Id);
-                    mark.Text = conv ? "◆" : runs ? "●" : "";
-                    mark.Foreground = conv ? Brushes.DarkOrange : Palette.KindInk(p.Kind);
+                    var role = thread.RoleIn(chapter.Id);
+                    bool conv = thread.Convergences.Any(x => x.ChapterId == chapter.Id);
+                    mark.Text = role is null ? "" : conv ? "◆" : "●";
+                    mark.Foreground = conv ? Brushes.DarkOrange : Palette.RoleInk(role ?? PlotlineRole.Continuing);
+                    cell.ToolTip = $"{book.ChapterNumber(chapter)}. {chapter.Title} — " +
+                                   (role is { } r3 ? Palette.RoleWord(r3).ToLowerInvariant() + " here" : "the thread does not run through this chapter") +
+                                   "\nClick to change it.";
                 }
                 Paint();
                 cell.Child = mark;
-                cell.ToolTip = $"{book.ChapterNumber(ch)}. {ch.Title}";
+
+                // Clicking the dot says what the thread does here; the thread's status follows from it.
                 cell.MouseLeftButtonUp += (_, _) =>
                 {
-                    if (p.ChapterIds.Contains(ch.Id)) p.ChapterIds.Remove(ch.Id); else p.ChapterIds.Add(ch.Id);
-                    Paint();
-                    changed();
+                    var menu = new ContextMenu { PlacementTarget = cell, IsOpen = true };
+                    var current = thread.RoleIn(chapter.Id);
+                    void Choice(string header, PlotlineRole? role)
+                    {
+                        var mi = new MenuItem { Header = header, IsChecked = current == role, IsCheckable = false };
+                        mi.Click += (_, _) => { book.SetRole(thread, chapter.Id, role); Paint(); PaintName(); changed(); };
+                        menu.Items.Add(mi);
+                    }
+                    menu.Items.Add(new MenuItem { Header = $"Chapter {book.ChapterNumber(chapter)} — {chapter.Title}", IsEnabled = false });
+                    menu.Items.Add(new Separator());
+                    Choice("Introduced here", PlotlineRole.Introduced);
+                    Choice("Continuing here", PlotlineRole.Continuing);
+                    Choice("Resolved here", PlotlineRole.Resolved);
+                    menu.Items.Add(new Separator());
+                    Choice("Not in this chapter", null);
                 };
                 Grid.SetRow(cell, r + 1); Grid.SetColumn(cell, c + 1);
                 grid.Children.Add(cell);

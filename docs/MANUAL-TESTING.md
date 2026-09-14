@@ -89,7 +89,16 @@ the exe (`AuthorPlus.exe "<book folder>"` opens it). Books live in `Documents\Au
   from an earlier chapter, and its description; every name opens the plotline, where it is edited.
   Characters shows the name, role, point of view or where else they appear, and their other names.
   The AI’s notes stay editable under each table.
-- Character › **Suggest Profile (AI)**.
+- **A character page** is now bullets with an **Edit** button per field: Role, Also called, Origin,
+  Physical description, Personality, Motivations, Actions, Arc, Notes. Edit opens the whole field
+  in one box, one entry per line. **Fill in from the book (AI)** reads the chapter summaries and
+  adds what it finds as its own entries, each marked **AI** — change, unmark or delete any of them.
+- **A plotline page** is the same pattern over About where it stands, Summary and Notes, and its
+  status is now derived from its chapters: planned until it runs anywhere, active once it does,
+  resolved when a chapter resolves it. **Add to the summary from the chapters (AI)** reads the
+  summaries of the chapters it runs through and adds what they say.
+- **The plotlines chart** now colour-codes what a thread does in each chapter: green introduced,
+  blue continuing, purple resolved. Click a cell for the menu that sets it.
 - View › **Preview AI Prompts Before Sending** — turn it on and run anything: you see the
   exact text, tokens and cost before it goes. AI › **Prompt Library…** to change the wording;
   AI › **AI Usage…** for the month's calls.

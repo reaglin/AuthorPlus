@@ -1,4 +1,4 @@
-﻿﻿﻿﻿﻿using System.Diagnostics;
+﻿﻿﻿﻿﻿﻿﻿using System.Diagnostics;
 using System.IO;
 using System.Windows;
 using System.Windows.Controls;
@@ -575,29 +575,10 @@ public partial class MainWindow : Window, ISuggestionActions
                 Editor.Content = BuildItemEditor(it);
                 break;
             case Character c:
-            {
                 TxtKind.Text = "Character";
                 TxtName.Text = c.Name;
-                var appears = _book!.Chapters.Where(ch => ch.CharacterIds.Contains(c.Id))
-                    .Select(ch => $"{(_book.SectionOf(ch) is { } s ? s.Title + " · " : "")}{_book.ChapterNumber(ch)}. {ch.Title}{(ch.PovCharacterId == c.Id ? "  (POV)" : "")}").ToList();
-                var scan = new Button { Content = "Scan chapters for mentions…", Padding = new Thickness(10, 3, 10, 3), HorizontalAlignment = HorizontalAlignment.Left, Margin = new Thickness(0, 6, 0, 0) };
-                scan.Click += ScanMentions_Click;
-                Editor.Content = FieldFormWith(new UIElement[]
-                    {
-                        new TextBlock { Text = "Appears in", FontWeight = FontWeights.SemiBold, Margin = new Thickness(0, 12, 0, 2) },
-                        new TextBlock { Text = appears.Count == 0 ? "No chapter lists this character yet." : string.Join("\n", appears), TextWrapping = TextWrapping.Wrap },
-                        scan
-                    },
-                    ("Role",        () => c.Role,        v => c.Role = v,        1),
-                    ("Also called (other names the text uses, one per line)", () => c.Aliases, v => c.Aliases = v, 2),
-                    ("Origin",      () => c.Origin,      v => c.Origin = v,      2),
-                    ("Description", () => c.Description, v => c.Description = v, 4),
-                    ("Motivations", () => c.Motivations, v => c.Motivations = v, 4),
-                    ("Actions",     () => c.Actions,     v => c.Actions = v,     4),
-                    ("Arc",         () => c.Arc,         v => c.Arc = v,         3),
-                    ("Notes",       () => c.Notes,       v => c.Notes = v,       3));
+                Editor.Content = BuildCharacterPage(c);
                 break;
-            }
             case TimelineEvent t:
                 TxtKind.Text = "Event";
                 TxtName.Text = t.Title;
@@ -613,17 +594,7 @@ public partial class MainWindow : Window, ISuggestionActions
             case Plotline p:
                 TxtKind.Text = "Plotline";
                 TxtName.Text = p.Name;
-                Editor.Content = FieldFormWith(new UIElement[]
-                    {
-                        KindChooser(p),
-                        new LinkPicker("Chapters it runs through", ChapterCandidates(), p.ChapterIds, MarkDirty),
-                        new LinkPicker("Characters involved", CharacterCandidates(), p.CharacterIds, MarkDirty),
-                        BuildConvergencesEditor(p)
-                    },
-                    ("Status (Planned / Active / Resolved)", () => p.Status.ToString(),
-                        v => { if (Enum.TryParse<PlotlineStatus>(v, true, out var s)) p.Status = s; }, 1),
-                    ("Summary", () => p.Summary, v => p.Summary = v, 5),
-                    ("Notes",   () => p.Notes,   v => p.Notes = v,   3));
+                Editor.Content = BuildPlotlinePage(p);
                 break;
             case string header when _book != null:
                 TxtKind.Text = "";
@@ -666,14 +637,20 @@ public partial class MainWindow : Window, ISuggestionActions
 
     private UIElement KindChooser(Plotline p)
     {
-        var panel = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 8, 0, 0) };
+        var stack = new StackPanel { Margin = new Thickness(0, 8, 0, 0) };
+        var panel = new StackPanel { Orientation = Orientation.Horizontal };
+        stack.Children.Add(panel);
         panel.Children.Add(new TextBlock { Text = "Kind:", FontWeight = FontWeights.SemiBold, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(0, 0, 8, 0) });
         var box = new ComboBox { ItemsSource = Enum.GetValues<PlotlineKind>(), SelectedItem = p.Kind, Width = 130 };
         box.SelectionChanged += (_, _) => { if (!_loading && box.SelectedItem is PlotlineKind k) { p.Kind = k; MarkDirty(); } };
         panel.Children.Add(box);
-        panel.Children.Add(new TextBlock { Text = "primary = the spine the book turns on · secondary = a thread beside it · chapter = it opens and closes here · subplot = a side story · extra = one you are watching", Foreground = System.Windows.Media.Brushes.Gray, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(10, 0, 0, 0), TextWrapping = TextWrapping.Wrap });
-        return panel;
+        panel.Children.Add(Padded(Palette.Chip(p.Kind.ToString().ToLowerInvariant(), Palette.KindBg(p.Kind), KindMeaning(p.Kind))));
+        stack.Children.Add(new TextBlock { Text = "primary = the spine the book turns on · secondary = a thread beside it · chapter = it opens and closes here · subplot = a side story · extra = one you are watching", Foreground = System.Windows.Media.Brushes.Gray, Margin = new Thickness(0, 4, 0, 0), TextWrapping = TextWrapping.Wrap });
+        return stack;
     }
+
+    /// <summary>A chip with room around it, for a row of controls.</summary>
+    private static UIElement Padded(FrameworkElement element) { element.Margin = new Thickness(10, 0, 0, 0); return element; }
 
     private IEnumerable<(Guid, string)> ChapterCandidates() =>
         _book!.Chapters.Select(ch => (ch.Id, $"{(_book.SectionOf(ch) is { } s ? _book.Sections.IndexOf(s) + 1 + "." : "")}{_book.ChapterNumber(ch)} {ch.Title}"));
@@ -754,6 +731,131 @@ public partial class MainWindow : Window, ISuggestionActions
     }
 
     /// <summary>A field form with extra elements (pickers, read-only lists) appended after the fields.</summary>
+    // ── The character page and the plotline page ──────────────────────────────
+
+    /// <summary>
+    /// A character, field by field, each field a list of entries with an Edit button that opens the
+    /// whole of it. Entries the AI added carry an AI mark. Where the character appears is shown but
+    /// not set here — that is the chart on the Characters page.
+    /// </summary>
+    private UIElement BuildCharacterPage(Character c)
+    {
+        var panel = new StackPanel { Margin = new Thickness(16, 12, 16, 16) };
+        panel.Children.Add(new TextBlock
+        {
+            Text = "Everything about this character. Edit opens a field in full, in your own words; an AI mark shows an entry the AI added, which you can change, unmark or delete like any other.",
+            Foreground = System.Windows.Media.Brushes.Gray, TextWrapping = TextWrapping.Wrap
+        });
+
+        void Field(string label, Func<string> get, Action<string> set, string hint = "") =>
+            panel.Children.Add(new BulletField(label, get, set, MarkDirty, hint, this));
+
+        Field("Role", () => c.Role, v => c.Role = v, "Protagonist, antagonist, the detective, the one who knows.");
+        Field("Also called", () => c.Aliases, v => c.Aliases = v, "Other names the text uses for them — one per line; the chapter scan matches these too.");
+        Field("Origin", () => c.Origin, v => c.Origin = v, "Where they come from, and what that left them with.");
+        Field("Physical description", () => c.PhysicalDescription, v => c.PhysicalDescription = v, "Build, face, voice, how they carry themselves.");
+        Field("Personality", () => c.Personality, v => c.Personality = v, "Temperament, manner, habits of mind — what they are like to be in a room with.");
+        Field("Motivations", () => c.Motivations, v => c.Motivations = v, "What they want, what they fear, what they will not do.");
+        Field("Actions", () => c.Actions, v => c.Actions = v, "What they actually do across the book.");
+        Field("Arc", () => c.Arc, v => c.Arc = v, "How they change, and what changes them.");
+        Field("Notes", () => c.Notes, v => c.Notes = v, "Anything that does not fit the other fields.");
+
+        var appears = _book!.Chapters.Where(ch => ch.CharacterIds.Contains(c.Id))
+            .Select(ch => $"{(_book.SectionOf(ch) is { } s ? s.Title + " · " : "")}{_book.ChapterNumber(ch)}. {ch.Title}{(ch.PovCharacterId == c.Id ? "  (POV)" : "")}").ToList();
+        panel.Children.Add(new TextBlock { Text = "Appears in", FontWeight = FontWeights.SemiBold, Margin = new Thickness(0, 16, 0, 2) });
+        panel.Children.Add(new TextBlock
+        {
+            Text = appears.Count == 0 ? "No chapter lists this character yet — mark them on the chart under the cast on the Characters page." : string.Join("\n", appears),
+            TextWrapping = TextWrapping.Wrap, Foreground = appears.Count == 0 ? System.Windows.Media.Brushes.Gray : System.Windows.Media.Brushes.Black
+        });
+        var buttons = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 8, 0, 0) };
+        var scan = new Button { Content = "Scan chapters for mentions…", Padding = new Thickness(10, 3, 10, 3), Margin = new Thickness(0, 0, 8, 0) };
+        scan.Click += ScanMentions_Click;
+        var profile = new Button { Content = "Fill in from the book (AI)…", Padding = new Thickness(10, 3, 10, 3), IsEnabled = _ai.IsAvailable(),
+                                   ToolTip = "Reads the chapter summaries and adds what it finds to the fields above, each entry marked as the AI's" };
+        profile.Click += AiCharacter_Click;
+        buttons.Children.Add(scan); buttons.Children.Add(profile);
+        panel.Children.Add(buttons);
+
+        return new ScrollViewer { Content = panel, VerticalScrollBarVisibility = ScrollBarVisibility.Auto };
+    }
+
+    /// <summary>
+    /// A plotline: what kind of thread it is, where it stands and why, what it is (a summary the AI
+    /// can add to as later chapters say more), and the chapters it runs through with the part it
+    /// plays in each.
+    /// </summary>
+    private UIElement BuildPlotlinePage(Plotline p)
+    {
+        var panel = new StackPanel { Margin = new Thickness(16, 12, 16, 16) };
+        panel.Children.Add(new TextBlock
+        {
+            Text = "The thread itself. Its status follows the chapters: planned until it runs anywhere, active once it does, resolved when a chapter closes it — set that on the chart on the Plotlines page, by clicking the dot for a chapter.",
+            Foreground = System.Windows.Media.Brushes.Gray, TextWrapping = TextWrapping.Wrap
+        });
+
+        panel.Children.Add(KindChooser(p));
+
+        // Where it stands, and its life in chapter numbers.
+        var statusRow = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 12, 0, 0) };
+        statusRow.Children.Add(new TextBlock { Text = "Status:", FontWeight = FontWeights.SemiBold, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(0, 0, 8, 0) });
+        var statusChip = Palette.Chip(p.Status.ToString(), p.Status switch
+        {
+            PlotlineStatus.Resolved => Palette.RoleBg(PlotlineRole.Resolved),
+            PlotlineStatus.Active   => Palette.RoleBg(PlotlineRole.Continuing),
+            _                       => Palette.UnlinkedBg
+        }, "Planned until the thread runs through a chapter, active once it does, resolved when a chapter resolves it.");
+        statusRow.Children.Add(statusChip);
+        var span = _book!.RoleSpan(p);
+        statusRow.Children.Add(new TextBlock
+        {
+            Text = span.Length > 0 ? "   " + span : "   Not in any chapter yet — mark it on the Plotlines chart.",
+            VerticalAlignment = VerticalAlignment.Center, Foreground = System.Windows.Media.Brushes.DimGray, TextWrapping = TextWrapping.Wrap
+        });
+        panel.Children.Add(statusRow);
+
+        void Field(string label, Func<string> get, Action<string> set, string hint = "") =>
+            panel.Children.Add(new BulletField(label, get, set, MarkDirty, hint, this));
+
+        Field(p.Status == PlotlineStatus.Planned ? "About the plan" : "About where it stands",
+              () => p.StatusNote, v => p.StatusNote = v,
+              p.Status == PlotlineStatus.Planned
+                  ? "What you intend this thread to do, and when you mean to start it."
+                  : "How it is playing out: what it has done so far, what still has to happen before it can resolve.");
+        Field("Summary", () => p.Summary, v => p.Summary = v, "What the thread is and what question it asks. Later chapters add to it — the AI's additions come in marked.");
+        Field("Notes", () => p.Notes, v => p.Notes = v, "Anything that does not fit the other fields.");
+
+        // The chapters it runs through, and the part it plays in each.
+        panel.Children.Add(new TextBlock { Text = "Chapters", FontWeight = FontWeights.SemiBold, Margin = new Thickness(0, 16, 0, 4) });
+        var runs = _book.Chapters.Where(c => p.ChapterIds.Contains(c.Id)).ToList();
+        if (runs.Count == 0)
+            panel.Children.Add(new TextBlock { Text = "None yet. On the Plotlines page, click a cell on the chart to say the thread is introduced, continuing or resolved in that chapter.", Foreground = System.Windows.Media.Brushes.Gray, TextWrapping = TextWrapping.Wrap });
+        else
+        {
+            var wrap = new WrapPanel();
+            foreach (var ch in runs)
+            {
+                var role = p.RoleIn(ch.Id) ?? PlotlineRole.Continuing;
+                var chip = Palette.Chip($"{_book.ChapterNumber(ch)}. {ch.Title} — {Palette.RoleWord(role)}", Palette.RoleBg(role), "Open this chapter");
+                chip.Margin = new Thickness(0, 0, 8, 6);
+                chip.Cursor = Cursors.Hand;
+                var target = ch;
+                chip.MouseLeftButtonUp += (_, _) => SelectNode(target);
+                wrap.Children.Add(chip);
+            }
+            panel.Children.Add(wrap);
+        }
+
+        var extend = new Button { Content = "Add to the summary from the chapters (AI)…", Padding = new Thickness(10, 3, 10, 3), HorizontalAlignment = HorizontalAlignment.Left, Margin = new Thickness(0, 10, 0, 0),
+                                  IsEnabled = _ai.IsAvailable() && runs.Count > 0, ToolTip = "Reads the summaries of the chapters this thread runs through and adds what they say about it, each entry marked as the AI's" };
+        extend.Click += AiPlotlineSummary_Click;
+        panel.Children.Add(extend);
+
+        panel.Children.Add(new LinkPicker("Characters involved", CharacterCandidates(), p.CharacterIds, MarkDirty));
+        panel.Children.Add(BuildConvergencesEditor(p));
+        return new ScrollViewer { Content = panel, VerticalScrollBarVisibility = ScrollBarVisibility.Auto };
+    }
+
     private UIElement FieldFormWith(IEnumerable<UIElement> extras, params (string Label, Func<string> Get, Action<string> Set, int Lines)[] fields)
     {
         var scroll = (ScrollViewer)FieldForm(fields);
@@ -1608,13 +1710,15 @@ public partial class MainWindow : Window, ISuggestionActions
             var p = rows[r];
             bool alt = r % 2 == 1;
             var runs = _book.Chapters.Where(c => p.ChapterIds.Contains(c.Id)).ToList();
-            var here = chapter != null && p.ChapterIds.Contains(chapter.Id);
+            var role = chapter == null ? null : p.RoleIn(chapter.Id);
             var before = chapter == null ? null : runs.LastOrDefault(c => _book.Chapters.IndexOf(c) < _book.Chapters.IndexOf(chapter));
 
             var (state, tint, why) =
-                !here                  ? ("Named here, not linked", Palette.UnlinkedBg, "The analysis named this thread for the chapter but the plotline does not list the chapter — link it on the Plotlines page.")
-                : before == null       ? ("Introduced here", Palette.IntroducedBg, "This is the first chapter the thread runs through.")
-                                       : ($"Continued from ch. {_book.ChapterNumber(before)}", Palette.ContinuedBg, $"Last seen in {_book.ChapterNumber(before)}. {before.Title}");
+                role is null                        ? ("Named here, not linked", Palette.UnlinkedBg, "The analysis named this thread for the chapter but the thread does not list the chapter — click its cell on the Plotlines chart to say what it does here.")
+                : role == PlotlineRole.Introduced   ? ("Introduced here", Palette.RoleBg(PlotlineRole.Introduced), "The thread starts in this chapter.")
+                : role == PlotlineRole.Resolved     ? ("Resolved here", Palette.RoleBg(PlotlineRole.Resolved), "The thread closes in this chapter.")
+                : before == null                    ? ("Continuing", Palette.RoleBg(PlotlineRole.Continuing), "The thread runs through this chapter.")
+                                                    : ($"Continued from ch. {_book.ChapterNumber(before)}", Palette.RoleBg(PlotlineRole.Continuing), $"Last seen in {_book.ChapterNumber(before)}. {before.Title}");
 
             var open = Palette.LinkText(p.Name, () => SelectNode(p), "Open this plotline");
             open.FontWeight = FontWeights.SemiBold;
@@ -2182,7 +2286,8 @@ public partial class MainWindow : Window, ISuggestionActions
             if (p == null) continue;
             if (!plotItem.PlotlineIds.Contains(p.Id)) plotItem.PlotlineIds.Add(p.Id);
             if (!ch.PlotlineIds.Contains(p.Id)) ch.PlotlineIds.Add(p.Id);
-            if (!p.ChapterIds.Contains(ch.Id)) p.ChapterIds.Add(ch.Id);
+            if (p.RoleIn(ch.Id) is null)                       // the analysis says whether it starts here
+                _book.SetRole(p, ch.Id, e.IsNew || p.ChapterIds.Count == 0 ? PlotlineRole.Introduced : PlotlineRole.Continuing);
         }
         plotItem.Body = string.Join("\n", plotLines);
         plotItem.Provider = _ai.DefaultProvider.ToString(); plotItem.PromptName = AiPrompts.ChapterExtract; plotItem.ModifiedUtc = DateTime.UtcNow;
@@ -2220,7 +2325,8 @@ public partial class MainWindow : Window, ISuggestionActions
 
     private string CharacterFacts() => _book!.Characters.Count == 0 ? "(none recorded)" : string.Join("\n\n", _book.Characters.Select(c =>
         $"{c.Name}{(c.Aliases.Length > 0 ? " (also " + string.Join(", ", MentionFinder.NamesOf(c).Skip(1)) + ")" : "")} — {c.Role}" +
-        (c.Description.Length > 0 ? $"\n  Description: {c.Description}" : "") + (c.Motivations.Length > 0 ? $"\n  Motivations: {c.Motivations}" : "") +
+        (c.PhysicalDescription.Length > 0 ? $"\n  Looks: {c.PhysicalDescription}" : "") + (c.Personality.Length > 0 ? $"\n  Personality: {c.Personality}" : "") +
+        (c.Motivations.Length > 0 ? $"\n  Motivations: {c.Motivations}" : "") +
         (c.Actions.Length > 0 ? $"\n  Actions: {c.Actions}" : "") + (c.Arc.Length > 0 ? $"\n  Arc: {c.Arc}" : "")));
 
     private string TimelineFacts() => _book!.Timeline.Count == 0 ? "(no events recorded)" : string.Join("\n", _book.Timeline.OrderBy(e => e.Order).Select(e =>
@@ -2431,6 +2537,7 @@ public partial class MainWindow : Window, ISuggestionActions
                 if (!p.ChapterIds.Contains(ch.Id)) { p.ChapterIds.Add(ch.Id); linked++; }
                 if (!ch.PlotlineIds.Contains(p.Id)) ch.PlotlineIds.Add(p.Id);
             }
+            _book.SeedRoles(p);                                // first chapter introduces it, the rest continue
         }
         MarkDirty();
         BuildTree(select: PlotlinesHeader);
@@ -2559,16 +2666,91 @@ public partial class MainWindow : Window, ISuggestionActions
         if (_book == null || _current is not Character c) { UpdateStatus("Select a character first."); return; }
         if (!EnsureAiOrExplain()) return;
 
-        var known = $"Name: {c.Name}\nRole: {c.Role}\nOrigin: {c.Origin}\nDescription: {c.Description}\nMotivations: {c.Motivations}\nActions: {c.Actions}\nArc: {c.Arc}\nNotes: {c.Notes}";
+        var known = $"Name: {c.Name}\nRole: {c.Role}\nOrigin: {c.Origin}\nPhysical description: {c.PhysicalDescription}\nPersonality: {c.Personality}\n" +
+                    $"Motivations: {c.Motivations}\nActions: {c.Actions}\nArc: {c.Arc}\nNotes: {c.Notes}";
         var summaries = string.Join("\n\n", _book.Chapters.Where(x => _book.SummaryText(x).Length > 0).Select(x => $"{x.Title}: {_book.SummaryText(x)}"));
 
-        await RunAi($"Drafting a profile for {c.Name} with {AiHub.DisplayName(_ai.DefaultProvider)}…", async ct =>
+        await RunAi($"Reading the book for {c.Name} with {AiHub.DisplayName(_ai.DefaultProvider)}…", async ct =>
         {
             var r = await SendTemplateAsync(AiPrompts.CharacterProfile,
-                new { book = _book.Title, synopsis = _book.Synopsis, known, summaries }, ct);
-            c.Notes = (c.Notes.Length > 0 ? c.Notes + "\n\n" : "") + $"— AI suggestions ({DateTime.Now:yyyy-MM-dd}) —\n{r.Text.Trim()}";
+                new { book = _book.Title, synopsis = _book.Synopsis, character = c.Name, known, summaries }, ct);
+
+            // Each line the AI gives back becomes its own entry in its field, marked as the AI's.
+            var fields = new Dictionary<string, (Func<string> Get, Action<string> Set)>(StringComparer.OrdinalIgnoreCase)
+            {
+                ["ROLE"]        = (() => c.Role,                v => c.Role = v),
+                ["ORIGIN"]      = (() => c.Origin,              v => c.Origin = v),
+                ["PHYSICAL"]    = (() => c.PhysicalDescription, v => c.PhysicalDescription = v),
+                ["PERSONALITY"] = (() => c.Personality,         v => c.Personality = v),
+                ["MOTIVATIONS"] = (() => c.Motivations,         v => c.Motivations = v),
+                ["ACTIONS"]     = (() => c.Actions,             v => c.Actions = v),
+                ["ARC"]         = (() => c.Arc,                 v => c.Arc = v),
+                ["ALSO CALLED"] = (() => c.Aliases,             v => c.Aliases = v)
+            };
+            int added = 0;
+            foreach (var (label, text) in LabeledLines.Parse(r.Text, fields.Keys))
+            {
+                var (get, set) = fields[label];
+                var before = get();
+                var after = Bullets.Add(before, text, fromAi: true);
+                if (!ReferenceEquals(before, after) && after != before) { set(after); added++; }
+            }
+            if (added == 0)
+                c.Notes = Bullets.Add(c.Notes, $"AI reply that did not fit the fields ({DateTime.Now:yyyy-MM-dd}): {r.Text.Trim()}", fromAi: true);
+
             MarkDirty();
             ShowCurrent();
+            UpdateStatus(added > 0 ? $"{added} entr{(added == 1 ? "y" : "ies")} added to {c.Name}, each marked as the AI's — edit or delete any of them." : "Nothing new to add; what came back is in Notes.");
+            return r;
+        });
+    }
+
+    /// <summary>
+    /// "Add to the summary from the chapters": the chapters a thread runs through often say more
+    /// about it than the line written when it was first spotted. Each new point is added to the
+    /// summary as its own entry, marked as the AI's.
+    /// </summary>
+    private async void AiPlotlineSummary_Click(object sender, RoutedEventArgs e)
+    {
+        if (_book == null || _current is not Plotline p) { UpdateStatus("Select a plotline first."); return; }
+        if (!EnsureAiOrExplain()) return;
+        var runs = _book.Chapters.Where(c => p.ChapterIds.Contains(c.Id)).ToList();
+        if (runs.Count == 0) { MessageBox.Show(this, "This thread does not run through any chapter yet. Mark it on the Plotlines chart first.", "AI", MessageBoxButton.OK, MessageBoxImage.Information); return; }
+        if (runs.All(c => _book.SummaryText(c).Length == 0))
+        {
+            MessageBox.Show(this, "None of the chapters this thread runs through has a summary yet. Summarize a few of them first (right-click a chapter › Summarize).", "AI", MessageBoxButton.OK, MessageBoxImage.Information);
+            return;
+        }
+
+        var summaries = string.Join("\n\n", runs.Select(c => $"Chapter {_book.ChapterNumber(c)}, {c.Title} ({Palette.RoleWord(p.RoleIn(c.Id) ?? PlotlineRole.Continuing).ToLowerInvariant()} here): " +
+                                                            (_book.SummaryText(c).Length > 0 ? _book.SummaryText(c) : "(no summary yet)")));
+        await RunAi($"Reading {runs.Count} chapters for \"{p.Name}\"…", async ct =>
+        {
+            var r = await SendTemplateAsync(AiPrompts.PlotlineSummary,
+                new { book = _book.Title, plotline = p.Name, kind = p.Kind.ToString().ToLowerInvariant(), span = _book.RoleSpan(p), summary = p.Summary, summaries }, ct);
+
+            var points = LabeledLines.Parse(r.Text, new[] { "SUMMARY", "NOTE" });
+            int added = 0;
+            foreach (var (label, text) in points)
+            {
+                if (label.Equals("SUMMARY", StringComparison.OrdinalIgnoreCase))
+                {
+                    var before = p.Summary;
+                    p.Summary = Bullets.Add(before, text, fromAi: true);
+                    if (p.Summary != before) added++;
+                }
+                else
+                {
+                    var before = p.Notes;
+                    p.Notes = Bullets.Add(before, text, fromAi: true);
+                    if (p.Notes != before) added++;
+                }
+            }
+            if (added == 0) p.Notes = Bullets.Add(p.Notes, $"AI reply that did not fit ({DateTime.Now:yyyy-MM-dd}): {r.Text.Trim()}", fromAi: true);
+
+            MarkDirty();
+            ShowCurrent();
+            UpdateStatus(added > 0 ? $"{added} entr{(added == 1 ? "y" : "ies")} added to \"{p.Name}\", each marked as the AI's." : "Nothing new to add; what came back is in Notes.");
             return r;
         });
     }

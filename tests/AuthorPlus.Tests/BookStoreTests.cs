@@ -1,4 +1,4 @@
-using AuthorPlus.Core.Models;
+﻿using AuthorPlus.Core.Models;
 using AuthorPlus.Core.Services;
 
 namespace AuthorPlus.Tests;
@@ -40,7 +40,10 @@ public class BookStoreTests
         book.Chapters.AddRange(new[] { c1, c2 });
         book.Characters.Add(hero);
         book.Timeline.Add(new TimelineEvent { Order = 1, When = "Day 1", Title = "Departure", CharacterIds = { hero.Id }, ChapterIds = { c1.Id } });
-        book.Plotlines.Add(new Plotline { Name = "Main", Status = PlotlineStatus.Active, Convergences = { new PlotlineConvergence { OtherPlotlineId = Guid.NewGuid(), Note = "meets" } } });
+        var main = new Plotline { Name = "Main", Convergences = { new PlotlineConvergence { OtherPlotlineId = Guid.NewGuid(), Note = "meets" } } };
+        main.ChapterIds.Add(c1.Id);                       // a thread's status follows its chapters: one chapter makes it active
+        book.Plotlines.Add(main);
+        book.SeedRoles(main);
         c1.PovCharacterId = hero.Id;
         store.SaveChapterBody(book, c1, "<FlowDocument xmlns=\"http://schemas.microsoft.com/winfx/2006/xaml/presentation\"><Paragraph>Hello world</Paragraph></FlowDocument>", 2);
         store.Save(book);
@@ -57,6 +60,7 @@ public class BookStoreTests
         Assert.Equal("Day 1", loaded.Timeline.Single().When);
         Assert.Contains(hero.Id, loaded.Timeline.Single().CharacterIds);
         Assert.Equal(PlotlineStatus.Active, loaded.Plotlines.Single().Status);
+        Assert.Equal(PlotlineRole.Introduced, loaded.Plotlines.Single().RoleIn(loaded.Chapters[0].Id));
         Assert.Equal("meets", loaded.Plotlines.Single().Convergences.Single().Note);
         Assert.Contains("Hello world", store.LoadChapterBody(loaded, loaded.Chapters[0]));
         Assert.Null(store.LoadChapterBody(loaded, loaded.Chapters[1]));
