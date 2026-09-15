@@ -37,8 +37,8 @@ public interface ISuggestionActions
 /// </summary>
 public static class SuggestionsEditor
 {
-    private static readonly Brush RemovedBg = new SolidColorBrush(Color.FromRgb(0xFB, 0xD9, 0xD9));
-    private static readonly Brush AddedBg   = new SolidColorBrush(Color.FromRgb(0xD3, 0xF3, 0xDB));
+    private static readonly Brush RemovedBg = Palette.RemovedBg;
+    private static readonly Brush AddedBg   = Palette.AddedBg;
     private static readonly Brush BlockBg   = new SolidColorBrush(Color.FromRgb(0xF7, 0xF9, 0xFB));
     private static readonly Brush Line      = new SolidColorBrush(Color.FromRgb(0xD8, 0xDE, 0xE6));
 

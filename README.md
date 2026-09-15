@@ -18,8 +18,15 @@ chapters already say, and (planned) check continuity and analyse style. You brin
 for Claude, Gemini, OpenAI or Mistral; keys are stored encrypted for your Windows account.
 
 Your book is a folder of small files — one per chapter, character, event and plotline — under
-`Documents\AuthorPlus\Books`. Nothing is locked in a database; back it up, put it in git, or read
-any chapter with a text editor.
+`Documents\AuthorPlus\Books`. Nothing is locked in a database; read any chapter with a text editor.
+
+**Versions and backup.** AuthorPlus can remember the book as it stood at any moment: save a
+version, see what each one changed, read an old draft of a chapter against today's with the
+words that moved marked, and put a chapter — or the whole book — back as it was. Nothing is ever
+deleted; going back is itself a new version. Connect the book to a private **GitHub** repository
+and every version goes there by itself, so a lost computer costs you nothing and a book written
+on two machines stays in step. It is an ordinary git repository underneath, but you never have to
+know that: there is no commit, push or branch anywhere in the app.
 
 Export the whole book as a **Word document**, a **PDF** (typeset as a book: a page per part,
 chapters opening on a new page, justified prose, page numbers and bookmarks), an **EPUB e-book**

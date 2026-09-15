@@ -47,6 +47,8 @@ public partial class MainWindow : Window, ISuggestionActions
     public static readonly RoutedCommand FocusCommand = new("Focus", typeof(MainWindow));
     public static readonly RoutedCommand FindCommand  = new("Find",  typeof(MainWindow));
     public static readonly RoutedCommand ConsistencyCommand = new("Consistency", typeof(MainWindow));
+    public static readonly RoutedCommand SaveVersionCommand = new("SaveVersion", typeof(MainWindow));
+    public static readonly RoutedCommand VersionsCommand    = new("Versions",    typeof(MainWindow));
     private ConsistencyWindow? _consistency;
 
     private const string RecentKey = "recent_books.txt";
@@ -71,6 +73,8 @@ public partial class MainWindow : Window, ISuggestionActions
         CommandBindings.Add(new CommandBinding(FocusCommand, (_, _) => ToggleFocusMode()));
         CommandBindings.Add(new CommandBinding(FindCommand,  (_, _) => ShowFind()));
         CommandBindings.Add(new CommandBinding(ConsistencyCommand, (_, _) => Consistency_Click(this, new RoutedEventArgs())));
+        CommandBindings.Add(new CommandBinding(SaveVersionCommand, (_, _) => SaveVersion_Click(this, new RoutedEventArgs())));
+        CommandBindings.Add(new CommandBinding(VersionsCommand,    (_, _) => Versions_Click(this, new RoutedEventArgs())));
         _autosave.Tick += (_, _) => { if (_book != null && _dirty && (DateTime.Now - _lastEdit).TotalSeconds >= 12) SaveAll(silent: true); };
         _autosave.Start();
         Deactivated += (_, _) => { if (_book != null && _dirty) SaveAll(silent: true); };
@@ -138,6 +142,7 @@ public partial class MainWindow : Window, ISuggestionActions
         RememberRecent(book.FolderPath);
         BuildRecentMenu();
         BuildTree(select: book.Chapters.FirstOrDefault() ?? (object)book);
+        OpenVersioning();
         UpdateStatus($"Opened {book.FolderPath}");
         UpdateMenus();
     }
@@ -163,6 +168,7 @@ public partial class MainWindow : Window, ISuggestionActions
             _progress?.Touch(_book.TotalWords);
             _progress?.Save(_book);
             TxtSaved.Text = $"{(silent ? "Autosaved" : "Saved")} {DateTime.Now:HH:mm:ss}";
+            ShowVersionStatus();
             if (!silent) UpdateStatus($"Saved {DateTime.Now:HH:mm:ss}");
             RefreshTreeTexts();
         }
@@ -182,6 +188,7 @@ public partial class MainWindow : Window, ISuggestionActions
             MessageBoxButton.YesNoCancel, MessageBoxImage.Question);
         if (r == MessageBoxResult.Cancel) return false;
         if (r == MessageBoxResult.Yes) SaveAll();
+        AutoVersionOnClose();          // a day's writing becomes one version when the book is put down
         return true;
     }
 
@@ -2842,6 +2849,7 @@ public partial class MainWindow : Window, ISuggestionActions
     private void UpdateMenus()
     {
         MnuBook.IsEnabled = _book != null;
+        UpdateVersionMenus();
         _ai.Reload();
         var p = _ai.DefaultProvider;
         TxtAi.Text = _ai.IsAvailable()

@@ -40,6 +40,11 @@ public static class Palette
     // Point of view.
     public static readonly Brush PovBg = Rgb(0xFA, 0xE8, 0xC8);
 
+    // A change between two texts: words (or paragraphs) taken out, and words put in. The same
+    // two tints for a rewrite suggestion and for two versions of a chapter compared.
+    public static readonly Brush RemovedBg = Rgb(0xFB, 0xD9, 0xD9);
+    public static readonly Brush AddedBg   = Rgb(0xD3, 0xF3, 0xDB);
+
     // Something the AI wrote, on a character or a plotline, that the author has kept.
     public static readonly Brush AiBg    = Rgb(0xDD, 0xE6, 0xF6);
     public static readonly Brush AiRowBg = Rgb(0xF3, 0xF7, 0xFD);

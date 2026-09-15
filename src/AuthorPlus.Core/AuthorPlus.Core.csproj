@@ -13,6 +13,13 @@
          platform-neutral; fonts are supplied by BookFontResolver rather than by the
          GDI/WPF flavours of the package. -->
     <PackageReference Include="PDFsharp" Version="6.2.4" />
+    <!-- Git for the book folders (MIT). libgit2 through its own managed wrapper, so versioning
+         works on a machine that has no Git installed - a Store buyer's machine. The native
+         binaries come with the package and are copied into the publish folder. -->
+    <PackageReference Include="LibGit2Sharp" Version="0.32.0" />
+    <!-- Windows DPAPI for the GitHub token at rest, the scheme Eaglin.AiManager uses for API
+         keys (guarded by OperatingSystem.IsWindows(); Core still builds and tests anywhere). -->
+    <PackageReference Include="System.Security.Cryptography.ProtectedData" Version="10.0.0" />
   </ItemGroup>
 
   <ItemGroup>

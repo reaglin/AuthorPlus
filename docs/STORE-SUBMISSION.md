@@ -277,7 +277,7 @@ The IARC questionnaire. Every answer is negative, which gives **3+ / Everyone**:
 | Collects or shares personal information | **No** — the app collects nothing and sends nothing to you |
 | Shares location | No |
 | Advertising | No |
-| Unrestricted internet access | **No** — it reaches one API the user configured, not the open web |
+| Unrestricted internet access | **No** — it reaches the AI provider the user configured, and GitHub if the user backs a book up there; not the open web |
 
 ### Store listing
 
@@ -316,8 +316,17 @@ nothing.
 > settings under `Documents\AiManager`. The app does not access other applications' data, requires
 > no administrator rights, and installs no drivers or services.
 >
-> **internetClient.** Used for one purpose: sending a request to the AI provider whose API key the
-> user entered. The app contacts no other server, checks for no updates, and sends no telemetry.
+> **internetClient.** Used for two purposes, both of them started by the user and both to a service
+> the user signed in to themselves: sending a request to the AI provider whose API key the user
+> entered, and — if the user chooses to back a book up — sending that book's folder to their own
+> GitHub repository (`api.github.com` to check the sign-in and create the repository,
+> `github.com` over HTTPS for the backup itself). The app contacts no other server, checks for no
+> updates, and sends no telemetry.
+>
+> **Testing the GitHub backup.** It needs a GitHub account and a personal access token of the
+> tester's own, under Versions › Back Up to GitHub…. Without one, every other part of versioning —
+> saving versions, reading the history, comparing two drafts of a chapter, putting the book back —
+> works with no network connection at all.
 >
 > **Testing the AI features.** Author+ has no bundled AI subscription; the user supplies their own
 > API key for Claude, Gemini, OpenAI, Mistral or xAI, under AI › AI Settings. Without a key the AI
@@ -373,7 +382,7 @@ The AI features are there to help you land what you were reaching for, not to wr
 Everything the AI produces is saved beside the chapter with the date, the provider and the model, so you can compare two opinions and keep the one that helps.
 
 YOUR WORK, YOUR MACHINE, YOUR KEY
-Your book is a folder of small files on your own computer — one per chapter, character, event and plotline — that you can read, copy and back up yourself. Nothing is uploaded, there are no accounts, and the developer receives nothing.
+Your book is a folder of small files on your own computer — one per chapter, character, event and plotline — that you can read, copy and back up yourself. There are no accounts and the developer receives nothing. Nothing leaves your computer unless you ask for it: an AI request with your own key, or a backup to your own private GitHub repository.
 
 The AI features need an API key of your own from Anthropic (Claude), Google (Gemini), OpenAI, Mistral or xAI. Requests go straight from your computer to that provider; you can see the exact text before it is sent, and the app shows you the tokens and estimated cost of every call. Without a key, Author+ is a complete offline writing tool.
 ```
@@ -393,7 +402,11 @@ Rewrite suggestions for a passage you choose, shown as a diff you can apply with
 Tell the AI what a passage is for and ask again until it lands
 Bring your own API key: Claude, Gemini, OpenAI, Mistral or xAI
 See the exact prompt, its token count and its cost before anything is sent
-Your book is a folder of plain files on your computer; nothing is uploaded
+Your book is a folder of plain files on your computer; nothing is uploaded unless you ask
+Every version of your book remembered, with what changed in each said in plain English
+Read an old draft of a chapter against today's, and take back the one you preferred
+Put the whole book back as it was on any day, without losing what came after
+Back the book and its whole history up to a private GitHub repository of your own
 ```
 
 **Search terms** [up to 7, 30 each]

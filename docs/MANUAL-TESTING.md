@@ -43,6 +43,20 @@ the exe (`AuthorPlus.exe "<book folder>"` opens it). Books live in `Documents\Au
 - File › Export › **EPUB e-book** — open it in your e-reader or Calibre: a title page, a page
   per part, one chapter per file, and a table of contents that nests the chapters under the part.
 
+**Versions and GitHub** (new, 2026-09-15 — the full script is in `VERSIONS-AND-GITHUB.md`)
+- Versions › **Start Keeping Versions…** on the trilogy (about two seconds), then write a
+  paragraph and **Save a Version…** (Ctrl+Shift+S): the name offered should already say which
+  chapter changed, and the list under it should read in chapter and character names.
+- **Version History…** (Ctrl+H): what each version changed; double-click a chapter line for the
+  compare view (prose, with the moved words marked); **Put the book back to this version…** —
+  the tree reloads and the history grows rather than shrinks.
+- **This Chapter's History…** on a rewritten chapter, then *Put the chapter back to this version*.
+- **Back Up to GitHub…**: the token page, sign in, keep the suggested name, leave Private ticked,
+  *Create it and back up the book*. Then *Back up now* and *Get changes from GitHub*.
+  **Nothing here has talked to GitHub yet — this is the one part that has never been run for real.**
+- Close the book with unsaved work: a version is saved by itself (untick *Save a version when I
+  close the book* to stop that). The status bar shows `12 versions · 3 not saved`; click it.
+
 **Story bible**
 - Chapter: the "Characters present" (tick + POV) and "Plotlines" checklists above the text.
 - Character page: "Appears in", **Scan chapters for mentions…** (aliases count — one per line
@@ -129,3 +143,5 @@ the exe (`AuthorPlus.exe "<book folder>"` opens it). Books live in `Documents\Au
 - The OpenAI key has no credits on that account; Claude and Gemini work.
 - Preview-prompts and the tree's expanded state are not remembered between runs (the last book is reopened on start).
 - Audio / text-to-speech is version 2 (see "Version 2 — Audio" in the plan).
+- Versioning has no branches, merges or staging, and a book cannot yet be cloned *from* GitHub
+  inside the app (copy the folder, or `git clone` it, then File › Open Book).

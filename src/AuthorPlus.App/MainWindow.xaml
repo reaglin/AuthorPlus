@@ -15,6 +15,8 @@
         <KeyBinding Key="F11" Command="{x:Static local:MainWindow.FocusCommand}"/>
         <KeyBinding Key="F" Modifiers="Ctrl" Command="{x:Static local:MainWindow.FindCommand}"/>
         <KeyBinding Key="K" Modifiers="Ctrl" Command="{x:Static local:MainWindow.ConsistencyCommand}"/>
+        <KeyBinding Key="S" Modifiers="Ctrl+Shift" Command="{x:Static local:MainWindow.SaveVersionCommand}"/>
+        <KeyBinding Key="H" Modifiers="Ctrl" Command="{x:Static local:MainWindow.VersionsCommand}"/>
     </Window.InputBindings>
 
     <DockPanel>
@@ -60,6 +62,23 @@
                 <Separator/>
                 <MenuItem Header="Check _Consistency…" Click="Consistency_Click" InputGestureText="Ctrl+K"/>
                 <MenuItem Header="Marked Passa_ges…" Click="MarkedPassages_Click" ToolTip="Every passage you marked for your own rewrite, in the selected chapter or the whole book"/>
+            </MenuItem>
+            <MenuItem Header="_Versions" x:Name="MnuVersions">
+                <MenuItem Header="_Save a Version…" Click="SaveVersion_Click" InputGestureText="Ctrl+Shift+S"
+                          ToolTip="Remember the book exactly as it stands now, with a line saying what it is"/>
+                <MenuItem Header="Version _History…" Click="Versions_Click" InputGestureText="Ctrl+H"
+                          ToolTip="Every version saved, what each one changed, and how to put the book back to one"/>
+                <MenuItem Header="This _Chapter's History…" Click="ChapterHistory_Click"
+                          ToolTip="The drafts of the selected chapter: read an old one against today's, or take it back"/>
+                <Separator/>
+                <MenuItem Header="_Back Up to GitHub…" Click="GitHub_Click"
+                          ToolTip="Keep a copy of the book, and every version of it, on GitHub"/>
+                <MenuItem Header="Back Up _Now" Click="BackUpNow_Click"/>
+                <MenuItem Header="_Get Changes from GitHub" Click="GetChanges_Click"
+                          ToolTip="Bring in what was written on another computer"/>
+                <Separator/>
+                <MenuItem Header="Save a version when I _close the book" IsCheckable="True" x:Name="MnuAutoVersion" Click="AutoVersion_Click"/>
+                <MenuItem Header="Start _Keeping Versions…" x:Name="MnuStartVersioning" Click="StartVersioning_Click"/>
             </MenuItem>
             <MenuItem Header="_View">
                 <MenuItem Header="_Find and Replace" Click="Find_Click" InputGestureText="Ctrl+F"/>
@@ -122,6 +141,9 @@
             <StatusBarItem><TextBlock x:Name="TxtChapPlots" Text="" Foreground="#1A5FB4" Cursor="Hand"
                                       MouseLeftButtonUp="StatusPlotlines_Click"
                                       ToolTip="The threads running through the open chapter — click to open Plotlines"/></StatusBarItem>
+            <Separator/>
+            <StatusBarItem><TextBlock x:Name="TxtVersions" Text="" Foreground="#1A5FB4" Cursor="Hand"
+                                      MouseLeftButtonUp="StatusVersions_Click"/></StatusBarItem>
             <Separator/>
             <StatusBarItem><TextBlock x:Name="TxtAi" Text="" Foreground="#555"/></StatusBarItem>
         </StatusBar>

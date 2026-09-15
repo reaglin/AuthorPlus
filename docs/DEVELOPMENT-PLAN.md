@@ -151,6 +151,30 @@ and the commands to run.
 | 4.6 | Screenshots (≥ 1366×768, four or more) | `store/screenshots/` | | [ ] |
 | 4.7 | Deploy the privacy page; copy the package identity name out of Partner Center; set 1.0.0; build with the real identity; run WACK; submit | | Store listing live | [ ] |
 
+## Phase 5 — Versions and GitHub (2026-09-15)
+
+Ron, 2026-09-15: *"integrate the book project in Git for management of the book and project and
+push the repo to GitHub."* Decided with him the same day: **LibGit2Sharp** (so a Store buyer needs
+no Git installed) and **plain-English versions + GitHub backup** rather than a git panel — the
+design and the reasoning are in `docs/VERSIONS-AND-GITHUB.md`.
+
+Exit: a book folder keeps its own history, an old draft of a chapter can be read against today's
+and taken back, and the whole book — with its history — lives on a private GitHub repository that
+is kept up to date without the author thinking about it.
+
+| # | Task | Targets | Acceptance | Status |
+|---|---|---|---|---|
+| 5.1 | `BookRepository`: init (branch `main`, `.gitattributes` `* -text`, `.gitignore` for `*.tmp`, `progress.json` and exports), pending changes, save a version, history, history of one file, changes in a version, read a file at a version, restore | `Core/Services/Versioning/BookRepository.cs` | round-trip on a real repository in a temp folder; a restore adds versions and loses nothing | [x] 2026-09-15 |
+| 5.2 | `ChangeNames`: file paths → the book's own words ("Part One, Chapter 12 — The Interrogation (the text)", "Summary of …", "Character: …"), including the name of something the version removed, read from its record at the version before; and the version name offered when the author writes none | `Core/Services/Versioning/ChangeNames.cs` | unit-tested on every folder; "2 chapters and 1 character changed" | [x] 2026-09-15 |
+| 5.3 | `TextDiff`: two versions of a chapter compared paragraph by paragraph **in the prose**, reusing the existing `DiffKind`/`DiffPiece`/`WordDiff` so a rewritten paragraph shows the words that moved | `Core/Services/Versioning/TextDiff.cs` | one reworked line out of three reads as one out, one in | [x] 2026-09-15 |
+| 5.4 | GitHub: `GitHubApi` (who is this token / find a repository / create an empty private one) and `GitHubAccount` (the token at rest, DPAPI, `Documents\AuthorPlus\github.json`) | `Core/Services/Versioning/GitHub*.cs` | stub-transport tests for 401 / 403 / 422-name-taken / 404 / no network; the token is never in the file in the clear | [x] 2026-09-15 |
+| 5.5 | Push, pull, and the clash: force-push ("keep this computer") or reset to GitHub after parking the local tip on a `kept-from-this-computer-…` branch ("keep GitHub"); every libgit2 failure turned into a sentence the author can act on | `BookRepository` | conflict leaves the folder untouched and asks | [x] 2026-09-15 |
+| 5.6 | The UI: a `Versions` menu, the status-bar line, `VersionsWindow` (history, what each version changed, restore), `SaveVersionWindow`, `ChapterHistoryWindow`, `CompareWindow`, `GitHubWindow` | `App/*.cs`, `MainWindow.Versioning.cs` | the hand-test script in `docs/VERSIONS-AND-GITHUB.md` | [x] 2026-09-15 |
+| 5.7 | It looks after itself: a version when the book is put down (per book, on by default), a version before every backup, and a push after every version when the book is connected; long jobs off the UI thread | `MainWindow.Versioning.cs` | closing a book with unsaved work leaves one version behind | [x] 2026-09-15 |
+| 5.8 | Docs: `docs/VERSIONS-AND-GITHUB.md`, CLAUDE.md, README, manual-testing notes, and the privacy policy (the book can now leave the computer) | docs, `PRIVACY_POLICY.md` | the deployed privacy page needs the same change — **PunchMonkeyServer `PrivacyAuthorPlus.razor`, not done here** | [x] 2026-09-15 |
+| 5.9 | **Ron's hand-test**, including the first real GitHub backup (nothing here has yet talked to GitHub itself) | | notes below | [ ] |
+| 5.10 | Open a book *from* GitHub on a second computer (clone inside the app) — deferred until two machines are actually in use | | | [ ] |
+
 ## Version 2 — Audio (Ron, 2026-09-12: "not v1, but develop knowing where we are going")
 
 Chapters and any selected text can be turned into audio through the AI Manager's text-to-speech
@@ -264,3 +288,21 @@ Chapters and any selected text can be turned into audio through the AI Manager's
   part a hand-test judges better than a test does. Export is still synchronous (a wait cursor and
   a status line); at a second a book that is fine, but if you export on a slower machine and it
   feels stuck, say so and it moves to a background thread.
+- **2026-09-15 — Phase 5 built (versions and GitHub).** A book folder can now be its own git
+  repository, with none of git's vocabulary on screen: Versions › Save a Version… (the name is
+  offered from what changed), Version History… (what each version changed, in chapter and
+  character names), This Chapter's History…, and the compare view that reads two drafts of a
+  chapter as prose with the moved words marked. Putting the book back to a version is itself a
+  new version, and anything unsaved is versioned first, so nothing is ever lost. GitHub: one
+  token, signed in once and kept DPAPI-encrypted in `Documents\AuthorPlus\github.json`; the
+  repository is created empty and private; backups happen after every version and when the book
+  is closed; a clash between two computers leaves the folder untouched and asks which copy to
+  keep. 137 Core tests green (22 new, including GitHub's error handling against a stub
+  transport). Measured on a copy of the trilogy: first version of all 73 chapters and 162,886
+  words **1.8 s**, reading what changed 132 ms, saving a version 286 ms, a restore 181 ms, and
+  the whole history in **0.6 MB** of `.git`. libgit2's native DLL was checked in both shipping
+  shapes — the single-file hand-test exe and the self-contained Store publish.
+  **Ron:** the GitHub half has never talked to GitHub — sign in, create the repository for
+  *The Book of One* and press Back up now; that is hand-test 6 in `docs/VERSIONS-AND-GITHUB.md`.
+  Also: the privacy policy in this repo now says the book can leave the computer when you back it
+  up — **the deployed page at `/privacy/authorplus` (PunchMonkeyServer) still says it does not**.

@@ -23,6 +23,7 @@ voices), plot and writing-style analyses.
 | `docs/DEVELOPMENT-PLAN.md` | **The work breakdown** — numbered tasks per phase with status. Start here. |
 | `docs/TRILOGY-TEST-CASE.md` | Ron's real trilogy (73 DOCX chapters on OneDrive) — the live test case every feature is checked against. |
 | `docs/MANUAL-TESTING.md` | The hand-test build (`manual-test\AuthorPlus.exe`, from `build-manual-test.ps1`), what to exercise, known gaps. |
+| `docs/VERSIONS-AND-GITHUB.md` | **Versions and the GitHub backup** — what the author sees, what it is underneath, the decisions, and the hand-test script. |
 | `docs/STORE-SUBMISSION.md` | **The Microsoft Store submission** — identity, packaging commands, WACK, Partner Center field by field, listing copy ready to paste. |
 | `..\AiManager\docs\PLAN.md` | The shared AI layer this app consumes (package `Eaglin.AiManager`). |
 | `README.md` | What the app is, for a reader who is not building it. |
@@ -53,11 +54,13 @@ AuthorPlus.sln
 │                                      + Services/BookStore (folder-per-book persistence)
 │                                      + Services/Import (DOCX/TXT/MD) and Services/Export
 │                                      (Markdown, DOCX, EPUB written by hand; PDF on PDFsharp)
+│                                      + Services/Versioning (the book folder as a git repository,
+│                                      on LibGit2Sharp, and the GitHub backup)
 ├── src/AuthorPlus.App/    net10.0-windows  WPF: MainWindow (tree + editor), PromptWindow,
 │                                      AiPrompts (the app's prompt templates). Assembly AuthorPlus.exe.
 │                                      References packages Eaglin.AiManager + Eaglin.AiManager.Wpf
 │                                      (repo ..\AiManager, local feed C:\nuget-local)
-└── tests/AuthorPlus.Tests/ net10.0    xUnit — BookStore
+└── tests/AuthorPlus.Tests/ net10.0    xUnit — BookStore, import/export, story bible, versioning
 ```
 
 `Directory.Build.props` sets the version (`AuthorPlusVersion`), nullable, implicit usings and
@@ -83,7 +86,7 @@ restores from it. The package DLLs are copied into the publish folder, so an MSI
 carries them and the Store never needs the feed. UI is hand-tested; everything in Core has
 unit tests and must keep them (the AI layer's tests live in the AiManager repo).
 
-## The four ideas that carry the design
+## The five ideas that carry the design
 
 1. **A book is a folder; every item is a file.** `Documents\AuthorPlus\Books\{Title}\` holds
    `book.json` (metadata + the id order of each collection), `sections/{id}.json` (a part),
@@ -119,6 +122,17 @@ unit tests and must keep them (the AI layer's tests live in the AiManager repo).
    line in `ShowCurrent`. Item kinds each get a small editor (Summary/Notes: text; Analysis:
    read-only body with a metadata header and Re-run; Characters in chapter: checklist + POV).
 
+5. **A book's history is a git repository in its own folder, and git is never said out loud.**
+   `Core/Services/Versioning/BookRepository` is the whole of git the app uses — a version is a
+   commit, the history is the log, putting the book back is a *new* version whose content is the
+   old one, and backing up is a push to a private GitHub repository. Everything the author reads
+   is in the book's words (`ChangeNames`: "Chapter 12 — The Interrogation (the text)"), and two
+   drafts of a chapter compare as prose, not as FlowDocument XAML (`TextDiff` over the existing
+   `WordDiff`). **LibGit2Sharp, not `git.exe`**: a Store buyer has no Git installed. The GitHub
+   token lives in `Documents\AuthorPlus\github.json`, DPAPI-encrypted, the scheme AiManager uses
+   for API keys. New work here belongs in `Core/Services/Versioning` with tests; the App layer
+   only shows it. See `docs/VERSIONS-AND-GITHUB.md`.
+
 ## Conventions
 
 - Models are plain classes with public setters (System.Text.Json); enums serialise as strings.
@@ -126,8 +140,10 @@ unit tests and must keep them (the AI layer's tests live in the AiManager repo).
   resolved at display time. Never store display names as references.
 - UI text is plain English for authors, not developers ("chapter", "book folder"), and every
   destructive action confirms first.
-- No third-party UI packages; if one is needed it must be MIT/BSD/Apache (Store app). Core's one
-  package is **PDFsharp** (MIT), for `PdfBookWriter` alone — the plain package, not its GDI or
+- No third-party UI packages; if one is needed it must be MIT/BSD/Apache (Store app). Core has
+  three packages: **LibGit2Sharp** (MIT) for versioning, **System.Security.Cryptography.ProtectedData**
+  for the GitHub token at rest (guarded by `OperatingSystem.IsWindows()`, so Core still tests
+  anywhere), and **PDFsharp** (MIT), for `PdfBookWriter` alone — the plain package, not its GDI or
   WPF flavour, so Core stays platform-neutral; fonts are read off the machine by
   `BookFontResolver`. Every other format (DOCX, EPUB) is written by hand as a zip of XML, which
   is why there is no Office or EPUB library here. Tests add **PdfPig** (Apache 2.0) to read the
