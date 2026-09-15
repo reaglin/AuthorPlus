@@ -97,12 +97,31 @@ public sealed class GitHubWindow : Window
         _body.Children.Add(new TextBlock { Text = "Sign in with a personal access token", FontWeight = FontWeights.SemiBold, Margin = new Thickness(0, 0, 0, 4) });
         _body.Children.Add(new TextBlock
         {
-            Text = "GitHub does not take a password from an app. Make a token instead — it is free, takes a minute, " +
-                   "and you can revoke it whenever you like. AuthorPlus needs the “repo” permission so it can " +
-                   "create the repository and keep it up to date.",
-            Foreground = Brushes.Gray, TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 0, 0, 6)
+            Text = "GitHub does not take a password from an app; it takes a token. Making one is free, takes a minute, " +
+                   "and you can revoke it whenever you like. You need a GitHub account first — if you have none, " +
+                   "make one at github.com, then come back here.",
+            Foreground = Brushes.Gray, TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 0, 0, 8)
         });
+
+        // The steps, because this is the one part of the feature that happens outside AuthorPlus
+        // and the GitHub page is written for programmers.
+        Step(1, "Open the GitHub page below. It arrives with the one permission AuthorPlus needs — " +
+                "“repo” — already ticked. Sign in to GitHub if it asks.");
+        Step(2, "Give the token a name you will recognise later, such as “AuthorPlus on this PC”, " +
+                "and choose how long it should last. No expiration means never having to do this again; " +
+                "a date means you will be asked for a new one then.");
+        Step(3, "Scroll to the bottom and press Generate token.");
+        Step(4, "Copy the token GitHub then shows you — it is a long line beginning ghp_, and GitHub " +
+                "shows it once only. If you lose it, make another; nothing is harmed.");
+        Step(5, "Paste it below and press Sign in. AuthorPlus keeps it on this computer, encrypted for " +
+                "your Windows account, and never sends it anywhere but GitHub.");
+
         _body.Children.Add(Link("Open the GitHub page that makes a token…", () => Browse(TokenPage)));
+        _body.Children.Add(new TextBlock
+        {
+            Text = "If GitHub offers you “Fine-grained tokens” instead, choose Tokens (classic) › Generate new token (classic).",
+            Foreground = Brushes.Gray, FontSize = 12, TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 4, 0, 0)
+        });
 
         // No user-name box: the token tells GitHub who its owner is, and asking would only give
         // the author a second thing to get wrong.
@@ -316,6 +335,21 @@ public sealed class GitHubWindow : Window
 
     private static TextBlock Link(string text, Action act, string tooltip = "Opens in your browser") =>
         Palette.LinkText(text, act, tooltip);
+
+    /// <summary>One numbered step of making a token, hanging indent so the number stands out.</summary>
+    private void Step(int number, string text)
+    {
+        var row = new Grid { Margin = new Thickness(2, 0, 0, 5) };
+        row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(20) });
+        row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+
+        var index = new TextBlock { Text = number + ".", Foreground = Brushes.Gray, VerticalAlignment = VerticalAlignment.Top };
+        var body = new TextBlock { Text = text, TextWrapping = TextWrapping.Wrap };
+        Grid.SetColumn(body, 1);
+        row.Children.Add(index);
+        row.Children.Add(body);
+        _body.Children.Add(row);
+    }
 
     private static void Browse(string url)
     {

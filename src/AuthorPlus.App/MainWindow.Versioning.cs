@@ -68,15 +68,48 @@ public partial class MainWindow
 
     // ── Menu ──────────────────────────────────────────────────────────────────
 
+    /// <summary>
+    /// What is live in the Versions menu. The three that matter — save a version, the history, and
+    /// the GitHub backup — stay live for any open book, because each of them offers to start
+    /// keeping versions if the book keeps none. A greyed-out line that does not say why is how a
+    /// feature goes unnoticed; the ones that really do need something first say so in their tooltip.
+    /// </summary>
     private void UpdateVersionMenus()
     {
-        MnuVersions.IsEnabled = _book != null;
+        var hasBook = _book != null;
+        MnuVersions.IsEnabled = hasBook;
+        MnuSaveVersion.IsEnabled = hasBook;
+        MnuHistory.IsEnabled = hasBook;
+        MnuGitHub.IsEnabled = hasBook;
+
+        MnuChapterHistory.IsEnabled = IsVersioned;
+        MnuChapterHistory.ToolTip = IsVersioned
+            ? "The drafts of the selected chapter: read an old one against today's, or take it back"
+            : "This book is not keeping versions yet — Back Up to GitHub or Save a Version starts that.";
+
+        var connected = IsVersioned && HasRemote;
+        MnuBackUpNow.IsEnabled = connected;
+        MnuGetChanges.IsEnabled = connected;
+        var notConnected = IsVersioned
+            ? "This book is not connected to GitHub yet — use Back Up to GitHub…"
+            : "This book is not keeping versions yet — Back Up to GitHub… sets both up.";
+        MnuBackUpNow.ToolTip = connected ? "Send everything saved since the last backup" : notConnected;
+        MnuGetChanges.ToolTip = connected ? "Bring in what was written on another computer" : notConnected;
+
         MnuStartVersioning.Visibility = IsVersioned ? Visibility.Collapsed : Visibility.Visible;
-        foreach (var item in MnuVersions.Items.OfType<MenuItem>())
-            if (!ReferenceEquals(item, MnuStartVersioning)) item.IsEnabled = IsVersioned;
         MnuAutoVersion.IsEnabled = IsVersioned;
         MnuAutoVersion.IsChecked = _book != null && _versionPrefs.AutoVersion(_book.FolderPath);
         ShowVersionStatus();
+    }
+
+    /// <summary>Whether this book has somewhere on GitHub to go, asked safely.</summary>
+    private bool HasRemote
+    {
+        get
+        {
+            try { return _repository?.HasRemote == true; }
+            catch (BookVersioningException) { return false; }
+        }
     }
 
     /// <summary>The status-bar line: how many versions, and whether anything is not in one yet.</summary>
@@ -158,7 +191,7 @@ public partial class MainWindow
     private async void GitHub_Click(object sender, RoutedEventArgs e)
     {
         if (_book is null) return;
-        if (!await EnsureVersioned(ask: true)) return;
+        if (!await EnsureVersioned(ask: true, forGitHub: true)) return;
 
         var window = new GitHubWindow(_github, _repository!, _book, VersionedBy,
             saveVersionFirst: async () => await SaveVersionSilently(),
@@ -171,8 +204,7 @@ public partial class MainWindow
 
     private async void BackUpNow_Click(object sender, RoutedEventArgs e)
     {
-        if (_book is null || _repository is null) { _ = EnsureVersioned(ask: true); return; }
-        if (!_repository.HasRemote || !_github.IsSignedIn) { GitHub_Click(sender, e); return; }
+        if (_book is null || _repository is null || !HasRemote || !_github.IsSignedIn) { GitHub_Click(sender, e); return; }
 
         await SaveVersionSilently();
         await RunVersioning("Backing up to GitHub…", () => _repository.Push(_github.Credentials!),
@@ -185,8 +217,7 @@ public partial class MainWindow
 
     private async void GetChanges_Click(object sender, RoutedEventArgs e)
     {
-        if (_book is null || _repository is null) { _ = EnsureVersioned(ask: true); return; }
-        if (!_repository.HasRemote || !_github.IsSignedIn) { GitHub_Click(sender, e); return; }
+        if (_book is null || _repository is null || !HasRemote || !_github.IsSignedIn) { GitHub_Click(sender, e); return; }
 
         await SaveVersionSilently();
         await RunVersioning("Looking for changes on GitHub…", () => _repository.Pull(_github.Credentials!, VersionedBy),
@@ -211,20 +242,31 @@ public partial class MainWindow
     /// what it will do in the book's own words; it does not mention git, because nothing the
     /// author does afterwards requires knowing what git is.
     /// </summary>
-    private async Task<bool> EnsureVersioned(bool ask)
+    private async Task<bool> EnsureVersioned(bool ask, bool forGitHub = false)
     {
         if (_book is null) return false;
         if (_repository is not null) return true;
 
         if (ask)
         {
-            var answer = MessageBox.Show(this,
-                $"Start keeping versions of “{_book.Title}”?\n\n" +
-                "AuthorPlus will remember the book as it stands at any moment you choose, so you can read an old " +
-                "draft of a chapter, compare it with today's, or put the whole book back as it was. " +
-                "Nothing is ever deleted, and the book folder stays exactly as it is.\n\n" +
-                "You can also keep a copy on GitHub afterwards, so that losing this computer costs you nothing.",
-                "Keep Versions of This Book", MessageBoxButton.OKCancel, MessageBoxImage.Question);
+            // Asked from the GitHub menu item, the question is about GitHub: keeping versions is
+            // the step on the way, not a separate thing the author has to know to turn on first.
+            var (title, question) = forGitHub
+                ? ("Back Up to GitHub",
+                   $"Back “{_book.Title}” up to GitHub?\n\n" +
+                   "What GitHub holds is the book's versions, so AuthorPlus will start keeping versions of this book " +
+                   "first — it remembers the book as it stands at any moment you choose, nothing is ever deleted, and " +
+                   "the book folder stays exactly as it is.\n\n" +
+                   "Then you sign in to GitHub with a token — the next window shows you how to make one — and name " +
+                   "the repository, which is private unless you say otherwise.")
+                : ("Keep Versions of This Book",
+                   $"Start keeping versions of “{_book.Title}”?\n\n" +
+                   "AuthorPlus will remember the book as it stands at any moment you choose, so you can read an old " +
+                   "draft of a chapter, compare it with today's, or put the whole book back as it was. " +
+                   "Nothing is ever deleted, and the book folder stays exactly as it is.\n\n" +
+                   "You can also keep a copy on GitHub afterwards, so that losing this computer costs you nothing.");
+
+            var answer = MessageBox.Show(this, question, title, MessageBoxButton.OKCancel, MessageBoxImage.Question);
             if (answer != MessageBoxResult.OK) return false;
         }
 

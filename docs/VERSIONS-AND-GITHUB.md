@@ -3,6 +3,10 @@
 How AuthorPlus keeps the history of a book, and how a book gets a copy on GitHub.
 Written 2026-09-15 with phase 5 (`DEVELOPMENT-PLAN.md`).
 
+**Working against GitHub since 2026-09-15**: Ron signed in with a token, created the private
+repository `github.com/reaglin/The_book_of_one` from inside the app, and pushed *The Book of One*
+to it. The API calls also have tests against a stub transport (`GitHubApiTests`).
+
 ## What the author sees
 
 A book folder can keep **versions**. A version is the whole book as it stood at one moment, with
@@ -13,7 +17,7 @@ a line saying what it is ("Chapter 12 — The Interrogation revised"). The `Vers
 | Save a Version… (Ctrl+Shift+S) | Shows what changed since the last one, offers a name for it, saves it |
 | Version History… (Ctrl+H) | Every version, what each changed, and *Put the book back to this version* |
 | This Chapter's History… | The drafts of the selected chapter: read one against today's, or take it back |
-| Back Up to GitHub… | Sign in once, name the repository, and the book (and its whole history) goes there |
+| Back Up to GitHub… | Sign in once (the window shows how to make a token), name the repository, and the book with its whole history goes there. Live even before a book keeps versions — it offers to start them as part of setting the backup up |
 | Back Up Now / Get Changes from GitHub | The two everyday buttons afterwards |
 | Save a version when I close the book | On by default once versioning starts |
 
@@ -64,10 +68,19 @@ Everything lives in `Core/Services/Versioning/`:
   in the way of the book's own first version.
 - **Private by default.** The tick box says why: an unpublished manuscript on a public repository
   can be read, copied and indexed by anyone.
-- **The token, not a password.** GitHub takes no password from an app. The window links straight
-  to the page that makes a token with the `repo` permission, and says the token stays on this
-  computer, encrypted for this Windows user (the same DPAPI scheme `Eaglin.AiManager` uses for
-  API keys). One token serves every book.
+- **The token, not a password.** GitHub takes no password from an app. The window carries the
+  five steps for making one (name it, choose how long it lasts, Generate token, copy it — GitHub
+  shows it once — paste it here), links straight to the page that arrives with the `repo`
+  permission already ticked, and notes the Tokens (classic) route for an account that is offered
+  fine-grained tokens first. The token stays on this computer, encrypted for this Windows user
+  (the same DPAPI scheme `Eaglin.AiManager` uses for API keys). One token serves every book.
+- **Nothing in the Versions menu greys out without saying why.** Save a Version, Version History
+  and Back Up to GitHub stay live for any open book and start keeping versions themselves if the
+  book keeps none — asked in the terms of what was clicked, so choosing Back Up to GitHub asks
+  whether to back *this book* up to GitHub and explains that versions are the thing GitHub holds,
+  rather than telling the author to go and find another menu item first.
+  Back Up Now and Get Changes do need a connected book, and their tooltip says which step is
+  missing.
 - **A clash asks a question rather than leaving conflict markers.** If the same chapter was
   written here and on another computer, the merge is undone, nothing on disk is touched, and the
   author picks which copy wins. Taking GitHub's copy parks what was here on a
@@ -98,8 +111,5 @@ Everything lives in `Core/Services/Versioning/`:
 
 - No branches, no merges, no staging. If a book ever needs them, the folder is an ordinary git
   repository and any git client can be pointed at it.
-- The GitHub sign-in has not been exercised against GitHub itself yet — the API calls are covered
-  by tests against a stub transport (`GitHubApiTests`), and the push path waits on Ron's first
-  real backup.
 - No cloning a book *from* GitHub onto a second computer inside the app: copy the folder, or
   `git clone` it, then File › Open Book. Worth adding when two machines are actually in use.

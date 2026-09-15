@@ -64,17 +64,17 @@
                 <MenuItem Header="Marked Passa_ges…" Click="MarkedPassages_Click" ToolTip="Every passage you marked for your own rewrite, in the selected chapter or the whole book"/>
             </MenuItem>
             <MenuItem Header="_Versions" x:Name="MnuVersions">
-                <MenuItem Header="_Save a Version…" Click="SaveVersion_Click" InputGestureText="Ctrl+Shift+S"
+                <MenuItem Header="_Save a Version…" Click="SaveVersion_Click" InputGestureText="Ctrl+Shift+S" x:Name="MnuSaveVersion"
                           ToolTip="Remember the book exactly as it stands now, with a line saying what it is"/>
-                <MenuItem Header="Version _History…" Click="Versions_Click" InputGestureText="Ctrl+H"
+                <MenuItem Header="Version _History…" Click="Versions_Click" InputGestureText="Ctrl+H" x:Name="MnuHistory"
                           ToolTip="Every version saved, what each one changed, and how to put the book back to one"/>
-                <MenuItem Header="This _Chapter's History…" Click="ChapterHistory_Click"
+                <MenuItem Header="This _Chapter's History…" Click="ChapterHistory_Click" x:Name="MnuChapterHistory"
                           ToolTip="The drafts of the selected chapter: read an old one against today's, or take it back"/>
                 <Separator/>
-                <MenuItem Header="_Back Up to GitHub…" Click="GitHub_Click"
+                <MenuItem Header="_Back Up to GitHub…" Click="GitHub_Click" x:Name="MnuGitHub"
                           ToolTip="Keep a copy of the book, and every version of it, on GitHub"/>
-                <MenuItem Header="Back Up _Now" Click="BackUpNow_Click"/>
-                <MenuItem Header="_Get Changes from GitHub" Click="GetChanges_Click"
+                <MenuItem Header="Back Up _Now" Click="BackUpNow_Click" x:Name="MnuBackUpNow"/>
+                <MenuItem Header="_Get Changes from GitHub" Click="GetChanges_Click" x:Name="MnuGetChanges"
                           ToolTip="Bring in what was written on another computer"/>
                 <Separator/>
                 <MenuItem Header="Save a version when I _close the book" IsCheckable="True" x:Name="MnuAutoVersion" Click="AutoVersion_Click"/>

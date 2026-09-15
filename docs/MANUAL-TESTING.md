@@ -51,9 +51,12 @@ the exe (`AuthorPlus.exe "<book folder>"` opens it). Books live in `Documents\Au
   compare view (prose, with the moved words marked); **Put the book back to this version…** —
   the tree reloads and the history grows rather than shrinks.
 - **This Chapter's History…** on a rewritten chapter, then *Put the chapter back to this version*.
-- **Back Up to GitHub…**: the token page, sign in, keep the suggested name, leave Private ticked,
-  *Create it and back up the book*. Then *Back up now* and *Get changes from GitHub*.
-  **Nothing here has talked to GitHub yet — this is the one part that has never been run for real.**
+- **Back Up to GitHub…**: the window carries the five steps for making a token and a link to the
+  GitHub page that arrives with the right permission ticked. Sign in, keep the suggested name,
+  leave Private ticked, *Create it and back up the book*. Then *Back up now* and *Get changes from
+  GitHub*. Done for real 2026-09-15 — *The Book of One* is on the private
+  `github.com/reaglin/The_book_of_one`. The menu item is live even before a book keeps versions:
+  it offers to start them as part of setting the backup up.
 - Close the book with unsaved work: a version is saved by itself (untick *Save a version when I
   close the book* to stop that). The status bar shows `12 versions · 3 not saved`; click it.
 
