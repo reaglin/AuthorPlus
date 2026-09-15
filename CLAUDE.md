@@ -51,6 +51,8 @@ Decisions taken with Ron on 2026-09-12 (re-plan around real use):
 AuthorPlus.sln
 ├── src/AuthorPlus.Core/   net10.0     Models (Book, Chapter, Character, TimelineEvent, Plotline)
 │                                      + Services/BookStore (folder-per-book persistence)
+│                                      + Services/Import (DOCX/TXT/MD) and Services/Export
+│                                      (Markdown, DOCX, EPUB written by hand; PDF on PDFsharp)
 ├── src/AuthorPlus.App/    net10.0-windows  WPF: MainWindow (tree + editor), PromptWindow,
 │                                      AiPrompts (the app's prompt templates). Assembly AuthorPlus.exe.
 │                                      References packages Eaglin.AiManager + Eaglin.AiManager.Wpf
@@ -124,7 +126,12 @@ unit tests and must keep them (the AI layer's tests live in the AiManager repo).
   resolved at display time. Never store display names as references.
 - UI text is plain English for authors, not developers ("chapter", "book folder"), and every
   destructive action confirms first.
-- No third-party UI packages yet; if one is needed it must be MIT/BSD/Apache (Store app).
+- No third-party UI packages; if one is needed it must be MIT/BSD/Apache (Store app). Core's one
+  package is **PDFsharp** (MIT), for `PdfBookWriter` alone — the plain package, not its GDI or
+  WPF flavour, so Core stays platform-neutral; fonts are read off the machine by
+  `BookFontResolver`. Every other format (DOCX, EPUB) is written by hand as a zip of XML, which
+  is why there is no Office or EPUB library here. Tests add **PdfPig** (Apache 2.0) to read the
+  PDF back; it ships in nothing.
 - Windows-only APIs (the WinForms folder dialog) are confined to the App project so Core tests
   run anywhere.
 

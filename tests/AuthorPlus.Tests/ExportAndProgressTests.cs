@@ -59,7 +59,7 @@ public class FlowDocumentXamlTests
 
 public class ExportTests
 {
-    private static (Book book, BookStore store) MakeBook(TempDir t)
+    internal static (Book book, BookStore store) MakeBook(TempDir t)
     {
         var store = new BookStore(t.Path);
         var book = store.Create("The Book of One", "Ron Eaglin");

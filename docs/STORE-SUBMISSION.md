@@ -358,7 +358,7 @@ Write a book and keep it straight. Author+ holds your chapters, characters, time
 A book is more than the sentence in front of you. Author+ is for everything around it: the chapter you are writing, the twelve you have written, the character whose eyes changed colour in part two, and the thread you opened in chapter one and have not closed yet.
 
 WRITE
-Chapters in a proper editor, with headings, scene breaks, find and replace, a word count and a goal, and a distraction-free mode when you want the page and nothing else. Each chapter carries a status from outline to final, so you can see what is done. Import the chapters you have already written from Word, text or Markdown files; your originals are never touched.
+Chapters in a proper editor, with headings, scene breaks, find and replace, a word count and a goal, and a distraction-free mode when you want the page and nothing else. Each chapter carries a status from outline to final, so you can see what is done. Import the chapters you have already written from Word, text or Markdown files; your originals are never touched. When it is ready to leave, export the whole book as a Word document, a PDF typeset as a book, an EPUB e-book or Markdown.
 
 KEEP IT STRAIGHT
 Characters with the things that actually matter — motivations, what they do, how they change — and a chart that shows, at a glance, which chapter each character is introduced in, where they appear, and where they leave the story. A timeline that stays in story order even when the chapters do not. Plotlines with the same chart: where each thread is introduced, where it runs, and where it resolves.
@@ -384,6 +384,7 @@ The AI features need an API key of your own from Anthropic (Claude), Google (Gem
 Chapters, characters, timeline and plotlines in one tree
 A real editor: headings, scene breaks, find and replace, word goals, distraction-free mode
 Import chapters you have already written from Word, text or Markdown
+Export the whole book as Word, PDF, EPUB or Markdown
 A chart of which chapter each character is introduced in, appears in, and leaves
 The same chart for plotlines: introduced, continuing, resolved
 AI chapter summaries, in bullets rather than a wall of text

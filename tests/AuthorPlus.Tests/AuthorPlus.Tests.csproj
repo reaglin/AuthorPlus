@@ -8,6 +8,9 @@
 
   <ItemGroup>
     <PackageReference Include="coverlet.collector" Version="6.0.4" />
+    <!-- Reads the PDF we write back in, so the export is checked by something other than the
+         code that produced it. Test-only (Apache 2.0); it ships in nothing. -->
+    <PackageReference Include="PdfPig" Version="0.1.9" />
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.14.1" />
     <PackageReference Include="xunit" Version="2.9.3" />
     <PackageReference Include="xunit.runner.visualstudio" Version="3.1.4" />

@@ -9,6 +9,13 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <!-- PDF export only (MIT). A managed library with no UI dependency, so Core stays
+         platform-neutral; fonts are supplied by BookFontResolver rather than by the
+         GDI/WPF flavours of the package. -->
+    <PackageReference Include="PDFsharp" Version="6.2.4" />
+  </ItemGroup>
+
+  <ItemGroup>
     <InternalsVisibleTo Include="AuthorPlus.Tests" />
   </ItemGroup>
 

@@ -1166,6 +1166,16 @@ public partial class MainWindow : Window, ISuggestionActions
 
     private void ExportDocx_Click(object sender, RoutedEventArgs e) => Export("Word document (*.docx)|*.docx", ".docx", (src, path) => DocxWriter.Write(src, path));
     private void ExportMarkdown_Click(object sender, RoutedEventArgs e) => Export("Markdown (*.md)|*.md", ".md", (src, path) => MarkdownExporter.Write(src, path));
+    private void ExportEpub_Click(object sender, RoutedEventArgs e) => Export("EPUB e-book (*.epub)|*.epub", ".epub", (src, path) => EpubWriter.Write(src, path));
+
+    private void ExportPdf_Click(object sender, RoutedEventArgs e)
+    {
+        if (_book == null) return;
+        var setup = new ExportPdfWindow(_book.Title, _book.Chapters.Count, _book.TotalWords) { Owner = this };
+        if (setup.ShowDialog() != true) return;
+        var options = setup.Options;
+        Export("PDF (*.pdf)|*.pdf", ".pdf", (src, path) => PdfBookWriter.Write(src, path, options));
+    }
 
     private void Export(string filter, string ext, Action<ExportSource, string> write)
     {
@@ -1175,7 +1185,11 @@ public partial class MainWindow : Window, ISuggestionActions
         if (dlg.ShowDialog(this) != true) return;
         try
         {
-            write(ExportSource.Load(_book, _store), dlg.FileName);
+            // Typesetting a whole book takes a moment; say so rather than look frozen.
+            UpdateStatus($"Exporting {_book.Chapters.Count} chapters to {Path.GetFileName(dlg.FileName)}…");
+            Mouse.OverrideCursor = Cursors.Wait;
+            try { write(ExportSource.Load(_book, _store), dlg.FileName); }
+            finally { Mouse.OverrideCursor = null; }
             UpdateStatus($"Exported to {dlg.FileName}");
             if (MessageBox.Show(this, $"Exported {_book.Chapters.Count} chapters ({_book.TotalWords:N0} words) to\n{dlg.FileName}\n\nOpen it now?", "Export", MessageBoxButton.YesNo, MessageBoxImage.Information) == MessageBoxResult.Yes)
                 Process.Start(new ProcessStartInfo(dlg.FileName) { UseShellExecute = true });

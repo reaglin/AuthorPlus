@@ -21,6 +21,10 @@ Your book is a folder of small files — one per chapter, character, event and p
 `Documents\AuthorPlus\Books`. Nothing is locked in a database; back it up, put it in git, or read
 any chapter with a text editor.
 
+Export the whole book as a **Word document**, a **PDF** (typeset as a book: a page per part,
+chapters opening on a new page, justified prose, page numbers and bookmarks), an **EPUB e-book**
+or **Markdown**.
+
 **Platform:** Windows 10/11 · WPF on .NET 10 · Microsoft Store.
 **Status:** early development — see `docs/DEVELOPMENT-PLAN.md`.
 

@@ -28,6 +28,8 @@
                 <MenuItem Header="_Save" Command="Save" InputGestureText="Ctrl+S"/>
                 <MenuItem Header="_Export">
                     <MenuItem Header="_Word document (.docx)…" Click="ExportDocx_Click"/>
+                    <MenuItem Header="_PDF (.pdf)…" Click="ExportPdf_Click"/>
+                    <MenuItem Header="_EPUB e-book (.epub)…" Click="ExportEpub_Click"/>
                     <MenuItem Header="_Markdown (.md)…" Click="ExportMarkdown_Click"/>
                 </MenuItem>
                 <MenuItem Header="Open Book _Folder" Click="OpenFolder_Click"/>

@@ -143,7 +143,7 @@ and the commands to run.
 
 | # | Task | Targets | Acceptance | Status |
 |---|---|---|---|---|
-| 4.1 | EPUB and PDF export | `Core/Services/Export` (PDFsharp, MIT) | validates in an EPUB checker | [ ] |
+| 4.1 | EPUB and PDF export. **EPUB 3** written by hand as a zip like the DOCX (`EpubWriter`): one XHTML per chapter, a title page, a page per part, a stylesheet, and both tables of contents — `nav.xhtml` and a `toc.ncx` for older readers. **PDF** typeset by `PdfBookWriter` on PDFsharp: title page, a page per part, every chapter opening on a new page after a drop, justified prose with a first-line indent, widow and orphan control, a page number at the foot, and PDF bookmarks mirroring the tree. Page setup (6×9 book / Letter / A4, straight or ragged margin, page numbers) is chosen in `ExportPdfWindow`. Fonts are read off the machine by `BookFontResolver`, so Core stays platform-neutral | `Core/Services/Export/{EpubWriter,PdfBookWriter,BookFontResolver}.cs`, `App/ExportPdfWindow.cs`, File › Export | **epubcheck 5.1.0 (EPUB 3.3): 0 fatals / 0 errors / 0 warnings** on the trilogy and on two edge-case books; the PDF is read back by PdfPig in the tests (text, geometry, bookmarks) | [x] 2026-09-14 |
 | 4.2 | Packaging: `AppxManifest.xml`, `pack.ps1` (publish → makepri → makeappx → signtool), `make-msixupload.ps1` (bundle + symbols, unsigned as the Store wants, with a package-family-name check), `run-wack.ps1`, version from `Directory.Build.props`; `app.manifest` for PerMonitorV2 | `packaging/` | a 71.8 MB `.msixupload` builds end to end | [x] 2026-09-14 |
 | 4.3 | Privacy policy: `PRIVACY_POLICY.md` here, `PrivacyAuthorPlus.razor` in the PunchMonkeyServer repo at `/privacy/authorplus`, listed on `/privacy` | | committed; deploy with that repo's `deploy.ps1` | [x] 2026-09-14 |
 | 4.4 | Store art: `make-store-assets.ps1` draws the mark once and emits every tile at five scales, the taskbar target sizes, the five Partner Center listing images and `AuthorPlus.ico` — 52 assets, none over WACK's 204,800-byte cap | `packaging/Assets`, `store/images` | contact sheet reads at 16 px | [x] 2026-09-14 |
@@ -244,3 +244,23 @@ Chapters and any selected text can be turned into audio through the AI Manager's
   Rendered headless over the trilogy: Style window on chapter 1, Prompt preview of the
   Part 1 continuity check. Ron: the AI runs themselves (continuity, plot, style read) are
   yours to try — start with Part 1 after summarizing its chapters.
+- **2026-09-14 — EPUB and PDF export (4.1).** Two more entries on File › Export. The EPUB is
+  written by hand as a zip, the same way the DOCX is: `mimetype` stored first, one XHTML file
+  per chapter, a title page, a page per part, `style.css`, and both tables of contents. The PDF
+  is typeset here rather than handed to a report library — words are measured, lines filled and
+  spaced out to the margin, paragraphs indented, widows and orphans moved — over PDFsharp (MIT),
+  with fonts read off the machine by `BookFontResolver` so Core keeps no UI dependency. Georgia
+  is used when it is installed, then Constantia, Times New Roman, DejaVu Serif, Liberation Serif.
+  Chosen before the export in a small setup window: 6 × 9 in book (the default), Letter or A4;
+  straight or ragged right margin; page numbers on or off.
+  Checked against the real trilogy (73 chapters, 162,886 words): EPUB 458 KB in 57 ms, PDF
+  **647 pages, 1.8 MB, in 0.9 s**. `epubcheck` 5.1.0 reports **0 errors and 0 warnings** on it
+  and on two edge-case books (a part plus a chapter outside it; no parts at all, with an empty
+  chapter). 115 Core tests green — the new ones read the EPUB back as XML and the PDF back with
+  PdfPig (page text, bookmarks nested under their part, every glyph inside the margins, lines
+  reaching the right margin, page size per setup). Words carry their own trailing space so text
+  copies out of the PDF with the spaces the manuscript has.
+  **Ron:** worth opening the PDF in a reader and the EPUB on a device — the typesetting is the
+  part a hand-test judges better than a test does. Export is still synchronous (a wait cursor and
+  a status line); at a second a book that is fine, but if you export on a slower machine and it
+  feels stuck, say so and it moves to a background thread.

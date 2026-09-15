@@ -34,6 +34,14 @@ the exe (`AuthorPlus.exe "<book folder>"` opens it). Books live in `Documents\Au
 - Book › Import Chapters from Folder… (try the Part 3 folder: it reports the missing 23) and
   right-click a chapter › Insert Chapter from File After This… (a DOCX, TXT or MD).
 - File › Export › Word document / Markdown — open the result in Word.
+- File › Export › **PDF** — the setup window offers 6 × 9 in (a paperback page), Letter or A4,
+  a straight or ragged right margin, and page numbers. The whole trilogy takes about a second
+  and comes out around 647 pages. Worth looking at in a reader: chapter openings and their drop,
+  the first-line indents, the spacing of justified lines, that no single line is stranded at the
+  foot or top of a page, the page numbers, and the bookmarks panel (chapters nested under their
+  part). Select a paragraph in the reader and copy it — the words should have their spaces.
+- File › Export › **EPUB e-book** — open it in your e-reader or Calibre: a title page, a page
+  per part, one chapter per file, and a table of contents that nests the chapters under the part.
 
 **Story bible**
 - Chapter: the "Characters present" (tick + POV) and "Plotlines" checklists above the text.
@@ -109,7 +117,9 @@ the exe (`AuthorPlus.exe "<book folder>"` opens it). Books live in `Documents\Au
 
 ## Known gaps (not bugs)
 
-- No EPUB / PDF export yet (phase 4); no MSIX / Store packaging yet (phase 4).
+- The export runs on the window's own thread: the cursor turns to the hourglass and the status
+  bar says what it is doing, but the window will not repaint while it works (about a second for
+  the trilogy). If that ever feels stuck, it moves to a background thread.
 - Multi-select delete in the tree is not implemented (WPF TreeView is single-select).
 - Plotline kinds now include **chapter** (opens and closes in one chapter) and **extra**; existing
   plotlines keep the kind they had.
