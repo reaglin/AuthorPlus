@@ -105,7 +105,8 @@ public sealed class BookRepository : IDisposable
     /// <summary>Everything changed since the last version, described in the book's words.</summary>
     public IReadOnlyList<BookChange> PendingChanges(Book? book = null)
     {
-        var status = _repo.RetrieveStatus(new StatusOptions { IncludeUntracked = true, RecurseUntrackedDirs = true });
+        var status = Guarded(() => _repo.RetrieveStatus(new StatusOptions { IncludeUntracked = true, RecurseUntrackedDirs = true }),
+                             "The book folder could not be read");
         var changes = new List<BookChange>();
         foreach (var entry in status)
         {
@@ -158,8 +159,9 @@ public sealed class BookRepository : IDisposable
     public IReadOnlyList<BookVersion> History(int limit = 300)
     {
         if (_repo.Head.Tip is null) return Array.Empty<BookVersion>();
-        return _repo.Commits.QueryBy(new CommitFilter { SortBy = Newest })
-                   .Take(limit).Select(Describe).ToList();
+        return Guarded(() => _repo.Commits.QueryBy(new CommitFilter { SortBy = Newest })
+                                 .Take(limit).Select(Describe).ToList(),
+                       "The versions of this book could not be read");
     }
 
     /// <summary>The versions that touched one file — a chapter's own history.</summary>
@@ -183,7 +185,8 @@ public sealed class BookRepository : IDisposable
     {
         var commit = Lookup(sha);
         var parent = commit.Parents.FirstOrDefault();
-        var diff = _repo.Diff.Compare<TreeChanges>(parent?.Tree, commit.Tree);
+        var diff = Guarded(() => _repo.Diff.Compare<TreeChanges>(parent?.Tree, commit.Tree),
+                           "What that version changed could not be read");
 
         var changes = new List<BookChange>();
         foreach (var change in diff)
@@ -212,8 +215,8 @@ public sealed class BookRepository : IDisposable
     public string? ReadTextAt(string sha, string relativePath)
     {
         var commit = Lookup(sha);
-        var entry = commit[relativePath.Replace('\\', '/')];
-        return entry?.Target is Blob blob ? blob.GetContentText() : null;
+        return Guarded(() => commit[relativePath.Replace('\\', '/')]?.Target is Blob blob ? blob.GetContentText() : null,
+                       "That part of the book could not be read at that version");
     }
 
     /// <summary>
@@ -246,16 +249,16 @@ public sealed class BookRepository : IDisposable
 
     // ── GitHub ────────────────────────────────────────────────────────────────
 
-    public string? RemoteUrl => _repo.Network.Remotes[RemoteName]?.Url;
+    public string? RemoteUrl => Guarded(() => _repo.Network.Remotes[RemoteName]?.Url, "The GitHub address could not be read");
 
     public bool HasRemote => RemoteUrl is not null;
 
     /// <summary>Points the book at a GitHub repository (replacing any earlier one).</summary>
-    public void SetRemote(string url)
+    public void SetRemote(string url) => Guarded(() =>
     {
         if (_repo.Network.Remotes[RemoteName] is not null) _repo.Network.Remotes.Remove(RemoteName);
-        _repo.Network.Remotes.Add(RemoteName, url);
-    }
+        return _repo.Network.Remotes.Add(RemoteName, url);
+    }, "The book could not be pointed at that GitHub address");
 
     /// <summary>Sends every version this computer has to GitHub.</summary>
     public SyncOutcome Push(GitHubCredentials credentials, bool force = false)
@@ -385,7 +388,19 @@ public sealed class BookRepository : IDisposable
     }
 
     private Commit Lookup(string sha) =>
-        _repo.Lookup<Commit>(sha) ?? throw new BookVersioningException("That version is not in this book's history any more.");
+        Guarded(() => _repo.Lookup<Commit>(sha), "That version could not be read")
+        ?? throw new BookVersioningException("That version is not in this book's history any more.");
+
+    /// <summary>
+    /// Nothing libgit2 throws ever leaves this class: the App layer catches
+    /// <see cref="BookVersioningException"/> and shows its message, and a stray
+    /// <c>LibGit2SharpException</c> on a background thread would take the whole app down with it.
+    /// </summary>
+    private static T Guarded<T>(Func<T> work, string what)
+    {
+        try { return work(); }
+        catch (LibGit2SharpException ex) { throw new BookVersioningException($"{what}: {ex.Message}", ex); }
+    }
 
     private static BookVersion Describe(Commit commit) =>
         new(commit.Sha, commit.Author.When, commit.Author.Name, commit.MessageShort);
