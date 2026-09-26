@@ -26,6 +26,11 @@
   </ItemGroup>
 
   <ItemGroup>
+    <!-- Help › About: "Created by Dr. Ron Eaglin" (Ron, 2026-09-25). A 256 px copy of Dr_Ron_Icon.jpg. -->
+    <Resource Include="Images\dr-ron-eaglin.jpg" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\AuthorPlus.Core\AuthorPlus.Core.csproj" />
   </ItemGroup>
 

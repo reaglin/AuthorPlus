@@ -2865,11 +2865,7 @@ public partial class MainWindow : Window, ISuggestionActions
 
     private void About_Click(object sender, RoutedEventArgs e)
     {
-        var v = typeof(MainWindow).Assembly.GetName().Version;
-        MessageBox.Show(this,
-            $"AuthorPlus {v}\n\nAn AI-enhanced authoring tool for organising and writing books: sections, chapters, characters, timeline and plotlines.\n\n" +
-            $"Books live in:\n{_store.Root}\n\n© Ron Eaglin",
-            "About AuthorPlus", MessageBoxButton.OK, MessageBoxImage.Information);
+        new AboutWindow(_store.Root) { Owner = this }.ShowDialog();
     }
 }
 

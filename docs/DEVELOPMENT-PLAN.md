@@ -150,6 +150,7 @@ and the commands to run.
 | 4.5 | The submission guide: identity, the order to do everything in, Partner Center field by field, age-rating answers, certification notes, listing copy ready to paste | `docs/STORE-SUBMISSION.md` | | [x] 2026-09-14 |
 | 4.6 | Screenshots (≥ 1366×768, four or more) | `store/screenshots/` | | [ ] |
 | 4.7 | Deploy the privacy page; copy the package identity name out of Partner Center; set 1.0.0; build with the real identity; run WACK; submit | | Store listing live | [ ] |
+| 4.8 | **Help › About says who made it.** Ron, 2026-09-25: *"Created by Dr. Ron Eaglin"* with his picture in every program's About. The message box became `AboutWindow`: his picture (256 px copy, shown at 96 px with rounded corners) beside the heading, the version read from the assembly (`AuthorPlusVersion`), two plain paragraphs on what AuthorPlus is for, and where the books are kept | `App/AboutWindow.cs`, `App/Images/dr-ron-eaglin.jpg`, `MainWindow.xaml.cs` | builds with no warnings, 137 tests green; photographed running | ⚠️ built — waiting for Ron to look (Help › About AuthorPlus) |
 
 ## Phase 5 — Versions and GitHub (2026-09-15)
 
