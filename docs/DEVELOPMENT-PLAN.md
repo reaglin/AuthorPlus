@@ -179,6 +179,17 @@ is kept up to date without the author thinking about it.
 | 5.12 | **Back Up to GitHub no longer greys out** when a book keeps no versions. Ron, 2026-09-15: *"it is not obvious you need to enable saving versions"* — so the GitHub item (and Save a Version, and the history) stay live for any open book and start versioning themselves, with the question asked in GitHub's terms; the two everyday buttons that really do need a connected book say why in their tooltip | `MainWindow.Versioning.cs`, `MainWindow.xaml` | a first-time author reaches GitHub in one menu click | [x] 2026-09-15 |
 | 5.10 | Open a book *from* GitHub on a second computer (clone inside the app) — deferred until two machines are actually in use | | | [ ] |
 
+## Every release — AI Manager and the manual-test build (Ron, 2026-10-11)
+
+Ron: *"the new releases will need to update to the latest version and this will be something that
+must occur with every version that we release of all the programs that use the AI Manager."*
+These two items are done **again for every release**; a release is not ready for the Store until both are.
+
+| # | Task | Done when |
+|---|---|---|
+| R.1 | **Move to the latest AI Manager** (`Eaglin.AiManager` and its UI package in the csproj; now **1.6.0**, this repo pins **1.2.0**). Read AI Manager's `docs/DEVELOPMENT-PLAN.md` for what changed (1.6.0: How? beside Get a key, the dated key help page); fix anything the new version changes; tests green | the csproj names the latest version in `C:\nuget-local`; tests green |
+| R.2 | **Hand-test build** in `manual-test$exe` (`docs/MANUAL-TESTING.md`); Ron opens AI Settings there and checks How? beside his provider | ⚠️ Ron runs the exe |
+
 ## Version 2 — Audio (Ron, 2026-09-12: "not v1, but develop knowing where we are going")
 
 Chapters and any selected text can be turned into audio through the AI Manager's text-to-speech
