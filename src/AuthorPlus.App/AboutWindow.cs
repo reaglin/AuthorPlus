@@ -1,5 +1,7 @@
+using System.Diagnostics;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Documents;
 using System.Windows.Media.Imaging;
 using Brushes = System.Windows.Media.Brushes;
 using FontFamily = System.Windows.Media.FontFamily;
@@ -57,6 +59,11 @@ public sealed class AboutWindow : Window
         root.Children.Add(new TextBlock { Text = "Your books are kept in", FontWeight = FontWeights.SemiBold, Margin = new Thickness(0, 6, 0, 2) });
         root.Children.Add(new TextBlock { Text = booksFolder, TextWrapping = TextWrapping.Wrap, Foreground = Brushes.Gray });
 
+        // Links (portfolio rules, 2026-09-30 and 2026-10-30): the program's page and all the programs.
+        // The Microsoft Store line is added once Partner Center gives AuthorPlus its Store ID.
+        root.Children.Add(LinkLine("More about AuthorPlus, with help and examples: ", "softwareplus.ai/author", "https://softwareplus.ai/author/", new Thickness(0, 14, 0, 4)));
+        root.Children.Add(LinkLine("All of Dr. Ron Eaglin's programs: ", "softwareplus.ai", "https://softwareplus.ai/#programs", new Thickness(0, 0, 0, 4)));
+
         var bottom = new DockPanel { Margin = new Thickness(0, 16, 0, 0) };
         var ok = new Button { Content = "Close", Width = 80, IsDefault = true, IsCancel = true };
         ok.Click += (_, _) => Close();
@@ -66,6 +73,26 @@ public sealed class AboutWindow : Window
         root.Children.Add(bottom);
 
         Content = root;
+    }
+
+    /// <summary>A line of text ending in a link that opens in the browser (keyboard: Tab to it, Enter).</summary>
+    private static TextBlock LinkLine(string lead, string shown, string url, Thickness margin)
+    {
+        var line = new TextBlock { TextWrapping = TextWrapping.Wrap, Margin = margin };
+        line.Inlines.Add(new Run(lead));
+        var link = new Hyperlink(new Run(shown)) { NavigateUri = new Uri(url) };
+        link.RequestNavigate += (_, e) => { Browse(e.Uri.AbsoluteUri); e.Handled = true; };
+        line.Inlines.Add(link);
+        return line;
+    }
+
+    private static void Browse(string url)
+    {
+        try { Process.Start(new ProcessStartInfo(url) { UseShellExecute = true }); }
+        catch (Exception ex) when (ex is System.ComponentModel.Win32Exception or InvalidOperationException)
+        {
+            // No browser to open it with; the address is on screen to copy.
+        }
     }
 
     /// <summary>What AuthorPlus is, for someone who has just opened it — two short paragraphs.</summary>
