@@ -305,7 +305,7 @@ image.
 
 Paste the certification notes from §10. Then **Submit to the Store**.
 
-☐ Submitted.
+☑ Submitted for certification 2026-11-05 (free; publishes as soon as it passes).
 
 ---
 
