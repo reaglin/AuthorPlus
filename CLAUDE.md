@@ -40,7 +40,7 @@ voices), plot and writing-style analyses.
 | `README.md` | What the app is, for a reader who is not building it. |
 
 Decisions taken with Ron on 2026-09-04: WPF/.NET 10 (not WinForms); **folder per book, one
-file per item**; paid Microsoft Store app.
+file per item**; paid Microsoft Store app — **changed by Ron 2026-11-05: 1.0.0 ships free**.
 
 Decisions taken with Ron on 2026-09-12 (re-plan around real use):
 - **Tree like CIATLE's Program Assessment:** Book → Sections (parts) → Chapters → Items.

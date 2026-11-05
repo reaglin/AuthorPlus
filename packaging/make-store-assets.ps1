@@ -7,10 +7,14 @@
     everything else is a downscale of it. That keeps the small sizes sharp and means a change of
     mind about the artwork is a change to this file and one command.
 
-    The mark is a manuscript page on ink-navy ground with a plus set into its lower corner: at
-    16 px that reads as a pale page and a bright plus, which is as much as any icon gets at that
-    size. The wordmark is only used where there is room for it — the wide tile, the splash
-    screen and the listing images — because "Author+" at 44 px is illegible noise.
+    The mark is a manuscript page on ink-navy ground with a gold plus over its lower corner (no
+    plate behind the plus — Ron, 2026-11-05). Two versions are drawn:
+      * the titled mark — a smaller page with "Author+" in white under it (Ron chose candidate B,
+        2026-11-05) — for every tile of 71 px and up, the 50 px Store logo's larger scales, the
+        listing images and the .ico's large frames;
+      * the plain mark — the page and plus alone — for 16-48 px (taskbar, Start list, the .ico's
+        small frames), where lettering is illegible noise.
+    The wide tile, the splash screen and the hero images set the name beside the plain glyph.
 
     Every package asset is written under WACK's 204800-byte limit for logo images: 256 colours
     first, then 128, 64, 32 until it fits. On flat artwork like this that is invisible. The
@@ -65,37 +69,52 @@ $font    = $env:WINDIR.Replace('\', '/') + '/Fonts/segoeuib.ttf'
 $MaxAssetBytes = 204800
 
 # --- the mark ----------------------------------------------------------------------------------
-# Drawn at 2048 so every emitted size is a downscale. The page is inset far enough that the
-# 44 px tile still shows navy around it; the plus overhangs the page corner so the two shapes
-# read as one object rather than a sticker on a card.
-$pageArt = @(
-    # the page, with a soft shadow so it lifts off the navy
-    '-fill', '#0D1526', '-stroke', 'none',
-    '-draw', 'roundrectangle 604,436 1500,1668 44,44',
-    '-fill', $page,
-    '-draw', 'roundrectangle 580,404 1476,1636 44,44',
-    # lines of text, left aligned, ragged right, stopping clear of the plus
-    '-fill', $ink, '-stroke', 'none',
+# Drawn at 2048 so every emitted size is a downscale. The plus overhangs the page corner so the
+# two shapes read as one object; a soft shadow under it (no plate) keeps it apart from the page.
+$shadow = '#0D1526'
+
+function Get-PlusArt([int]$cx, [int]$cy, [int]$len, [int]$bar) {
+    $h = [int]($len / 2); $b = [int]($bar / 2); $o = [int]($bar * 0.22)
+    @('-fill', $shadow, '-stroke', 'none',
+      '-draw', "roundrectangle $($cx-$b+$o),$($cy-$h+$o) $($cx+$b+$o),$($cy+$h+$o) $b,$b",
+      '-draw', "roundrectangle $($cx-$h+$o),$($cy-$b+$o) $($cx+$h+$o),$($cy+$b+$o) $b,$b",
+      '-fill', $accent,
+      '-draw', "roundrectangle $($cx-$b),$($cy-$h) $($cx+$b),$($cy+$h) $b,$b",
+      '-draw', "roundrectangle $($cx-$h),$($cy-$b) $($cx+$h),$($cy+$b) $b,$b")
+}
+
+# Plain: the page with five lines of text, inset so the 44 px tile still shows navy around it.
+$plainArt = @(
+    '-fill', $shadow, '-stroke', 'none', '-draw', 'roundrectangle 604,436 1500,1668 44,44',
+    '-fill', $page,   '-draw', 'roundrectangle 580,404 1476,1636 44,44',
+    '-fill', $ink,
     '-draw', 'roundrectangle 680,560 1330,614 27,27',
     '-draw', 'roundrectangle 680,700 1376,754 27,27',
     '-draw', 'roundrectangle 680,840 1240,894 27,27',
     '-draw', 'roundrectangle 680,980 1376,1034 27,27',
     '-draw', 'roundrectangle 680,1120 1150,1174 27,27'
-)
-# The plus: a navy plate behind it so it stays separate wherever it overlaps the page.
-$plusArt = @(
-    '-fill', $navy, '-stroke', 'none',
-    '-draw', 'roundrectangle 1180,1180 1800,1800 60,60',
-    '-fill', $accent,
-    '-draw', 'roundrectangle 1434,1274 1546,1706 56,56',
-    '-draw', 'roundrectangle 1274,1434 1706,1546 56,56'
-)
+) + (Get-PlusArt 1490 1490 480 124)
 
-$mark  = Join-Path $workDir 'mark-2048.png'        # on the navy ground, for tiles
-$glyph = Join-Path $workDir 'glyph-2048.png'       # transparent, for compositing
+# Titled: a smaller page high on the tile, "Author+" in white under it.
+$titledArt = @(
+    '-fill', $shadow, '-stroke', 'none', '-draw', 'roundrectangle 676,316 1412,1316 40,40',
+    '-fill', $page,   '-draw', 'roundrectangle 656,290 1392,1290 40,40',
+    '-fill', $ink,
+    '-draw', 'roundrectangle 740,420 1280,466 23,23',
+    '-draw', 'roundrectangle 740,536 1318,582 23,23',
+    '-draw', 'roundrectangle 740,652 1200,698 23,23',
+    '-draw', 'roundrectangle 740,768 1318,814 23,23',
+    '-draw', 'roundrectangle 740,884 1100,930 23,23'
+) + (Get-PlusArt 1400 1210 400 104)
 
-Invoke-Magick -size 2048x2048 "xc:$navy" @pageArt @plusArt -strip $mark
-Invoke-Magick -size 2048x2048 'xc:none'  @pageArt @plusArt -strip $glyph
+$mark   = Join-Path $workDir 'mark-2048.png'         # plain, on the navy ground: 16-48 px
+$titled = Join-Path $workDir 'titled-2048.png'       # titled, on the navy ground: 71 px and up
+$glyph  = Join-Path $workDir 'glyph-2048.png'        # plain, transparent, for compositing beside the name
+
+Invoke-Magick -size 2048x2048 "xc:$navy" @plainArt -strip $mark
+Invoke-Magick -size 2048x2048 "xc:$navy" @titledArt -font $font -fill $white -pointsize 300 `
+    -gravity south -annotate '+0+250' 'Author+' -strip $titled
+Invoke-Magick -size 2048x2048 'xc:none'  @plainArt -strip $glyph
 
 # --- emitters ----------------------------------------------------------------------------------
 function Write-Capped {
@@ -140,12 +159,14 @@ $scales = @(
 )
 
 function Write-TileSet {
+    # Each scale from the titled mark when it comes out at 71 px or more, else from the plain one.
     param([string]$Name, [int]$Width, [int]$Height, [string]$Src, [string]$Mode = 'Fit')
     foreach ($s in $scales) {
         $w = [int][math]::Round($Width  * $s.Factor)
         $h = [int][math]::Round($Height * $s.Factor)
         $dest = Join-Path $assetsDir "$Name$($s.Suffix).png"
-        Write-Capped $Src $w $h $dest $Mode
+        $from = if ($Src -eq $mark -and [math]::Min($w, $h) -ge 71) { $titled } else { $Src }
+        Write-Capped $from $w $h $dest $Mode
         if ($s.Suffix -eq '.scale-100') { Copy-Item $dest (Join-Path $assetsDir "$Name.png") -Force }
     }
     Write-Host "  $Name" -ForegroundColor DarkGray
@@ -214,7 +235,13 @@ function Write-Hero {
 
 # --- MSIX tiles ----------------------------------------------------------------------------------
 Write-Host 'MSIX tiles -> packaging/Assets' -ForegroundColor Cyan
-Write-TileSet 'Square44x44Logo'   44  44  $mark
+# Square44x44 is the taskbar / Start list icon: plain at every scale, so it matches the 16-48 px target sizes.
+foreach ($s in $scales) {
+    $px = [int][math]::Round(44 * $s.Factor)
+    Write-Capped $mark $px $px (Join-Path $assetsDir "Square44x44Logo$($s.Suffix).png")
+}
+Copy-Item (Join-Path $assetsDir 'Square44x44Logo.scale-100.png') (Join-Path $assetsDir 'Square44x44Logo.png') -Force
+Write-Host '  Square44x44Logo' -ForegroundColor DarkGray
 Write-TileSet 'Square71x71Logo'   71  71  $mark
 Write-TileSet 'Square150x150Logo' 150 150 $mark
 Write-TileSet 'Square310x310Logo' 310 310 $mark
@@ -234,18 +261,29 @@ Write-Host '  SplashScreen' -ForegroundColor DarkGray
 
 # --- Partner Center listing images -----------------------------------------------------------------
 Write-Host 'Store listing -> store/images' -ForegroundColor Cyan
-Write-Plain $mark 300  300  (Join-Path $storeDir 'StoreLogo-300x300.png')
-Write-Plain $mark 1080 1080 (Join-Path $storeDir 'BoxArt-1080x1080.png')
-Write-Plain $mark 720  1080 (Join-Path $storeDir 'PosterArt-720x1080.png') 'Pad'
+Write-Plain $titled 300  300  (Join-Path $storeDir 'StoreLogo-300x300.png')
+Write-Plain $titled 1080 1080 (Join-Path $storeDir 'BoxArt-1080x1080.png')
+Write-Plain $titled 720  1080 (Join-Path $storeDir 'PosterArt-720x1080.png') 'Pad'
 Write-Hero 2400 1200 (Join-Path $storeDir 'SuperHeroArt-2400x1200.png')
 Write-Hero 1920 1080 (Join-Path $storeDir 'HeroImage-1920x1080.png')
 
 # --- the .exe icon ------------------------------------------------------------------------------
 if (-not $SkipIco) {
     Write-Host 'Application icon -> src/AuthorPlus.App/AuthorPlus.ico' -ForegroundColor Cyan
-    Invoke-Magick $mark -filter Lanczos `
-        -define 'icon:auto-resize=256,128,64,48,40,32,24,20,16' `
-        (Join-Path $repoRoot 'src/AuthorPlus.App/AuthorPlus.ico')
+    # Titled frames where the name can be read (64 px and up), plain ones below.
+    $frames = foreach ($px in 256, 128, 64, 48, 40, 32, 24, 20, 16) {
+        $f = Join-Path $workDir "ico-$px.png"
+        Invoke-Magick $(if ($px -ge 64) { $titled } else { $mark }) -filter Lanczos -resize "${px}x${px}" -strip $f
+        $f
+    }
+    Invoke-Magick @frames (Join-Path $repoRoot 'src/AuthorPlus.App/AuthorPlus.ico')
+
+    # The same titled mark for the program's tile on softwareplus.ai, when that repo is beside this one.
+    $siteIcon = Join-Path (Split-Path -Parent $repoRoot) 'SoftwarePlus/site/images/icons/author.png'
+    if (Test-Path (Split-Path -Parent $siteIcon)) {
+        Invoke-Magick $titled -filter Lanczos -resize 360x360 -strip $siteIcon
+        Write-Host "  softwareplus.ai tile -> $siteIcon (deploy it from that repo)" -ForegroundColor DarkGray
+    }
 }
 
 # --- contact sheet ------------------------------------------------------------------------------

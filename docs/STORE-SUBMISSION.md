@@ -245,8 +245,8 @@ are almost always an identity mismatch (§2) or a version already used (§5).
 
 ### Pricing
 
-- Base price: **Paid** — Author+ is a paid app, unlike SMADA and Statistle. Pick the tier, and
-  keep in mind the Store shows tax-inclusive prices in some markets.
+- Base price: **Free** (Ron, 2026-11-05: *"We are going to start with free."* The earlier plan was
+  a paid app.)
 - Free trial: your call. A trial is a good fit for a writing tool, but it is a code change
   (the app has no trial mode today), so for 1.0 the answer is **No free trial**.
 - Sale pricing: none.
@@ -291,7 +291,7 @@ Copy the text in §11 into the matching fields. Then upload the images:
 
 | Partner Center slot | File |
 |---|---|
-| Screenshots (at least 4) | `store\screenshots\*.png` |
+| Screenshots (at least 4) | `store\screenshots\*.png` — seven at 1440 × 900 of the sample book, made by `tools/store-shots.ps1` |
 | Store logo 300 × 300 | `store\images\StoreLogo-300x300.png` |
 | Box art 1:1 (1080 × 1080) | `store\images\BoxArt-1080x1080.png` |
 | Poster art 2:3 (720 × 1080) | `store\images\PosterArt-720x1080.png` |
@@ -326,8 +326,8 @@ nothing.
 > the user signed in to themselves: sending a request to the AI provider whose API key the user
 > entered, and — if the user chooses to back a book up — sending that book's folder to their own
 > GitHub repository (`api.github.com` to check the sign-in and create the repository,
-> `github.com` over HTTPS for the backup itself). The app contacts no other server, checks for no
-> updates, and sends no telemetry.
+> `github.com` over HTTPS for the backup itself). The only other connection is to the Microsoft Store
+> itself, when the user chooses Help › Check for a new version. The app sends no telemetry.
 >
 > **Testing the GitHub backup.** It needs a GitHub account and a personal access token of the
 > tester's own, under Versions › Back Up to GitHub…. Without one, every other part of versioning —
