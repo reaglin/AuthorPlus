@@ -19,6 +19,36 @@ prompts, log and usage ledger are the shared ones in `Documents\AiManager\`.
 Open the trilogy with **File › Open Recent › The Book of One**, or drag the book folder onto
 the exe (`AuthorPlus.exe "<book folder>"` opens it). Books live in `Documents\AuthorPlus\Books`.
 
+## Round 2026-11 — the 1.0.0 release (Export / Import Project)
+
+Build: `manual-test\AuthorPlus.exe` (made 2026-11-05, version 1.0.0, AI Manager 1.7.0). Close any copy that is open first.
+Record each step as ✅ / ❌ with a note; ❌ and notes go back into `docs/DEVELOPMENT-PLAN.md`.
+
+### A. Export / Import Project (plan 4.12) — the new feature
+A1. Open *The Book of One*. **File › Export Project (to work on another computer)…** — expected: it saves first, offers
+    `The Book of One 2026-11-05 HHmm (<this computer>).authorplus` in Documents, and after a moment says how many files and
+    MB (about 1 MB), what to do on the other computer, and offers to show the file. The window is locked while it works.
+A2. **File › Import Project…** and choose that same file — expected: it says the file was made on this computer and that
+    it holds exactly what is here (nothing new); Replace is ticked. Press **Cancel**: nothing changes.
+A3. On the other computer (or: copy the file somewhere else, delete nothing): **Import Project** there — expected: "not on
+    this computer yet", Import opens the book with its chapters and Version History.
+A4. Write a sentence there, Export Project there, bring the file back and **Import Project** here — expected: "The file
+    has new writing… Replacing it is the usual choice", Replace ticked. Import — the sentence is there; the old copy is in
+    `Documents\AuthorPlus\Replaced books\The Book of One (replaced …)` and the message says so.
+A5. Write here *and* on the other computer before importing — expected: ⚠ "Both computers have new writing…", **Keep both**
+    ticked; Import adds "The Book of One (2)". Then Import again: it asks which of the two copies the file is for.
+A6. Choose a `.docx` with "All files" — expected: "This is not an Author+ project file…", pointing to Insert Chapter from File.
+
+### B. Same as every program (USABILITY-CHECKLIST 5–6)
+B1. The window title, About and messages say **Author+** (the Store name).
+B2. **Help › About Author+**: version 1.0.0; four links — softwareplus.ai/author, the Microsoft Store page
+    (apps.microsoft.com/detail/9MZCBQVSSDVG — works once the Store listing is live), all programs.
+B3. **Help › Check for a new version…** — this hand-test copy says it cannot check and offers the Store page.
+B4. **AI › AI Settings…** — AI Manager 1.7.0: How? beside Get a key for your provider (plan R.1/R.2).
+
+### C. Look
+At 150 % scaling: the Import Project window (its Replace line holds a full folder path) — nothing cut off; the ⚠ box readable.
+
 ## What to exercise
 
 **Tree and editing**

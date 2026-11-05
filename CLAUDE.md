@@ -5,9 +5,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## Every release: the latest AI Manager and a manual-test exe (Ron, 2026-10-11)
 
 Author+ gets its AI through the shared **AI Manager** packages (`..\AiManager`, local feed `C:\nuget-local`).
-**Every release of Author+ moves to the latest AI Manager version first** (now **1.6.0**; this repo pins
-**1.2.0**) — not only when a feature needs it — so every program shows the same AI Settings, key
-help and fixes. Then build, run the tests, and publish the hand-test build to **`manual-test$exe`**
+**Every release of Author+ moves to the latest AI Manager version first** (this repo pins **1.7.0**,
+the latest, since 2026-11-05) — not only when a feature needs it — so every program shows the same AI Settings, key
+help and fixes. Then build, run the tests, and publish the hand-test build to **`manual-test\AuthorPlus.exe`**
 (gitignored; command in `docs/MANUAL-TESTING.md`) for Ron to test before anything goes to the Store.
 On a computer that has just pulled AI Manager, run `..\AiManager\build\pack.ps1` first: the
 packages are built locally, not stored in git. The rule for all the AI programs: `..\CLAUDE.md`,
@@ -35,7 +35,7 @@ voices), plot and writing-style analyses.
 | `docs/TRILOGY-TEST-CASE.md` | Ron's real trilogy (73 DOCX chapters on OneDrive) — the live test case every feature is checked against. |
 | `docs/MANUAL-TESTING.md` | The hand-test build (`manual-test\AuthorPlus.exe`, from `build-manual-test.ps1`), what to exercise, known gaps. |
 | `docs/VERSIONS-AND-GITHUB.md` | **Versions and the GitHub backup** — what the author sees, what it is underneath, the decisions, and the hand-test script. |
-| `docs/STORE-SUBMISSION.md` | **The Microsoft Store submission** — identity, packaging commands, WACK, Partner Center field by field, listing copy ready to paste. |
+| `docs/STORE-SUBMISSION.md` | **The Microsoft Store submission** — identity (`DeanEaglin.Author`, Store ID 9MZCBQVSSDVG), packaging commands, WACK, Partner Center field by field, listing copy ready to paste. |
 | `..\AiManager\docs\PLAN.md` | The shared AI layer this app consumes (package `Eaglin.AiManager`). |
 | `README.md` | What the app is, for a reader who is not building it. |
 
@@ -67,7 +67,9 @@ AuthorPlus.sln
 │                                      (Markdown, DOCX, EPUB written by hand; PDF on PDFsharp)
 │                                      + Services/Versioning (the book folder as a git repository,
 │                                      on LibGit2Sharp, and the GitHub backup)
-├── src/AuthorPlus.App/    net10.0-windows  WPF: MainWindow (tree + editor), PromptWindow,
+│                                      + Services/Transfer (Export/Import Project: the book folder
+│                                      and its history as one .authorplus zip; content fingerprints)
+├── src/AuthorPlus.App/    net10.0-windows10.0.19041.0  WPF (the SDK version is for Windows.Services.Store): MainWindow (tree + editor), PromptWindow,
 │                                      AiPrompts (the app's prompt templates). Assembly AuthorPlus.exe.
 │                                      References packages Eaglin.AiManager + Eaglin.AiManager.Wpf
 │                                      (repo ..\AiManager, local feed C:\nuget-local)

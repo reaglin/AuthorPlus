@@ -2,7 +2,8 @@
 
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
-    <TargetFramework>net10.0-windows</TargetFramework>
+    <!-- The Windows 10 SDK version is for Windows.Services.Store (Help › Check for a New Version). -->
+    <TargetFramework>net10.0-windows10.0.19041.0</TargetFramework>
     <UseWPF>true</UseWPF>
     <!-- WinForms only for FolderBrowserDialog (WPF has no folder picker). -->
     <UseWindowsForms>true</UseWindowsForms>
@@ -38,8 +39,8 @@
     <!-- The shared AI layer (repo ..\AiManager). Packages come from the local feed C:\nuget-local;
          run ..\AiManager\build\pack.ps1 once on a fresh machine. The DLLs are copied into the
          publish folder, so an MSIX/Store build carries them and needs no feed at install time. -->
-    <PackageReference Include="Eaglin.AiManager" Version="1.2.0" />
-    <PackageReference Include="Eaglin.AiManager.Wpf" Version="1.2.0" />
+    <PackageReference Include="Eaglin.AiManager" Version="1.7.0" />
+    <PackageReference Include="Eaglin.AiManager.Wpf" Version="1.7.0" />
   </ItemGroup>
 
 </Project>

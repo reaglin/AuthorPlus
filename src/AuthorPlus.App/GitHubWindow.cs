@@ -105,15 +105,15 @@ public sealed class GitHubWindow : Window
 
         // The steps, because this is the one part of the feature that happens outside AuthorPlus
         // and the GitHub page is written for programmers.
-        Step(1, "Open the GitHub page below. It arrives with the one permission AuthorPlus needs — " +
+        Step(1, "Open the GitHub page below. It arrives with the one permission Author+ needs — " +
                 "“repo” — already ticked. Sign in to GitHub if it asks.");
-        Step(2, "Give the token a name you will recognise later, such as “AuthorPlus on this PC”, " +
+        Step(2, "Give the token a name you will recognise later, such as “Author+ on this PC”, " +
                 "and choose how long it should last. No expiration means never having to do this again; " +
                 "a date means you will be asked for a new one then.");
         Step(3, "Scroll to the bottom and press Generate token.");
         Step(4, "Copy the token GitHub then shows you — it is a long line beginning ghp_, and GitHub " +
                 "shows it once only. If you lose it, make another; nothing is harmed.");
-        Step(5, "Paste it below and press Sign in. AuthorPlus keeps it on this computer, encrypted for " +
+        Step(5, "Paste it below and press Sign in. Author+ keeps it on this computer, encrypted for " +
                 "your Windows account, and never sends it anywhere but GitHub.");
 
         _body.Children.Add(Link("Open the GitHub page that makes a token…", () => Browse(TokenPage)));
@@ -262,7 +262,7 @@ public sealed class GitHubWindow : Window
             var token = Credentials().Token;
             var repository = await api.FindAsync(token, _account.Login, name, CancellationToken.None).ConfigureAwait(true)
                              ?? await api.CreateAsync(token, name,
-                                    $"{_book.Title} — written in AuthorPlus", isPrivate, CancellationToken.None).ConfigureAwait(true);
+                                    $"{_book.Title} — written in Author+", isPrivate, CancellationToken.None).ConfigureAwait(true);
             _repository.SetRemote(repository.CloneUrl);
             Render();
             await BackUp().ConfigureAwait(true);

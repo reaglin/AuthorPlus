@@ -138,7 +138,7 @@ public partial class MainWindow : Window, ISuggestionActions
         _progress.Save(book);
         TxtSaved.Text = "";
         TxtBookTitle.Text = book.Title;
-        Title = $"{book.Title} — AuthorPlus";
+        Title = $"{book.Title} — Author+";
         RememberRecent(book.FolderPath);
         BuildRecentMenu();
         BuildTree(select: book.Chapters.FirstOrDefault() ?? (object)book);
@@ -184,7 +184,7 @@ public partial class MainWindow : Window, ISuggestionActions
         if (_book == null) return true;
         CommitCurrent();
         if (!_dirty) return true;
-        var r = MessageBox.Show(this, $"Save changes to \"{_book.Title}\"?", "AuthorPlus",
+        var r = MessageBox.Show(this, $"Save changes to \"{_book.Title}\"?", "Author+",
             MessageBoxButton.YesNoCancel, MessageBoxImage.Question);
         if (r == MessageBoxResult.Cancel) return false;
         if (r == MessageBoxResult.Yes) SaveAll();
@@ -1852,7 +1852,7 @@ public partial class MainWindow : Window, ISuggestionActions
         if (_loading || _current == null) return;
         switch (_current)
         {
-            case Book b:           b.Title  = TxtName.Text; Title = $"{b.Title} — AuthorPlus"; break;
+            case Book b:           b.Title  = TxtName.Text; Title = $"{b.Title} — Author+"; break;
             case Section s:        s.Title  = TxtName.Text; break;
             case Chapter ch:       ch.Title = TxtName.Text; break;
             case Item it:          it.Title = TxtName.Text; break;
@@ -2862,6 +2862,8 @@ public partial class MainWindow : Window, ISuggestionActions
         TxtStatus.Text = text;
         RefreshTreeTexts();
     }
+
+    private async void CheckForUpdate_Click(object sender, RoutedEventArgs e) => await StoreUpdates.CheckAsync(this);
 
     private void About_Click(object sender, RoutedEventArgs e)
     {

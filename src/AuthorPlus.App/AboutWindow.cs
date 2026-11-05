@@ -20,7 +20,7 @@ public sealed class AboutWindow : Window
 {
     public AboutWindow(string booksFolder)
     {
-        Title = "About AuthorPlus";
+        Title = "About Author+";
         Width = 520; SizeToContent = SizeToContent.Height;
         WindowStartupLocation = WindowStartupLocation.CenterOwner;
         ResizeMode = ResizeMode.NoResize;
@@ -49,7 +49,7 @@ public sealed class AboutWindow : Window
         {
             Text = "Created by Dr. Ron Eaglin", FontSize = 18, FontWeight = FontWeights.SemiBold, Margin = new Thickness(0, 0, 0, 4)
         });
-        heading.Children.Add(new TextBlock { Text = $"AuthorPlus, version {Version}", Foreground = Brushes.Gray });
+        heading.Children.Add(new TextBlock { Text = $"Author+, version {Version}", Foreground = Brushes.Gray });
         header.Children.Add(heading);
         root.Children.Add(header);
 
@@ -60,8 +60,8 @@ public sealed class AboutWindow : Window
         root.Children.Add(new TextBlock { Text = booksFolder, TextWrapping = TextWrapping.Wrap, Foreground = Brushes.Gray });
 
         // Links (portfolio rules, 2026-09-30 and 2026-10-30): the program's page and all the programs.
-        // The Microsoft Store line is added once Partner Center gives AuthorPlus its Store ID.
-        root.Children.Add(LinkLine("More about AuthorPlus, with help and examples: ", "softwareplus.ai/author", "https://softwareplus.ai/author/", new Thickness(0, 14, 0, 4)));
+        root.Children.Add(LinkLine("More about Author+, with help and examples: ", "softwareplus.ai/author", "https://softwareplus.ai/author/", new Thickness(0, 14, 0, 4)));
+        root.Children.Add(LinkLine("Author+ on the Microsoft Store (updates, ratings and reviews): ", "apps.microsoft.com/detail/9MZCBQVSSDVG", StoreUpdates.StorePage, new Thickness(0, 0, 0, 4)));
         root.Children.Add(LinkLine("All of Dr. Ron Eaglin's programs: ", "softwareplus.ai", "https://softwareplus.ai/#programs", new Thickness(0, 0, 0, 4)));
 
         var bottom = new DockPanel { Margin = new Thickness(0, 16, 0, 0) };
@@ -98,7 +98,7 @@ public sealed class AboutWindow : Window
     /// <summary>What AuthorPlus is, for someone who has just opened it — two short paragraphs.</summary>
     internal static readonly string[] Description =
     [
-        "AuthorPlus helps you write a book and keep it straight. It holds your chapters, characters, timeline and plotlines in one tree, and you write each chapter in its own editor.",
+        "Author+ helps you write a book and keep it straight. It holds your chapters, characters, timeline and plotlines in one tree, and you write each chapter in its own editor.",
         "Its AI features, using your own API key, summarise a chapter, read it for pacing and tension, and suggest rewrites of a passage you choose. Your book stays on your computer as a folder of ordinary files, and can keep its own saved versions."
     ];
 

@@ -15,7 +15,7 @@ Statistle, so most of the identity is already known.
 | | Item | State |
 |---|---|---|
 | ☑ | Store name **Author+** reserved in Partner Center | done by Ron |
-| ☐ | Package identity name copied out of Partner Center | **NEEDS YOU** — §3 |
+| ☑ | Package identity name copied out of Partner Center | `DeanEaglin.Author` (Ron, 2026-11-05) — §2 |
 | ☑ | `packaging/AppxManifest.xml` — identity, tiles, capabilities | in the repo |
 | ☑ | `packaging/pack.ps1` — publish → stage → makepri → makeappx → sign | in the repo |
 | ☑ | `packaging/make-msixupload.ps1` — the submission package | in the repo |
@@ -26,9 +26,9 @@ Statistle, so most of the identity is already known.
 | ☑ | `src/AuthorPlus.App/app.manifest` — PerMonitorV2, asInvoker | required by WACK |
 | ☑ | A real `.msixupload` builds end to end (71.8 MB at 0.10.0) | proven, dev identity |
 | ☑ | Privacy policy written — `PRIVACY_POLICY.md`, and the page in the PunchMonkeyServer repo | §4 |
-| ☐ | Privacy page deployed to punchmonkeyserver.com | §4 — one command |
-| ☐ | Release version set to 1.0.0 | §5 |
-| ☐ | Submission package built with the real identity | §6 |
+| ☑ | Privacy page live at https://softwareplus.ai/author/privacy/ | updated 2026-11-05 for Export/Import Project and Check for a new version — §4 |
+| ☑ | Release version set to 1.0.0 | 2026-11-05 — §5 |
+| ☑ | Submission package built with the real identity | `artifacts\AuthorPlus_1.0.0.0_x64_bundle.msixupload` (79.9 MB), family name checked, 2026-11-05 — §6 |
 | ☐ | WACK run and passing | §7 |
 | ☐ | Screenshots captured | §8 |
 | ☐ | Partner Center submission completed | §9 |
@@ -43,10 +43,12 @@ this right before anything else.
 
 | Field | Value | Where it lives |
 |---|---|---|
-| `Package/Identity/Name` | **NEEDS YOU** — see §3 | passed to the build as `-IdentityName` |
+| `Package/Identity/Name` | **`DeanEaglin.Author`** (from Partner Center, 2026-11-05) | passed to the build as `-IdentityName` |
 | `Package/Identity/Publisher` | `CN=E88392BA-A722-4B3A-8372-04403A55AA63` | passed as `-Publisher`; account-wide, same as SMADA and Statistle |
 | `PublisherDisplayName` | `Dean Eaglin` | already in `packaging/AppxManifest.xml` |
-| Package family name | `<identity name>_xs303fgqvwdg8` | the `_xs303fgqvwdg8` hash is account-wide too |
+| Package family name | **`DeanEaglin.Author_xs303fgqvwdg8`** | `-VerifyFamilyName` derives the same (checked 2026-11-05) |
+| Store ID | **9MZCBQVSSDVG** | https://apps.microsoft.com/detail/9MZCBQVSSDVG — in Help › About and Check for a new version |
+| Partner Center product | https://partner.microsoft.com/en-us/dashboard/products/9MZCBQVSSDVG/overview | |
 
 The build can prove the identity before you upload: `make-msixupload.ps1 -VerifyFamilyName` derives
 the package family name from the name and publisher and prints it. It must equal what Partner
@@ -55,7 +57,7 @@ typo in your values, not in the script.
 
 ---
 
-## 3. NEEDS YOU: the package identity name
+## 3. The package identity name (done 2026-11-05 — kept for the record)
 
 The reserved name "Author+" is the *display* name. Partner Center separately issues a *package
 identity name*, which is what goes in the manifest. It looks like `DeanEaglin.AuthorPlus` but it
@@ -75,6 +77,10 @@ availability**, **Reserve product name**. A reservation is held for three months
 ---
 
 ## 4. Publish the privacy policy
+
+**Now on SoftwarePlus.ai** (the portfolio rule since 2026-09-30): https://softwareplus.ai/author/privacy/ — edit
+`..\SoftwarePlus\site\author\privacy\index.html` and publish with `.\deploy.ps1 -Only author -Reason "…"` in that repo;
+`PRIVACY_POLICY.md` here mirrors it. The PunchMonkeyServer route below is the old address, kept working for now.
 
 The Store requires a working privacy policy URL before it will certify an app that touches the
 network, and Author+ does when you use an AI feature. The page is written and lives in the
@@ -250,8 +256,8 @@ are almost always an identity mismatch (§2) or a version already used (§5).
 - Category: **Productivity**, subcategory **Personal finance** does not fit — use
   **Productivity → Other**. (Education → Instructional tools is where SMADA and Statistle sit;
   Author+ is a tool for doing work, not for learning.)
-- Privacy policy URL: `https://punchmonkeyserver.com/privacy/authorplus`
-- Website: `https://punchmonkeyserver.com`
+- Privacy policy URL: `https://softwareplus.ai/author/privacy/`
+- Website: `https://softwareplus.ai/author/`
 - Support contact: `ron.eaglin@gmail.com`
 - **Product declarations:**
   - Purchases outside the Microsoft commerce engine — **No**. The AI features need the user's own
@@ -335,7 +341,7 @@ nothing.
 > timeline, plotlines, export — works with no key and no network connection. To exercise an AI
 > feature you would need to supply a key of your own; we can provide a temporary key on request.
 >
-> **Privacy policy:** https://punchmonkeyserver.com/privacy/authorplus
+> **Privacy policy:** https://softwareplus.ai/author/privacy/
 
 ---
 
@@ -367,7 +373,7 @@ Write a book and keep it straight. Author+ holds your chapters, characters, time
 A book is more than the sentence in front of you. Author+ is for everything around it: the chapter you are writing, the twelve you have written, the character whose eyes changed colour in part two, and the thread you opened in chapter one and have not closed yet.
 
 WRITE
-Chapters in a proper editor, with headings, scene breaks, find and replace, a word count and a goal, and a distraction-free mode when you want the page and nothing else. Each chapter carries a status from outline to final, so you can see what is done. Import the chapters you have already written from Word, text or Markdown files; your originals are never touched. When it is ready to leave, export the whole book as a Word document, a PDF typeset as a book, an EPUB e-book or Markdown.
+Chapters in a proper editor, with headings, scene breaks, find and replace, a word count and a goal, and a distraction-free mode when you want the page and nothing else. Each chapter carries a status from outline to final, so you can see what is done. Import the chapters you have already written from Word, text or Markdown files; your originals are never touched. When it is ready to leave, export the whole book as a Word document, a PDF typeset as a book, an EPUB e-book or Markdown. Writing on a laptop as well? Export Project puts the whole book, with every saved version, in one file to carry there and back; Author+ tells you which copy is newer and never deletes the one it replaces.
 
 KEEP IT STRAIGHT
 Characters with the things that actually matter — motivations, what they do, how they change — and a chart that shows, at a glance, which chapter each character is introduced in, where they appear, and where they leave the story. A timeline that stays in story order even when the chapters do not. Plotlines with the same chart: where each thread is introduced, where it runs, and where it resolves.
@@ -407,6 +413,7 @@ Every version of your book remembered, with what changed in each said in plain E
 Read an old draft of a chapter against today's, and take back the one you preferred
 Put the whole book back as it was on any day, without losing what came after
 Back the book and its whole history up to a private GitHub repository of your own
+Take the whole book, with every version, to another computer and back as one file
 ```
 
 **Search terms** [up to 7, 30 each]

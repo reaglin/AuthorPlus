@@ -13,6 +13,9 @@
          platform-neutral; fonts are supplied by BookFontResolver rather than by the
          GDI/WPF flavours of the package. -->
     <PackageReference Include="PDFsharp" Version="6.2.4" />
+    <!-- PDFsharp 6.2.4 brings in System.Security.Cryptography.Pkcs 8.0.1, which has known advisories
+         (NU1902/NU1903, fatal under TreatWarningsAsErrors). A direct reference lifts it to a fixed version. -->
+    <PackageReference Include="System.Security.Cryptography.Pkcs" Version="10.0.13" />
     <!-- Git for the book folders (MIT). libgit2 through its own managed wrapper, so versioning
          works on a machine that has no Git installed - a Store buyer's machine. The native
          binaries come with the package and are copied into the publish folder. -->

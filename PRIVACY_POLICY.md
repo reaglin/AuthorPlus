@@ -1,6 +1,6 @@
 # Privacy policy — Author+
 
-**Last updated: 15 September 2026**
+**Last updated: 5 November 2026**
 
 Author+ ("the app") is a Windows application for writing and organising a book, published by
 Ron Eaglin. This policy explains what the app does with your writing and your settings. It is
@@ -29,11 +29,20 @@ Everything the app stores is on your own computer, in your user profile:
 | An activity and error log | `Documents\AiManager\logs\` | For diagnosing problems on your own machine. |
 | Your edits to the AI prompt wording | `Documents\AiManager\` | |
 | The list of books you opened recently | `%APPDATA%\AuthorPlus\` | So the app reopens your last book. |
+| A fingerprint of each book as it stood when it last went out or came in, if you use Export Project or Import Project | `%APPDATA%\AuthorPlus\transfers.json` | So the app can tell you which copy of a book is newer. |
+| A project file (`.authorplus`), if you use *File › Export Project* | wherever you choose to save it | Your whole book, with its saved versions, in one file for you to copy to another computer yourself. Author+ does not send it anywhere. |
+| A copy replaced by *Import Project* | `Documents\AuthorPlus\Replaced books\` | Kept rather than deleted; delete it yourself when you no longer need it. |
 | The version history of a book, if you turn versions on for it | inside that book's own folder, in `.git\` | An ordinary Git repository, on your computer. Delete the `.git` folder and the book is exactly as it was, minus its history. |
 | Your GitHub access token, if you choose to back a book up there | `Documents\AuthorPlus\github.json` | Encrypted with Windows DPAPI, tied to your Windows user account. Remove it from inside the app with *Sign out*, or delete the file. |
 
 Uninstalling the app does not delete your books. They are your files; delete the folders yourself
 if you want them gone.
+
+## Checking for a new version
+
+*Help › Check for a new version* provides a way to ask the Microsoft Store, at the moment you choose
+it, whether a newer version of Author+ is published. It sends nothing about you or your books. The
+Store also installs updates on its own, as it does for every Store app.
 
 ## The AI features
 

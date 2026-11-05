@@ -254,14 +254,14 @@ public partial class MainWindow
             var (title, question) = forGitHub
                 ? ("Back Up to GitHub",
                    $"Back “{_book.Title}” up to GitHub?\n\n" +
-                   "What GitHub holds is the book's versions, so AuthorPlus will start keeping versions of this book " +
+                   "What GitHub holds is the book's versions, so Author+ will start keeping versions of this book " +
                    "first — it remembers the book as it stands at any moment you choose, nothing is ever deleted, and " +
                    "the book folder stays exactly as it is.\n\n" +
                    "Then you sign in to GitHub with a token — the next window shows you how to make one — and name " +
                    "the repository, which is private unless you say otherwise.")
                 : ("Keep Versions of This Book",
                    $"Start keeping versions of “{_book.Title}”?\n\n" +
-                   "AuthorPlus will remember the book as it stands at any moment you choose, so you can read an old " +
+                   "Author+ will remember the book as it stands at any moment you choose, so you can read an old " +
                    "draft of a chapter, compare it with today's, or put the whole book back as it was. " +
                    "Nothing is ever deleted, and the book folder stays exactly as it is.\n\n" +
                    "You can also keep a copy on GitHub afterwards, so that losing this computer costs you nothing.");
