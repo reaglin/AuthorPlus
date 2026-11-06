@@ -305,7 +305,7 @@ image.
 
 Paste the certification notes from §10. Then **Submit to the Store**.
 
-☑ Submitted for certification 2026-11-05 (free; publishes as soon as it passes).
+☑ Submitted for certification 2026-11-05 (free; publishes as soon as it passes). **Live 2026-11-06.**
 
 ---
 
@@ -453,10 +453,12 @@ add the wording SMADA and Statistle use; there is no Author+-specific term that 
 
 ## 12. After it is live
 
-☐ Tag the commit: `git tag v1.0.0 && git push --tags`
-☐ Record the Store ID and the live URL in this file, under §2
-☐ Add Author+ to the Windows apps list in `..\repos\CLAUDE.md`
-☐ Note the release in `docs/DEVELOPMENT-PLAN.md`, Phase 4
+☑ Tag the commit: `git tag v1.0.0 && git push --tags` (2026-11-06)
+☑ Record the Store ID and the live URL in this file, under §2 (9MZCBQVSSDVG, https://apps.microsoft.com/detail/9MZCBQVSSDVG)
+☑ Add Author+ to the Windows apps list in `..\repos\CLAUDE.md`
+☑ Note the release in `docs/DEVELOPMENT-PLAN.md`, Phase 4 (4.7)
+☑ softwareplus.ai: the Author+ page's "Coming soon" note replaced by the Store badge, facts "On the Microsoft Store · Version 1.0",
+  the home page tile "Free on the Store"; deployed with `deploy.ps1 -Only author,index.html` (2026-11-06)
 
 Certification usually takes a few hours to a couple of days. A rejection comes back with the policy
 number; the two most likely for this app are **10.1** (the app must work as described — covered by
