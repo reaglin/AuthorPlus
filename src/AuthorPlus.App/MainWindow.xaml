@@ -39,6 +39,9 @@
                     <MenuItem Header="_PDF (.pdf)…" Click="ExportPdf_Click"/>
                     <MenuItem Header="_EPUB e-book (.epub)…" Click="ExportEpub_Click"/>
                     <MenuItem Header="_Markdown (.md)…" Click="ExportMarkdown_Click"/>
+                    <Separator/>
+                    <MenuItem Header="_Audiobook (MP3 chapters and one M4B)…" Click="ExportAudiobook_Click"
+                              ToolTip="The book read aloud by its narrator and characters' voices: an MP3 for every chapter at the stores' standard, and one M4B with chapter marks"/>
                 </MenuItem>
                 <Separator/>
                 <MenuItem Header="Export Pro_ject (to work on another computer)…" Click="ExportProject_Click"

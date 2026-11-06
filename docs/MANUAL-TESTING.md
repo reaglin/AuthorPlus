@@ -117,6 +117,22 @@ V5. Click a paragraph, **▶ Play**: it reads from there, each line in its speak
 V6. Versions ▸ save a version: no audio files in it (the book's `audio` folder is not part of the book). File ▸ Export Project:
     the file is no bigger for having listened.
 
+### W. Pronunciations and the audiobook (plan phase 10)
+W1. The tree: **Pronunciations**. **+ Add a word**: type an invented name, a respelling (oh-leh-meh-LOO-kway), **▶ Hear** —
+    the narrator says it. Give it IPA too (the Chirp 3: HD voices use it in English (US)) and hear the difference.
+W2. **Suggest from the book (AI)…** on *The Book of One* — names come back with respelling, IPA and a note, marked "AI ·".
+    Hear a few; **✓** the right ones, fix the wrong ones; **Remove** one (it asks). Suggest again: it asks about the next words.
+W3. Listen mode reads a listed name the new way.
+W4. File ▸ Export ▸ **Audiobook…** — every chapter with "not made yet"; the cost and the time to make. **Part 1 only** —
+    the folder changes to "… — Part 1". Make it: it asks to confirm the cost; progress piece by piece.
+W5. **Stop** half way; close Author+; the next day, Export ▸ Audiobook… — the finished chapters say "made"; Make carries on
+    and the chapter that was half made costs only what was not yet made.
+W6. Change a word in one chapter: only that chapter says "its text or speakers changed". Change a pronunciation used in two
+    chapters: those two say "a pronunciation changed".
+W7. The folder: numbered MP3s, the M4B, chapters.txt, Where to publish.txt. Open the M4B in a player (Windows Media Player,
+    VLC, Apple Books on a phone): the chapters are there by name. Put a `cover.jpg` in the book folder and export again: the
+    M4B shows the cover.
+
 ### Q. Look (the review could not judge these from the code)
 Q1. The white ¶ on the amber and green icons — readable? The colour washes behind the text (yellow, teal especially)?
 Q2. At 150 % scaling: the panel (430 px) — nothing cut off; the mode bar's line of help wraps tidily.

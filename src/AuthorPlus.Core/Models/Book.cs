@@ -47,6 +47,15 @@ public sealed class Book
     public VoiceChoice?        NarratorVoice { get; set; }
     /// <summary>The language the book is read in, for choosing voices ("en-US").</summary>
     public string              VoiceLanguage { get; set; } = "en-US";
+    /// <summary>How names and invented words are said aloud (Listen mode, audiobooks).</summary>
+    public List<Pronunciation> Pronunciations { get; set; } = new();
+    /// <summary>What the audiobook's opening and closing credits say; empty = the wording Author+ writes.</summary>
+    public string              OpeningCredits { get; set; } = string.Empty;
+    public string              ClosingCredits { get; set; } = string.Empty;
+    /// <summary>Where the audiobook was last saved (empty = Documents\AuthorPlus\Audiobooks\{Title}).</summary>
+    public string              AudiobookFolder { get; set; } = string.Empty;
+    /// <summary>Words already sent to the AI for pronunciations, so the next run asks about the next ones.</summary>
+    public List<string>        PronunciationsAsked { get; set; } = new();
 
     /// <summary>Absolute folder the book was loaded from / saved to. Not serialised.</summary>
     [JsonIgnore] public string FolderPath { get; set; } = string.Empty;
@@ -401,6 +410,20 @@ public sealed class Item
     public DateTime? ResolvedUtc { get; set; }
 
     [JsonIgnore] public bool IsAiMade => !string.IsNullOrEmpty(Provider);
+}
+
+/// <summary>How one name, place or invented word is said aloud.</summary>
+public sealed class Pronunciation
+{
+    /// <summary>The word as the book writes it ("Olemelukwe", "Gull Point").</summary>
+    public string Word  { get; set; } = string.Empty;
+    /// <summary>A plain respelling every voice can read ("oh-leh-meh-loo-kway"); empty = as written.</summary>
+    public string SayAs { get; set; } = string.Empty;
+    /// <summary>Exact phonetics in IPA, for the voices that take it (Google's Chirp 3: HD in English (US)).</summary>
+    public string Ipa   { get; set; } = string.Empty;
+    public string Note  { get; set; } = string.Empty;
+    /// <summary>The AI proposed it and the author has not changed it yet.</summary>
+    public bool   FromAi { get; set; }
 }
 
 /// <summary>A Google voice chosen for the narrator or a character, and how fast it reads.</summary>

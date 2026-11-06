@@ -32,6 +32,7 @@ public static class AiPrompts
     public const string CreatePassage       = "create-passage";
     public const string CreateChapter       = "create-chapter";
     public const string DialogueSpeakers    = "dialogue-speakers";
+    public const string Pronunciations      = "pronunciations";
     public const string PlotlineSummary     = "plotline-summary";
     public const string SectionOutline      = "section-outline";
     public const string SectionSummary      = "section-summary";
@@ -389,6 +390,20 @@ public static class AiPrompts
                     "Reply with one line per number, in order, in exactly this shape and nothing else:\n1 | Name\n2 | Name\n…",
             user:   "Book: {book}\nChapter: {chapter}\n\nThe cast (name, other names, role):\n{cast}\n\nThe chapter, with its {count} lines of dialogue numbered:\n{text}",
             description: "Listen mode: who says each line of dialogue in a chapter, so each is read in the speaker's voice. The author confirms or changes them.",
+            maxTokens: 6000),
+
+        new PromptTemplate(Pronunciations,
+            system: "You are preparing a novel to be read aloud by a text-to-speech voice (American English). You are given names and words from the book. " +
+                    "For each one a speech voice could say wrongly — invented names, names from other languages, unusual places, words with a surprising stress — " +
+                    "give how to say it. Leave out ordinary English words and common names a voice says correctly. Base each one on the book's setting where it tells you; " +
+                    "when you are guessing, say so in the note." + "\n\n" +
+                    "Reply with one line per word, in exactly this shape and nothing else:\n" +
+                    "Word | say it as | IPA | note\n\n" +
+                    "Word: exactly as given. Say it as: a respelling an English reader would say right — syllables joined by hyphens, the stressed syllable in capitals " +
+                    "(oh-leh-meh-LOO-kway). IPA: the same in the International Phonetic Alphabet, American English, with the stress mark, no slashes (oʊlɛmɛˈluːkweɪ). " +
+                    "Note: a few words — where the name seems to come from, or that it is a guess.",
+            user:   "Book: {book}\nWhat it is about: {synopsis}\n\nNames and words from the book:\n{words}",
+            description: "Pronunciations: how to say the book's names and invented words a voice could get wrong — a respelling and IPA for each, for the author to hear and adjust.",
             maxTokens: 6000),
 
         new PromptTemplate(PlotlineSummary,

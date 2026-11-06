@@ -188,9 +188,10 @@ public partial class MainWindow
         foreach (var part in plan.Where(x => x.Paragraph >= _listenFrom))
         {
             var v = VoiceFor(part, narrator);
-            if (File.Exists(CachePath(v, part.Text))) continue;
-            chars += part.Text.Length;
-            var c = _ai.EstimateSpeech(v.Name, part.Text.Length);
+            var spoken = Spoken(part.Text, v);
+            if (File.Exists(CachePath(v, spoken))) continue;
+            chars += spoken.Text.Length;
+            var c = _ai.EstimateSpeech(v.Name, spoken.Text.Length);
             cost = c == null || cost == null ? null : cost + c;
         }
         if (chars == 0) return ("All of it has been heard before — playing it again costs nothing.", 0, 0);
@@ -393,15 +394,16 @@ public partial class MainWindow
     private VoiceChoice VoiceFor(ReadPart part, VoiceChoice narrator) =>
         part.IsQuote && part.CharacterId is { } id && _book!.Characters.FirstOrDefault(c => c.Id == id)?.Voice is { } v ? v : narrator;
 
-    private string CachePath(VoiceChoice v, string text) =>
-        Path.Combine(_book!.FolderPath!, "audio", "cache", Dialogue.AudioKey(v.Name, v.SpeakingRate, text) + ".mp3");
+    private string CachePath(VoiceChoice v, SpokenText spoken) =>
+        Path.Combine(_book!.FolderPath!, "audio", "cache", Dialogue.AudioKey(v.Name, v.SpeakingRate, spoken.Key) + ".mp3");
 
     /// <summary>The spoken piece: from the cache, or made by Google and kept.</summary>
     private async Task<string> AudioFor(ReadPart part, VoiceChoice v, CancellationToken ct)
     {
-        var path = CachePath(v, part.Text);
+        var spoken = Spoken(part.Text, v);
+        var path = CachePath(v, spoken);
         if (File.Exists(path)) return path;
-        var speech = await _ai.SpeakAsync(new AiSpeechRequest { Text = part.Text, Voice = v.Name, SpeakingRate = v.SpeakingRate, Purpose = "listen-chapter" }, null, ct);
+        var speech = await _ai.SpeakAsync(SpeechRequest(spoken, v, storeQuality: false, "listen-chapter"), null, ct);
         Directory.CreateDirectory(Path.GetDirectoryName(path)!);
         var tmp = path + ".tmp";
         await File.WriteAllBytesAsync(tmp, speech.Audio, ct);

@@ -343,6 +343,9 @@ public partial class MainWindow : Window, ISuggestionActions
         Tree.Items.Add(Group(CharactersHeader, _book.Characters));
         Tree.Items.Add(Group(TimelineHeader,   _book.Timeline));
         Tree.Items.Add(Group(PlotlinesHeader,  _book.Plotlines));
+        Tree.Items.Add(new TreeViewItem { Header = $"{PronunciationsHeader} ({_book.Pronunciations.Count(p => p.Word.Trim().Length > 0)})", Tag = PronunciationsHeader,
+                                          FontWeight = FontWeights.SemiBold, Margin = new Thickness(0, 6, 0, 0),
+                                          ToolTip = "How the book's names and invented words are said aloud (Listen mode and the audiobook)" });
         _loading = false;
 
         if (select != null) SelectNode(select);
@@ -403,7 +406,11 @@ public partial class MainWindow : Window, ISuggestionActions
         {
             if (tvi.Tag is string header)
             {
-                var count = header switch { CharactersHeader => _book.Characters.Count, TimelineHeader => _book.Timeline.Count, _ => _book.Plotlines.Count };
+                var count = header switch
+                {
+                    CharactersHeader => _book.Characters.Count, TimelineHeader => _book.Timeline.Count,
+                    PronunciationsHeader => _book.Pronunciations.Count(p => p.Word.Trim().Length > 0), _ => _book.Plotlines.Count
+                };
                 tvi.Header = $"{header} ({count})";
             }
             else if (tvi.Tag is not null) tvi.Header = $"{Glyph(tvi.Tag)} {Label(tvi.Tag)}".Trim();
@@ -525,6 +532,10 @@ public partial class MainWindow : Window, ISuggestionActions
                 Add("Move Up", MoveUp_Click); Add("Move Down", MoveDown_Click);
                 Add("Delete…", DeleteItem_Click);
                 break;
+            case string header when header == PronunciationsHeader:
+                Add("Add a Word", (_, _) => AddPronunciation());
+                Add("Suggest from the Book (AI)…", (_, _) => SuggestPronunciations(), _ai.IsAvailable());
+                break;
             case string header:
                 Add(header == CharactersHeader ? "Add Character" : header == TimelineHeader ? "Add Timeline Event" : "Add Plotline",
                     header == CharactersHeader ? AddCharacter_Click : header == TimelineHeader ? AddEvent_Click : AddPlotline_Click);
@@ -624,6 +635,7 @@ public partial class MainWindow : Window, ISuggestionActions
                     TimelineHeader   => new TimelineView(_book, SelectNode, MarkDirty),
                     PlotlinesHeader  => new PlotlineBoard(_book, SelectNode, MarkDirty),
                     CharactersHeader => new CharactersView(_book, SelectNode, MarkDirty),
+                    PronunciationsHeader => BuildPronunciationsPage(),
                     _                => new TextBlock()
                 };
                 break;

@@ -105,7 +105,9 @@ public sealed class BookStore
             Genre = meta.Genre, TargetWords = meta.TargetWords, CreatedUtc = meta.CreatedUtc,
             ModifiedUtc = meta.ModifiedUtc, FormatVersion = meta.FormatVersion, FolderPath = folder,
             NotNames = meta.NotNames ?? new(),
-            NarratorVoice = meta.NarratorVoice, VoiceLanguage = string.IsNullOrWhiteSpace(meta.VoiceLanguage) ? "en-US" : meta.VoiceLanguage
+            NarratorVoice = meta.NarratorVoice, VoiceLanguage = string.IsNullOrWhiteSpace(meta.VoiceLanguage) ? "en-US" : meta.VoiceLanguage,
+            Pronunciations = meta.Pronunciations ?? new(), OpeningCredits = meta.OpeningCredits ?? "", ClosingCredits = meta.ClosingCredits ?? "",
+            AudiobookFolder = meta.AudiobookFolder ?? "", PronunciationsAsked = meta.PronunciationsAsked ?? new()
         };
 
         book.Sections   = LoadItems<Section>      (folder, "sections",   meta.SectionOrder,   s => s.Id);
@@ -226,7 +228,10 @@ public sealed class BookStore
             PlotlineOrder  = book.Plotlines.Select(p => p.Id).ToList(),
             NotNames       = book.NotNames.ToList(),
             NarratorVoice  = book.NarratorVoice,
-            VoiceLanguage  = book.VoiceLanguage
+            VoiceLanguage  = book.VoiceLanguage,
+            Pronunciations = book.Pronunciations.ToList(),
+            OpeningCredits = book.OpeningCredits, ClosingCredits = book.ClosingCredits,
+            AudiobookFolder = book.AudiobookFolder, PronunciationsAsked = book.PronunciationsAsked.ToList()
         };
         WriteAtomic(Path.Combine(book.FolderPath, BookFileName), JsonSerializer.Serialize(meta, Json));
     }
@@ -328,5 +333,10 @@ public sealed class BookStore
         public List<string>? NotNames    { get; set; }
         public VoiceChoice?  NarratorVoice { get; set; }
         public string?       VoiceLanguage { get; set; }
+        public List<Pronunciation>? Pronunciations { get; set; }
+        public string?       OpeningCredits { get; set; }
+        public string?       ClosingCredits { get; set; }
+        public string?       AudiobookFolder { get; set; }
+        public List<string>? PronunciationsAsked { get; set; }
     }
 }

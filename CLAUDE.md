@@ -5,8 +5,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## Every release: the latest AI Manager and a manual-test exe (Ron, 2026-10-11)
 
 Author+ gets its AI through the shared **AI Manager** packages (`..\AiManager`, local feed `C:\nuget-local`).
-**Every release of Author+ moves to the latest AI Manager version first** (this repo pins **1.8.0**,
-the latest, since 2026-11-06 — text to speech) — not only when a feature needs it — so every program shows the same AI Settings, key
+**Every release of Author+ moves to the latest AI Manager version first** (this repo pins **1.9.0**,
+the latest, since 2026-11-06 — store-quality speech and pronunciations) — not only when a feature needs it — so every program shows the same AI Settings, key
 help and fixes. Then build, run the tests, and publish the hand-test build to **`manual-test\AuthorPlus.exe`**
 (gitignored; command in `docs/MANUAL-TESTING.md`) for Ron to test before anything goes to the Store.
 On a computer that has just pulled AI Manager, run `..\AiManager\build\pack.ps1` first: the
@@ -147,6 +147,10 @@ unit tests and must keep them (the AI layer's tests live in the AiManager repo).
    key moments washed in the text) and across the book (`ItemKind.PlotlineInBook`); `Plotline.CharacterId` = a character's story. **Listen** (plan phase 9, `MainWindow.Listen.cs`, `Core/Services/Dialogue.cs`):
    Google voices through AI Manager 1.8.0 — `Book.NarratorVoice`, `Character.Voice`, who says each line in
    `ItemKind.ChapterSpeakers`; spoken pieces kept in the book's `audio\cache` (never versioned or exported).
+   **The audiobook** (plan phase 10, `MainWindow.Audiobook.cs`, `Core/Services/Pronunciations.cs`, `Core/Services/Audio/`):
+   `Book.Pronunciations` (respelling + IPA, used by Listen too); File ▸ Export ▸ Audiobook — 192 kbps MP3 per chapter (Windows'
+   Media Foundation through NAudio.Wasapi, MIT), one M4B with chapter marks written by `Mp4Book`; made chapters in
+   `audio\chapters`, pieces in progress in `audio\work`.
 
 5. **A book's history is a git repository in its own folder, and git is never said out loud.**
    `Core/Services/Versioning/BookRepository` is the whole of git the app uses — a version is a
