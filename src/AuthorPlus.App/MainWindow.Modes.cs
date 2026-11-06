@@ -128,7 +128,7 @@ public partial class MainWindow
         {
             (EditorMode.Write,      "✎  Write",      "Write mode (Ctrl+1): the editing tools — type, format, find and replace."),
             (EditorMode.Analyze,    "¶  Analysis",   "Analysis mode (Ctrl+2): click the ¶ beside a paragraph to analyze it or get suggestions for it; the chapter's summary, characters, plotlines and analysis are in the panel."),
-            (EditorMode.Characters, "👤  Characters", "Characters mode (Ctrl+3): every character's name coloured where the text uses it; click a name to open their form beside the text.")
+            (EditorMode.Characters, "👤  Characters", "Characters mode (Ctrl+3): every character's name coloured where the text uses it; click a name for what this chapter shows of them, the book analysis and their form.")
         })
         {
             var b = new RadioButton
@@ -158,7 +158,7 @@ public partial class MainWindow
             Text = _mode switch
             {
                 EditorMode.Analyze    => "Click a paragraph (or the ¶ beside it) to analyze it or get suggestions for it. The whole chapter's summary, characters, plotlines and analysis are on the right. The text is read-only here — double-click to go back to writing there.",
-                EditorMode.Characters => "Each character is coloured wherever the text names them; click a name for their form on the right. Dotted underlines are names that are not characters yet. The text is read-only here — double-click to go back to writing there.",
+                EditorMode.Characters => "Each character is coloured wherever the text names them; click a name to see them in this chapter and across the book, and their form, on the right. Dotted underlines are names that are not characters yet. The text is read-only here — double-click to go back to writing there.",
                 _                     => "The editing tools. Analysis has the AI's read of a paragraph or the chapter; Characters shows who is named where."
             },
             Foreground = Brushes.DimGray, TextWrapping = TextWrapping.Wrap, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(12, 0, 0, 0), FontSize = 12
@@ -465,7 +465,9 @@ public partial class MainWindow
     {
         switch (target)
         {
-            case Character c: _panelCharacterId = c.Id; _panelCandidate = null; break;
+            case Character c:
+                if (_panelCharacterId != c.Id) _characterView = CharacterView.Chapter;   // another character opens on what this chapter shows of them
+                _panelCharacterId = c.Id; _panelCandidate = null; break;
             case NameCandidate n: _panelCandidate = n.Name; _panelCharacterId = null; break;
         }
         _mentionAt = -1;
@@ -912,7 +914,7 @@ public partial class MainWindow
             var row = new DockPanel { Margin = new Thickness(0, 3, 0, 3) };
             row.Children.Add(Swatch(Solid(c)));
             var who = c;
-            var link = Palette.LinkText(c.Name, () => OpenName(who), "Open their form here");
+            var link = Palette.LinkText(c.Name, () => OpenName(who), "Open them here: in this chapter, in the book, and their form");
             link.FontWeight = FontWeights.SemiBold;
             row.Children.Add(link);
             var info = $"   {counts[c]} mention{(counts[c] == 1 ? "" : "s")}";
@@ -944,7 +946,7 @@ public partial class MainWindow
             foreach (var c in listedNotNamed)
             {
                 var who = c;
-                var link = Palette.LinkText(c.Name, () => OpenName(who), "Open their form here — perhaps the text calls them something else; add it under Also called");
+                var link = Palette.LinkText(c.Name, () => OpenName(who), "Open them here — perhaps the text calls them something else; add it under Also called");
                 link.Margin = new Thickness(0, 0, 12, 0);
                 wrap.Children.Add(link);
             }
@@ -1046,9 +1048,15 @@ public partial class MainWindow
                 ShowSidePanel();
             }));
         top.Children.Add(row);
+        top.Children.Add(CharacterViewSwitch(c));
         DockPanel.SetDock(top, Dock.Top);
         dock.Children.Add(top);
-        dock.Children.Add(BuildCharacterPage(c, inPanel: true));
+        dock.Children.Add(_characterView switch
+        {
+            CharacterView.Book => Scroll(BookCharacterView(c, inPanel: true)),
+            CharacterView.Form => BuildCharacterPage(c, inPanel: true),
+            _                  => ChapterCharacterView(ch, c)
+        });
         return dock;
     }
 
@@ -1144,19 +1152,27 @@ public partial class MainWindow
     private Button AiButton(string text, string tip, Action click, bool primary = false)
     {
         var b = PanelButton(text, tip, click, primary);
-        if (AiBusy)
-        {
-            b.IsEnabled = false;
-            b.ToolTip = "The AI is working — see the status bar. This comes back when it finishes.";
-            ToolTipService.SetShowOnDisabled(b, true);
-        }
+        b.Tag = tip;
+        ToolTipService.SetShowOnDisabled(b, true);
+        SetAiButton(b);
+        _aiButtons.RemoveAll(x => !x.TryGetTarget(out _));
+        _aiButtons.Add(new WeakReference<Button>(b));
         return b;
+    }
+
+    private readonly List<WeakReference<Button>> _aiButtons = new();
+
+    private void SetAiButton(Button b)
+    {
+        b.IsEnabled = !AiBusy;
+        b.ToolTip = AiBusy ? "The AI is working — see the status bar. This comes back when it finishes." : b.Tag as string;
     }
 
     /// <summary>The panel shows the AI buttons as they should be: greyed while a run goes, back when it ends.</summary>
     private void RefreshPanelForAi()
     {
-        if (_mode == EditorMode.Analyze && _side != null) ShowSidePanel(keepScroll: true);
+        if (_mode != EditorMode.Write && _side != null) ShowSidePanel(keepScroll: true);
+        foreach (var w in _aiButtons) if (w.TryGetTarget(out var b)) SetAiButton(b);   // and those on a page, such as a character's
     }
 
     private static string Sig(Item read) =>

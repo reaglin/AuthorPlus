@@ -315,7 +315,19 @@ public enum ItemKind
     /// <see cref="Item.Passage"/> holds the paragraph as it was read. Not shown in the tree:
     /// it is reached from the paragraph's icon in the chapter.
     /// </summary>
-    ParagraphAnalysis
+    ParagraphAnalysis,
+    /// <summary>
+    /// One character as ONE chapter presents them: their role here (and whether they are introduced),
+    /// how the chapter describes them, their motivations and actions in it. Owned by the chapter;
+    /// <see cref="Item.CharacterIds"/> holds the character. Not shown in the tree: it is reached from
+    /// the character in Characters mode and from their page.
+    /// </summary>
+    CharacterInChapter,
+    /// <summary>
+    /// One character across the whole book: a summary as the book presents them, their story arc over
+    /// the chapters, and how they meet the plotlines. Owned by the character.
+    /// </summary>
+    CharacterInBook
 }
 
 /// <summary>

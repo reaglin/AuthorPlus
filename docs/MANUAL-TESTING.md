@@ -55,7 +55,7 @@ N6. Close and reopen the book: the reads and colours are still there. The tree d
 ### P. Character mode (6.4)
 P1. Each character's name — and their "also called" — is washed in their own colour; names that are not characters yet are
     underlined with dots. The panel lists the chapter's cast with how often each is named.
-P2. Click a coloured name — their form opens beside the text; **◀ Previous / Next ▶** select each mention in turn. Edit a field
+P2. Click a coloured name — they open beside the text (on *In this chapter*, see R); **Their form** shows their form; **◀ Previous / Next ▶** select each mention in turn. Edit a field
     (Edit…): it is saved like on their own page. Change their name at the top: the tree follows.
 P3. A character named in the text but not on the chapter's list shows "not on the chapter's list" — the button adds them.
 P4. Click a dotted name: **Add as a character** adds them and opens their form; or pick a character and **Add as their other
@@ -63,9 +63,25 @@ P4. Click a dotted name: **Add as a character** adds them and opens their form; 
     in the panel, where "mark again" undoes it.
 P5. An "also called" written with a capital (Father) colours "Father" but not "her father".
 
+### R. Character analysis (plan phase 7)
+R1. Characters mode, click a character's name. Three buttons: **In this chapter · In the book · Their form**. *In this chapter*
+    says it is not analyzed yet and what the analysis will say.
+R2. **Analyze {name} in this chapter (AI)…**, Send Prompt, **Next: see it beside the chapter →** — Role, Description,
+    Motivations and actions. In the chapter where they first appear, Role starts "Introduced in this chapter".
+R3. Under it, *In the book*: before a book analysis it shows their role from the form; after one, its summary and
+    **Open the book analysis**, which switches to *In the book*.
+R4. **Analyze across the book (AI)…** — Summary, Story arc (chapter by chapter), Plotline interactions; then **In each chapter**:
+    click a chapter — it opens in Characters mode with them beside it.
+R5. Their page in the tree: the link at the top goes to **Character analysis** at the end, the same analysis; the chapter chips
+    open the chapter with them beside it. Analyze a chapter again, back to the page: it says a chapter analysis is newer.
+R6. A character no chapter lists: no Analyze-across-the-book button, but a line saying what to do. Delete a character: their
+    analyses go with them.
+
 ### Q. Look (the review could not judge these from the code)
 Q1. The white ¶ on the amber and green icons — readable? The colour washes behind the text (yellow, teal especially)?
 Q2. At 150 % scaling: the panel (430 px) — nothing cut off; the mode bar's line of help wraps tidily.
+Q3. The three view buttons of a character (R1): is the chosen one clear? Long buttons ("Analyze Nell Carrow in this chapter
+    (AI)…") fit the panel?
 
 ## Round 2026-11 — the 1.0.0 release (Export / Import Project)
 

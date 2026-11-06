@@ -132,14 +132,18 @@ public static class Palette
     /// <summary>Text that opens another page when clicked.</summary>
     public static TextBlock LinkText(string text, Action open, string tooltip)
     {
-        var block = new TextBlock
+        // A real hyperlink inside: it takes the keyboard (Tab, then Enter) and screen readers see a link.
+        var link = new System.Windows.Documents.Hyperlink(new System.Windows.Documents.Run(text))
         {
-            Text = text, Foreground = Link, Cursor = System.Windows.Input.Cursors.Hand, ToolTip = tooltip,
-            VerticalAlignment = VerticalAlignment.Center, TextWrapping = TextWrapping.Wrap
+            Foreground = Link, TextDecorations = null, Cursor = System.Windows.Input.Cursors.Hand, ToolTip = tooltip
         };
-        block.MouseLeftButtonUp += (_, _) => open();
-        block.MouseEnter += (_, _) => block.TextDecorations = System.Windows.TextDecorations.Underline;
-        block.MouseLeave += (_, _) => block.TextDecorations = null;
+        link.Click += (_, _) => open();
+        link.MouseEnter += (_, _) => link.TextDecorations = System.Windows.TextDecorations.Underline;
+        link.MouseLeave += (_, _) => link.TextDecorations = null;
+        link.GotKeyboardFocus += (_, _) => link.TextDecorations = System.Windows.TextDecorations.Underline;
+        link.LostKeyboardFocus += (_, _) => link.TextDecorations = null;
+        System.Windows.Automation.AutomationProperties.SetName(link, text);
+        var block = new TextBlock(link) { ToolTip = tooltip, VerticalAlignment = VerticalAlignment.Center, TextWrapping = TextWrapping.Wrap };
         return block;
     }
 

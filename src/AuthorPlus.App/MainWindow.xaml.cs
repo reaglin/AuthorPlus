@@ -265,6 +265,8 @@ public partial class MainWindow : Window, ISuggestionActions
             ItemKind.ChapterPlotlines    => "🧵",
             ItemKind.Suggestions         => "💡",
             ItemKind.ParagraphAnalysis   => "¶",
+            ItemKind.CharacterInChapter  => "👤",
+            ItemKind.CharacterInBook     => "👤",
             ItemKind.Outline             => "☰",
             _                            => "📝"
         },
@@ -347,8 +349,8 @@ public partial class MainWindow : Window, ISuggestionActions
     private TreeViewItem ChapterNode(Chapter chapter)
     {
         var node = Node(chapter);
-        // Paragraph reads are reached from the ¶ beside each paragraph in Analysis mode, not the tree.
-        foreach (var item in _book!.ItemsOf(chapter.Id).Where(i => i.Kind != ItemKind.ParagraphAnalysis)) node.Items.Add(ItemNode(item));
+        // Paragraph reads and character analyses are reached from the chapter's modes (and a character's page), not the tree.
+        foreach (var item in _book!.ItemsOf(chapter.Id).Where(i => i.Kind is not (ItemKind.ParagraphAnalysis or ItemKind.CharacterInChapter))) node.Items.Add(ItemNode(item));
         return node;
     }
 
@@ -372,7 +374,8 @@ public partial class MainWindow : Window, ISuggestionActions
         foreach (var item in items)
         {
             var child = Node(item);
-            if (IdOf(item) is { } id) foreach (var it in _book!.ItemsOf(id)) child.Items.Add(ItemNode(it));
+            // A character's book analysis is on their page, not the tree.
+            if (IdOf(item) is { } id) foreach (var it in _book!.ItemsOf(id).Where(i => i.Kind != ItemKind.CharacterInBook)) child.Items.Add(ItemNode(it));
             node.Items.Add(child);
         }
         return node;
@@ -580,7 +583,8 @@ public partial class MainWindow : Window, ISuggestionActions
                 TxtKind.Text = it.Kind switch
                 {
                     ItemKind.Summary => "Summary", ItemKind.Analysis => "Analysis", ItemKind.CharactersInChapter => "Chapter Characters",
-                    ItemKind.ChapterPlotlines => "Chapter Plotlines", ItemKind.Suggestions => "Suggestions", ItemKind.Outline => "Outline", ItemKind.ParagraphAnalysis => "Paragraph read", _ => "Notes"
+                    ItemKind.ChapterPlotlines => "Chapter Plotlines", ItemKind.Suggestions => "Suggestions", ItemKind.Outline => "Outline", ItemKind.ParagraphAnalysis => "Paragraph read",
+                    ItemKind.CharacterInChapter => "Character analysis", ItemKind.CharacterInBook => "Character analysis", _ => "Notes"
                 } + " of " + OwnerLabel(it);
                 TxtName.Text = it.Kind == ItemKind.Summary ? "Summary" : it.Title;
                 Editor.Content = BuildItemEditor(it);
@@ -757,6 +761,14 @@ public partial class MainWindow : Window, ISuggestionActions
             Text = "Everything about this character. Edit opens a field in full, in your own words; an AI mark shows an entry the AI added, which you can change, unmark or delete like any other.",
             Foreground = System.Windows.Media.Brushes.Gray, TextWrapping = TextWrapping.Wrap
         });
+        TextBlock? analysisHead = null;
+        if (!inPanel)
+        {
+            var jump = Palette.LinkText("The AI's character analysis — in the book and in each chapter ↓", () => analysisHead?.BringIntoView(),
+                                        "Go to the analysis at the end of this page");
+            jump.Margin = new Thickness(0, 6, 0, 0);
+            panel.Children.Add(jump);
+        }
 
         void Field(string label, Func<string> get, Action<string> set, string hint = "") =>
             panel.Children.Add(new BulletField(label, get, set, MarkDirty, hint, this));
@@ -773,7 +785,7 @@ public partial class MainWindow : Window, ISuggestionActions
 
         // Where they are in the book, and what they do in each chapter.
         var appears = _book!.Chapters.Where(ch => ch.CharacterIds.Contains(c.Id)).ToList();
-        panel.Children.Add(new TextBlock { Text = "In the book", FontWeight = FontWeights.SemiBold, Margin = new Thickness(0, 16, 0, 2) });
+        panel.Children.Add(new TextBlock { Text = "Chapters they are in", FontWeight = FontWeights.SemiBold, Margin = new Thickness(0, 16, 0, 2) });
         panel.Children.Add(new TextBlock
         {
             Text = appears.Count == 0
@@ -789,11 +801,11 @@ public partial class MainWindow : Window, ISuggestionActions
                 var role = c.RoleIn(ch.Id) ?? CharacterRole.Appears;
                 bool pov = ch.PovCharacterId == c.Id;
                 var chip = Palette.Chip($"{_book.ChapterNumber(ch)}. {ch.Title} — {Palette.RoleWord(role)}{(pov ? " · POV" : "")}",
-                                        pov ? Palette.PovBg : Palette.RoleBg(role), "Open this chapter");
+                                        pov ? Palette.PovBg : Palette.RoleBg(role), $"Open this chapter with {c.Name} beside the text (Characters mode)");
                 chip.Margin = new Thickness(0, 0, 8, 6);
                 chip.Cursor = Cursors.Hand;
                 var target = ch;
-                chip.MouseLeftButtonUp += (_, _) => SelectNode(target);
+                chip.MouseLeftButtonUp += (_, _) => OpenCharacterInChapter(target, c);
                 wrapChapters.Children.Add(chip);
             }
             panel.Children.Add(wrapChapters);
@@ -801,11 +813,26 @@ public partial class MainWindow : Window, ISuggestionActions
         var buttons = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 8, 0, 0) };
         var scan = new Button { Content = "Scan chapters for mentions…", Padding = new Thickness(10, 3, 10, 3), Margin = new Thickness(0, 0, 8, 0) };
         scan.Click += ScanMentions_Click;
-        var profile = new Button { Content = "Fill in from the book (AI)…", Padding = new Thickness(10, 3, 10, 3), IsEnabled = _ai.IsAvailable(),
+        var profile = new Button { Content = "Fill in from the book (AI)…", Padding = new Thickness(10, 3, 10, 3),
                                    ToolTip = "Reads the chapter summaries and adds what it finds to the fields above, each entry marked as the AI's" };
         profile.Click += AiCharacter_Click;
         buttons.Children.Add(scan); buttons.Children.Add(profile);
         panel.Children.Add(buttons);
+
+        // The AI's analysis of them: across the book, and in each chapter (Characters mode makes the chapter ones).
+        if (!inPanel)
+        {
+            analysisHead = new TextBlock { Text = "Character analysis", FontWeight = FontWeights.SemiBold, FontSize = 15, Margin = new Thickness(0, 20, 0, 2) };
+            _characterAnalysisHead = analysisHead;
+            panel.Children.Add(analysisHead);
+            panel.Children.Add(new TextBlock
+            {
+                Text = "The AI's reading of them across the book — a summary, their story arc and the plotlines they touch — and, under it, what each chapter shows of them. " +
+                       "Click a chapter to open it with them beside the text, where their analysis in that chapter is made.",
+                Foreground = System.Windows.Media.Brushes.Gray, TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 0, 0, 8)
+            });
+            panel.Children.Add(BookCharacterView(c, inPanel: false));
+        }
 
         return new ScrollViewer { Content = panel, VerticalScrollBarVisibility = ScrollBarVisibility.Auto };
     }
@@ -2077,7 +2104,7 @@ public partial class MainWindow : Window, ISuggestionActions
                 break;
             case Character c:
                 if (!ConfirmDelete(c.Name)) return;
-                _book.Characters.Remove(c); _book.Items.RemoveAll(i => i.OwnerId == c.Id);
+                _book.Characters.Remove(c); _book.Items.RemoveAll(i => i.OwnerId == c.Id || (i.Kind == ItemKind.CharacterInChapter && i.CharacterIds.Contains(c.Id)));
                 foreach (var ch in _book.Chapters) { ch.CharacterIds.Remove(c.Id); if (ch.PovCharacterId == c.Id) ch.PovCharacterId = null; }
                 break;
             case TimelineEvent t:

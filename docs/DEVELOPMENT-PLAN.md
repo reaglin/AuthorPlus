@@ -217,6 +217,31 @@ The top menu bar keeps its items (the AI menu still has every AI action); **View
 | 6.8 | **Two kinds of paragraph analysis** (Ron, 2026-11-06: one is an analysis of the paragraph — its tone, consistency, style and what it achieves; the other is suggestions — possible changes, additions and suggestions to improve the readability). The paragraph panel has **Analyze this paragraph (AI)…** (prompt `paragraph-analysis`: TONE, CONSISTENCY, STYLE, WHAT IT ACHIEVES; no rewrites; the ¶ turns blue) and **Suggest changes (AI)…** (prompt `paragraph-suggestions`: 2–5 changes, additions and readability fixes, each tagged in its "why", each one you can apply; the ¶ turns amber). Each result is its own card, Analysis or Suggestions; reads made with the first build's single `paragraph-read` are still shown, as "Read". The ¶ words are now "not looked at yet / analysed / suggestions waiting / dealt with" | `AiPrompts.cs`, `MainWindow.Modes.cs` | tried 2026-11-06 on the sample book with Claude: the analysis came back under the four headings with the ¶ blue; four suggestions with the ¶ amber; 160 tests green | ⚠️ built 2026-11-06 — Ron to try (N3) |
 | 6.7 | **Ron's hand-test** — `docs/MANUAL-TESTING.md`, round 2026-11-06 | `manual-test\AuthorPlus.exe` | | ⚠️ Ron |
 
+## Phase 7 — Character analysis: in a chapter and across the book (Ron, 2026-11-06)
+
+Ron, 2026-11-06: *"When we are dealing with a character in a Chapter, we want the chapter specific information. This will
+come from an AI analysis of the Chapter and the characters role in the chapter and a summary of the character as they are
+presented in the book. Role: The specific role in this chapter … If the character is introduced in a specific chapter this
+will also be noted here. Description: Any specific description given in the chapter including any personality
+characteristics from that specific chapter. Motivations and Actions: From this chapter any specific motivations and actions
+they take including actions that affect the character. In addition to chapter analysis of characters, there is also a book
+level analysis, which includes story arc (the progression of the character over the chapters), and plotline interactions.
+The user should be able to open the book level character analysis from the chapter level."* More is to come: character
+interactions and plotline interactions.
+
+**How it is built.** A chapter analysis is an item of the chapter (`ItemKind.CharacterInChapter`, the character in
+`CharacterIds`); a book analysis is an item of the character (`ItemKind.CharacterInBook`). Neither is in the tree. Each run is
+kept; the latest is shown. The book analysis does not send the chapters' full text — it sends, for every chapter the
+character is in, the chapter's summary and their analysis in that chapter, with the book's plotlines; so analysing more
+chapters gives a fuller arc.
+
+| # | Task | Targets | Acceptance | Status |
+|---|---|---|---|---|
+| 7.1 | **In a chapter.** Characters mode: click a character's name — the panel has three views, **In this chapter · In the book · Their form**. *In this chapter*: **Analyze {name} in this chapter (AI)…** (prompt `character-in-chapter`: the chapter, what the author and the book analysis say about them, and where they first appear) writes **Role** (their part here, and "Introduced in this chapter" when it is), **Description** and **Motivations and actions**; under it, the book analysis's summary with **Open the book analysis** | `MainWindow.CharacterAnalysis.cs`, `MainWindow.Modes.cs`, `AiPrompts.cs` | tried 2026-11-06 on the sample book with Claude: Nell in "The Cold Wick" came back "Introduced in this chapter", with her description and actions quoted | ⚠️ built 2026-11-06 — Ron to try (R1–R3) |
+| 7.2 | **In the book.** **Analyze across the book (AI)…** (prompt `character-in-book`) writes **Summary**, **Story arc** (chapter by chapter) and **Plotline interactions**; shown in the panel's *In the book* view and at the end of the character's page (a link at the top of the page goes to it), with **In each chapter** under it: every chapter they are in, its Role line, a click opens that chapter in Characters mode with them beside it. It says when chapter analyses are newer than the book analysis. Where there is nothing to build it from, it says what to do instead of offering the button | same | tried 2026-11-06 with Claude: summary and story arc for Nell | ⚠️ built 2026-11-06 — Ron to try (R4–R6) |
+| 7.3 | Core: `CharacterAnalyses` — a reply split at its headings, the latest analysis in a chapter and in the book, the chapters a book analysis draws on, where the character first appears | `Core/Services/CharacterAnalyses.cs`, `tests/…/CharacterAnalysesTests.cs` | 7 new tests; 167 in all, green | ⚠️ built 2026-11-06 |
+| 7.4 | UX review (walkthrough + heuristics, 2026-11-06): 1 severity-3, 4 severity-2, 4 severity-1 | | **Fixed:** the book analysis is not offered when there is nothing to build it from — it says what to do; book analyses kept out of the tree; the chapter chips on a character's page open the chapter with them beside it, like the new links (the heading is now "Chapters they are in"); a link at the top of the page to the analysis, and the page goes to it after a run; AI buttons on a page grey out while a run goes and come back after; **Fill in from the book (AI)** no longer greys out without a key (it offers AI Settings); the cast list's tooltips; one wording ("In the book", "analyze"); "newer chapter analyses" note; a different character opens on *In this chapter*. Also: links (`Palette.LinkText`) are real hyperlinks now — they take Tab and Enter and screen readers see them | ⚠️ Ron to look: the three view buttons (is the chosen one clear?), long buttons in the 430 px panel, the grey text on the cards |
+
 ## Every release — AI Manager and the manual-test build (Ron, 2026-10-11)
 
 Ron: *"the new releases will need to update to the latest version and this will be something that

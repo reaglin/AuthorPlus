@@ -25,6 +25,8 @@ public static class AiPrompts
     public const string FindPlotlines       = "find-plotlines";
     public const string CharactersInChapter = "characters-in-chapter";
     public const string CharacterProfile    = "character-profile";
+    public const string CharacterInChapter  = "character-in-chapter";
+    public const string CharacterInBook     = "character-in-book";
     public const string PlotlineSummary     = "plotline-summary";
     public const string SectionOutline      = "section-outline";
     public const string SectionSummary      = "section-summary";
@@ -291,6 +293,37 @@ public static class AiPrompts
             user:   "Book: {book}\nSynopsis: {synopsis}\nCharacter: {character}\n\nWhat the author has already written:\n{known}\n\nChapter summaries:\n{summaries}",
             description: "Reads the chapter summaries and adds what they say about a character to their fields, one entry per line, each marked as the AI's.",
             maxTokens: 2000),
+
+        new PromptTemplate(CharacterInChapter,
+            system: "You are a story editor helping an author keep track of ONE character in ONE chapter of their book. Describe the character only as this " +
+                    "chapter presents them — even where that differs from who they are across the book — and never invent what the chapter does not show. " +
+                    "Reply with exactly these three headings, each followed by short bullet points that quote the chapter's words where they can:\n\n" +
+                    "ROLE:\n- their part in this chapter (the point of view, the threat, the witness, the one who decides, comic relief…), and how it differs from their usual role in the book if it does. " +
+                    "If this chapter is where they first appear in the book, make the first point \"Introduced in this chapter\" and say how they are brought in.\n" +
+                    "DESCRIPTION:\n- anything this chapter says about how they look, sound or carry themselves, and the personality it shows in them here\n" +
+                    "MOTIVATIONS AND ACTIONS:\n- what they want or fear in this chapter, what they do, and what is done to them or happens to them that affects them\n\n" +
+                    "If the chapter gives nothing under a heading, write \"- Nothing in this chapter.\" under it. If the character is not in the chapter at all, say so under ROLE. " +
+                    "No preamble, no other headings.",
+            user:   "Book: {book}\nChapter: {chapter}\n\nThe character: {character}\nAlso called: {aliases}\n\n" +
+                    "Who they are across the book (the author's notes and the book analysis; may be blank):\n{known}\n\n" +
+                    "Where they first appear: {appearance}\n\nThe chapter:\n{text}",
+            description: "Characters mode: one character in one chapter — their role here (and whether they are introduced), how the chapter describes them, and their motivations and actions in it.",
+            maxTokens: 2500),
+
+        new PromptTemplate(CharacterInBook,
+            system: "You are a story editor helping an author see ONE character across their whole book. You are given what each chapter they are in says about them " +
+                    "(its summary and, where there is one, an analysis of the character in that chapter) and the book's plotlines. " +
+                    "Base everything on that material; where it is thin, say so rather than inventing. " +
+                    "Reply with exactly these three headings, each followed by short bullet points:\n\n" +
+                    "SUMMARY:\n- who they are as the book presents them: their role in the story, their nature, what drives them (3–5 points)\n" +
+                    "STORY ARC:\n- how they progress over the chapters, in reading order: one point per chapter or stretch of chapters, beginning with the chapter number and title, saying what changes in them and why\n" +
+                    "PLOTLINE INTERACTIONS:\n- for each plotline they touch, the plotline's name, then what they do to it and what it does to them\n\n" +
+                    "No preamble, no other headings.",
+            user:   "Book: {book}\nSynopsis: {synopsis}\n\nThe character: {character}\nAlso called: {aliases}\n\n" +
+                    "What the author has written about them:\n{known}\n\nThe chapters they are in, in reading order:\n{chapters}\n\n" +
+                    "The book's plotlines (name — what it is — the chapters it runs through):\n{plotlines}",
+            description: "A character across the whole book — a summary as the book presents them, their story arc over the chapters, and how they meet the plotlines. Built from the chapter summaries and the character's chapter analyses.",
+            maxTokens: 4000),
 
         new PromptTemplate(PlotlineSummary,
             system: "You are keeping an author's plotline sheet up to date. A thread was described once, early; the chapters it runs " +
