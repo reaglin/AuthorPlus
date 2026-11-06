@@ -19,7 +19,7 @@ Statistle, so most of the identity is already known.
 | ☑ | Version **1.1.0** in `Directory.Build.props` | 2026-11-06 |
 | ☑ | Build clean (Release), **198 tests** green | 2026-11-06 |
 | ☑ | **`artifacts\AuthorPlus_1.1.0.0_x64_bundle.msixupload`** (80.4 MB), real identity, family name `DeanEaglin.Author_xs303fgqvwdg8` checked; NAudio and AI Manager inside | 2026-11-06 — **upload this first** (Packages) |
-| ☐ | WACK on the 1.1.0 bundle | `packaging\run-wack.ps1` (§7) |
+| ☑ | WACK on the 1.1.0 bundle — **PASS**, 23 of 24 (the one failure, Blocked executables, is optional — as in 1.0.0) | 2026-11-06 |
 | ☑ | Privacy policy updated for the voices (Google Cloud Text-to-Speech) and deployed | https://softwareplus.ai/author/privacy/ — 2026-11-06 |
 | ☐ | Ron's hand-test of `manual-test\AuthorPlus.exe` (rounds 2026-11-06: M–W) | before submitting |
 | ☐ | Store listing: What's new, the description's new parts, features, screenshots (below) | Partner Center |
