@@ -8,7 +8,7 @@ Publisher account: sign-in `ron.eaglin@gmail.com`, publishing as **Dean Eaglin**
 (https://apps.microsoft.com/search/publisher?name=Dean+Eaglin). Same account as SMADA and
 Statistle, so most of the identity is already known.
 
-## Version 1.1.0 — voices, the audiobook and the editor's modes (Ron, 2026-11-06)
+## Version 1.1.0 — voices, the audiobook and the editor's modes (Ron, 2026-11-06) — live 2026-11-06
 
 1.0.0 went live on 2026-11-06. 1.1.0 is an update of the same product (identity `DeanEaglin.Author`, Store ID 9MZCBQVSSDVG):
 **Partner Center › Author+ › Update** (a new submission copies the last one; only what changed below needs touching).
@@ -26,7 +26,7 @@ Statistle, so most of the identity is already known.
 | ☑ | Store listing: What's new, the description's two new parts, features 17–20, ten screenshots (the six new first, then 1.0's write-a-chapter, AI analysis, characters chart, plotlines chart) | 2026-11-06 (search terms left as they were) |
 | ☑ | Notes for certification: the voices paragraph (Additional Testing Information) | 2026-11-06 |
 | ☑ | **Submitted for certification** — "Update in certification", publishes as soon as it passes | 2026-11-06 |
-| ☐ | After it is live: SoftwarePlus.ai page, the examples (plan 10.12), tag `v1.1.0` | §12 |
+| ☑ | After it is live: SoftwarePlus.ai page, the examples (plan 10.12), tag `v1.1.0` | **live on the Store 2026-11-06**; page deployed and tagged the same day |
 
 **Packages:** upload `AuthorPlus_1.1.0.0_x64_bundle.msixupload`; remove the 1.0.0 package from the submission if Partner Center
 keeps it (the Store would serve the higher version anyway).
