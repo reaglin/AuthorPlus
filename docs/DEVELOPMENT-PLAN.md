@@ -342,6 +342,20 @@ cost before it starts.
 | 10.12 | **Examples for the next publish** (Ron, 2026-11-06: *"Keep your real test exports and stories, they can publish as examples with the next publish"*): the sample book *The Keeper of Gull Point* (now in `Documents\AuthorPlus\Books`, with its approved and made tracks) and its audiobook exports (`Documents\AuthorPlus\Audiobooks\The Keeper of Gull Point` and `… — Part Two — The Ledger`: numbered MP3s, the M4B with chapter marks) go on softwareplus.ai/author as examples — hear a chapter, download the M4B — with the next release | SoftwarePlus `site/author/` | | to do with the next release |
 | 10.10 | **Publish (audio and text) from one place:** one window for the book's exports — DOCX, EPUB, PDF, Markdown and the audiobook — with what each is for | `App` | | later |
 
+## Release 1.1.0 — voices, the audiobook and the editor's modes (Ron, 2026-11-06: "Let's prepare a software release")
+
+Phases 6–10 go to the Store as 1.1.0. The steps and the text to paste are in `docs/STORE-SUBMISSION.md`, "Version 1.1.0".
+
+| # | Task | Done when | Status |
+|---|---|---|---|
+| R11.1 | AI Manager 1.9.0 (the latest); version 1.1.0; Release build clean; 198 tests | | ⚠️ done 2026-11-06 |
+| R11.2 | The submission package `artifacts\AuthorPlus_1.1.0.0_x64_bundle.msixupload` (80.4 MB) with the real identity; family name checked; NAudio and AI Manager inside | Ron uploads it first (his request) | ⚠️ built 2026-11-06 — Ron to upload |
+| R11.3 | WACK on the 1.1.0 bundle | PASS | running 2026-11-06 |
+| R11.4 | Privacy policy covers the voices (Google Cloud Text-to-Speech: what is sent, where, the audio kept in the book folder) | deployed | ⚠️ live 2026-11-06 |
+| R11.5 | Listing: What's new, the description's two new parts, four features, six screenshots (`store\screenshots-1.1`), the certification note on the voices | pasted in Partner Center | ⚠️ Ron |
+| R11.6 | Ron's hand-test of the rounds M–W (`manual-test\AuthorPlus.exe`) before submitting | | ⚠️ Ron |
+| R11.7 | After it is live: SoftwarePlus.ai's Author+ page (the modes, voices, audiobook; the examples of 10.12), the home tile's version, tag `v1.1.0` | | after |
+
 ## Every release — AI Manager and the manual-test build (Ron, 2026-10-11)
 
 Ron: *"the new releases will need to update to the latest version and this will be something that

@@ -8,6 +8,76 @@ Publisher account: sign-in `ron.eaglin@gmail.com`, publishing as **Dean Eaglin**
 (https://apps.microsoft.com/search/publisher?name=Dean+Eaglin). Same account as SMADA and
 Statistle, so most of the identity is already known.
 
+## Version 1.1.0 — voices, the audiobook and the editor's modes (Ron, 2026-11-06)
+
+1.0.0 went live on 2026-11-06. 1.1.0 is an update of the same product (identity `DeanEaglin.Author`, Store ID 9MZCBQVSSDVG):
+**Partner Center › Author+ › Update** (a new submission copies the last one; only what changed below needs touching).
+
+| | Item | State |
+|---|---|---|
+| ☑ | AI Manager **1.9.0** (the latest; speech) | pinned 2026-11-06 |
+| ☑ | Version **1.1.0** in `Directory.Build.props` | 2026-11-06 |
+| ☑ | Build clean (Release), **198 tests** green | 2026-11-06 |
+| ☑ | **`artifacts\AuthorPlus_1.1.0.0_x64_bundle.msixupload`** (80.4 MB), real identity, family name `DeanEaglin.Author_xs303fgqvwdg8` checked; NAudio and AI Manager inside | 2026-11-06 — **upload this first** (Packages) |
+| ☐ | WACK on the 1.1.0 bundle | `packaging\run-wack.ps1` (§7) |
+| ☑ | Privacy policy updated for the voices (Google Cloud Text-to-Speech) and deployed | https://softwareplus.ai/author/privacy/ — 2026-11-06 |
+| ☐ | Ron's hand-test of `manual-test\AuthorPlus.exe` (rounds 2026-11-06: M–W) | before submitting |
+| ☐ | Store listing: What's new, the description's new parts, features, screenshots (below) | Partner Center |
+| ☐ | Notes for certification: the voices paragraph (below) | Partner Center |
+| ☐ | After it is live: SoftwarePlus.ai page, the examples (plan 10.12), tag `v1.1.0` | §12 |
+
+**Packages:** upload `AuthorPlus_1.1.0.0_x64_bundle.msixupload`; remove the 1.0.0 package from the submission if Partner Center
+keeps it (the Store would serve the higher version anyway).
+
+**What's new in this version** [1500 — this text is 865]
+
+```
+Voices and audiobooks. Hear any chapter read aloud: choose a narrator and a voice for each character (Google's voices, with a Google key of your own), let the AI mark who says each line, and listen. Approve a chapter when it sounds right, then export the book as an audiobook: an MP3 per chapter at the stores' standard and one M4B with chapter marks. A pronunciation list makes the voices say your names your way.
+
+Six editor modes. Write; Create, where the AI writes at the place you choose, in your voice and the style you describe, or drafts a new chapter for you to read first; Analysis, for a paragraph's tone and style or suggested changes, and the chapter's summary and analysis; Characters, with every name coloured and each character as this chapter shows them and across the book; Plotlines, with each thread's key moments marked in the text; and Listen.
+```
+
+**Description — add after "AN EDITOR BESIDE YOU"** (the rest stays):
+
+```
+SIX WAYS TO LOOK AT A CHAPTER
+· Write — the editor, and nothing else
+· Create — click a + between two paragraphs, say what should happen and how it should be written, and the AI writes it there in your voice; you read it before it goes in. Or have it draft a whole new chapter. The styles you describe are kept, to choose again
+· Analysis — a coloured mark beside every paragraph: an analysis of its tone, consistency, style and what it achieves, or suggested changes you can apply and undo
+· Characters — every character's name coloured where the chapter uses it; each one as this chapter shows them (their role here, how they are described, what they want and do) and across the book (their arc, the plotlines they touch)
+· Plotlines — the threads in the chapter, their key moments marked in the text, and each thread across the book; a character's own story can be a plotline
+· Listen — the chapter read aloud
+
+HEAR IT, AND MAKE THE AUDIOBOOK
+Choose a narrator and give each character a voice of their own, from Google's natural voices (with a Google key of your own). The AI marks who says each line of dialogue; you change any it gets wrong. Play from any paragraph and follow along as it is read. When a chapter sounds right, approve it for the audiobook. A pronunciation list, drafted by the AI and heard before you keep it, makes the voices say your invented names your way. Then export the audiobook: an MP3 for every chapter at the standard the audiobook stores ask for, opening and closing credits, and one M4B file with chapter marks. You see what it will cost before anything is made, and nothing heard once is paid for again.
+```
+
+**Product features** — replace the last two of the 18 with these four (20 is the limit):
+
+```
+Six editor modes: Write, Create, Analysis, Characters, Plotlines and Listen
+The AI writes at the place you choose, in the style you describe; you read it before it goes in
+Hear a chapter read aloud: a narrator and a voice for each character
+Export an audiobook: MP3 chapters at the stores' standard and one M4B with chapter marks
+```
+
+(So "Back the book … to a private GitHub repository" and "Take the whole book … to another computer" make way; keep them instead
+of the two AI-summary lines if you prefer.)
+
+**Search terms** — consider replacing "chapter editor" with `audiobook maker`.
+
+**Screenshots** — `store\screenshots-1.1\` (1440 × 900, the sample book), to put **first**, before 1.0's seven:
+01 Listen — the chapter read aloud · 03 Plotlines — key moments in the text · 04 Create — the AI writes at a + ·
+05 Characters — in this chapter · 06 Analysis — a paragraph · 08 Pronunciations. (Two more — the voices panel and the
+export window — showed a test folder in the status bar and were left out; retake them from `The Keeper of Gull Point` in your
+library if you want them.)
+
+**Notes for certification — add this paragraph:**
+
+```
+Testing the voices (new in 1.1). Listen mode, the pronunciations and the audiobook export use Google Cloud Text-to-Speech with the user's own Google key (an API key or a service-account file), entered under AI › AI Settings › Voices — Google text-to-speech. Without one, Listen mode explains that a key is needed and nothing is sent; every other feature works. The words being spoken go from the user's computer straight to texttospeech.googleapis.com when the user presses Play, hears a voice, approves a chapter or exports the audiobook; the cost is shown first. The audio is kept in the book's own folder. The audiobook is encoded with Windows' own Media Foundation encoders (MP3 and AAC); on a Windows "N" edition without the Media Feature Pack the export stops with a message, and nothing else is affected.
+```
+
 ---
 
 ## 1. Where this stands
