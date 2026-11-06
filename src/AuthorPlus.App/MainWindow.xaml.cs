@@ -57,6 +57,7 @@ public partial class MainWindow : Window, ISuggestionActions
     public MainWindow()
     {
         InitializeComponent();
+        RegisterModeCommands();
         _ai.Prompts.RegisterDefaults(AiPrompts.Defaults);
         _ai.BudgetExceeded += b => Dispatcher.Invoke(() =>
             TxtAi.Text = $"AI: over the ${b.BudgetUsd:0.00} monthly budget (${b.SpentUsd:0.00} so far)");
@@ -263,6 +264,7 @@ public partial class MainWindow : Window, ISuggestionActions
             ItemKind.CharactersInChapter => "👥",
             ItemKind.ChapterPlotlines    => "🧵",
             ItemKind.Suggestions         => "💡",
+            ItemKind.ParagraphAnalysis   => "¶",
             ItemKind.Outline             => "☰",
             _                            => "📝"
         },
@@ -345,7 +347,8 @@ public partial class MainWindow : Window, ISuggestionActions
     private TreeViewItem ChapterNode(Chapter chapter)
     {
         var node = Node(chapter);
-        foreach (var item in _book!.ItemsOf(chapter.Id)) node.Items.Add(ItemNode(item));
+        // Paragraph reads are reached from the ¶ beside each paragraph in Analysis mode, not the tree.
+        foreach (var item in _book!.ItemsOf(chapter.Id).Where(i => i.Kind != ItemKind.ParagraphAnalysis)) node.Items.Add(ItemNode(item));
         return node;
     }
 
@@ -546,6 +549,7 @@ public partial class MainWindow : Window, ISuggestionActions
     private void ShowCurrent()
     {
         _loading = true;
+        BeforeShow();
         _rtb = null;
         TxtName.IsEnabled = _current is not (null or string) && _current is not Item { Kind: ItemKind.Summary };
 
@@ -576,7 +580,7 @@ public partial class MainWindow : Window, ISuggestionActions
                 TxtKind.Text = it.Kind switch
                 {
                     ItemKind.Summary => "Summary", ItemKind.Analysis => "Analysis", ItemKind.CharactersInChapter => "Chapter Characters",
-                    ItemKind.ChapterPlotlines => "Chapter Plotlines", ItemKind.Suggestions => "Suggestions", ItemKind.Outline => "Outline", _ => "Notes"
+                    ItemKind.ChapterPlotlines => "Chapter Plotlines", ItemKind.Suggestions => "Suggestions", ItemKind.Outline => "Outline", ItemKind.ParagraphAnalysis => "Paragraph read", _ => "Notes"
                 } + " of " + OwnerLabel(it);
                 TxtName.Text = it.Kind == ItemKind.Summary ? "Summary" : it.Title;
                 Editor.Content = BuildItemEditor(it);
@@ -745,10 +749,10 @@ public partial class MainWindow : Window, ISuggestionActions
     /// whole of it. Entries the AI added carry an AI mark. Where the character appears is shown but
     /// not set here — that is the chart on the Characters page.
     /// </summary>
-    private UIElement BuildCharacterPage(Character c)
+    private UIElement BuildCharacterPage(Character c, bool inPanel = false)
     {
-        var panel = new StackPanel { Margin = new Thickness(16, 12, 16, 16) };
-        panel.Children.Add(new TextBlock
+        var panel = new StackPanel { Margin = inPanel ? new Thickness(14, 0, 14, 16) : new Thickness(16, 12, 16, 16) };
+        if (!inPanel) panel.Children.Add(new TextBlock
         {
             Text = "Everything about this character. Edit opens a field in full, in your own words; an AI mark shows an entry the AI added, which you can change, unmark or delete like any other.",
             Foreground = System.Windows.Media.Brushes.Gray, TextWrapping = TextWrapping.Wrap
@@ -919,10 +923,16 @@ public partial class MainWindow : Window, ISuggestionActions
         var grid = new Grid();
         grid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
         grid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+        grid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
         grid.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
 
-        // Toolbar — formatting via the built-in EditingCommands.
-        var bar = new ToolBar();
+        // Write · Analysis · Characters (Ron, 2026-11-06).
+        var modeBar = ModeBar();
+        Grid.SetRow(modeBar, 0);
+        grid.Children.Add(modeBar);
+
+        // Toolbar — formatting via the built-in EditingCommands. Write mode only: the editing tools, nothing else.
+        var bar = new ToolBar { Visibility = _mode == EditorMode.Write ? Visibility.Visible : Visibility.Collapsed };
         bar.Items.Add(ToolButton("↶", ApplicationCommands.Undo, FontWeights.Normal));
         bar.Items.Add(ToolButton("↷", ApplicationCommands.Redo, FontWeights.Normal));
         bar.Items.Add(new Separator());
@@ -960,22 +970,11 @@ public partial class MainWindow : Window, ISuggestionActions
         status.SelectionChanged += (_, _) => { if (!_loading && status.SelectedItem is ChapterStatus s) { ch.Status = s; MarkDirty(); } };
         bar.Items.Add(new TextBlock { Text = "Status:", VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(6, 0, 4, 0) });
         bar.Items.Add(status);
-        bar.Items.Add(new Separator());
-        var summarize = new Button { Content = "Summarize (AI)", Padding = new Thickness(8, 2, 8, 2) };
-        summarize.Click += AiSummarize_Click;
-        var analyze = new Button { Content = "Analyze… (AI)", Padding = new Thickness(8, 2, 8, 2), Margin = new Thickness(4, 0, 0, 0) };
-        analyze.Click += AiAnalyze_Click;
-        var who = new Button { Content = "Chapter Characters", Padding = new Thickness(8, 2, 8, 2), Margin = new Thickness(4, 0, 0, 0) };
-        who.Click += AiCharactersInChapter_Click;
-        var passage = new Button { Content = "Suggestions… (AI)", Padding = new Thickness(8, 2, 8, 2), Margin = new Thickness(4, 0, 0, 0),
-                                   ToolTip = "Rewrites of one passage: select the text you mean first, or click with nothing selected to pick paragraphs" };
-        passage.Click += AiPassageSuggestions_Click;
-        bar.Items.Add(summarize); bar.Items.Add(analyze); bar.Items.Add(who); bar.Items.Add(passage);
-        Grid.SetRow(bar, 0);
+        Grid.SetRow(bar, 1);
         grid.Children.Add(bar);
 
         _findPanel = BuildFindPanel();
-        Grid.SetRow(_findPanel, 1);
+        Grid.SetRow(_findPanel, 2);
         grid.Children.Add(_findPanel);
 
         // Who is in the chapter and which plotlines run through it are shown in the status bar and
@@ -992,11 +991,13 @@ public partial class MainWindow : Window, ISuggestionActions
             SpellCheck = { IsEnabled = true },
             Document = LoadDocument(ch)
         };
-        _rtb.TextChanged += (_, _) => { if (!_loading) { MarkDirty(); UpdateWordCount(ch); } };
-        Grid.SetRow(_rtb, 2);
-        grid.Children.Add(_rtb);
+        _rtb.TextChanged += (_, _) => { if (!_loading) { MarkDirty(); UpdateWordCount(ch); QueueMarks(); } };
+        var body = ModeBody(ch, _rtb);
+        Grid.SetRow(body, 3);
+        grid.Children.Add(body);
 
         UpdateWordCount(ch);
+        AfterChapterShown(_rtb);
         return grid;
     }
 
@@ -1690,6 +1691,7 @@ public partial class MainWindow : Window, ISuggestionActions
     {
         MarkDirty();
         RefreshTreeTexts();
+        if (item.Kind == ItemKind.ParagraphAnalysis) OnParagraphReadChanged(item);   // the ¶ changes colour as rewrites are acted on
     }
 
     private void ResolveItem_Click(object sender, RoutedEventArgs e)
@@ -2106,7 +2108,7 @@ public partial class MainWindow : Window, ISuggestionActions
 
     private void ScanMentions_Click(object sender, RoutedEventArgs e)
     {
-        if (_book == null || _current is not Character c) { UpdateStatus("Select a character first."); return; }
+        if (_book == null || CharacterInView() is not { } c) { UpdateStatus("Select a character first."); return; }
         CommitCurrent();
         Cursor = Cursors.Wait;
         MentionsWindow dlg;
@@ -2243,7 +2245,7 @@ public partial class MainWindow : Window, ISuggestionActions
             var r = await SummarizeChapterAsync(ch, text, ct);
             var item = _book.SetSummary(ch, r.Text.Trim(), r.Provider.ToString(), r.Model, AiPrompts.ChapterSummary);
             MarkDirty();
-            BuildTree(select: item);
+            ShowResult(item);
             return r;
         });
     }
@@ -2266,7 +2268,7 @@ public partial class MainWindow : Window, ISuggestionActions
         dlg.ShowDialog();
         if (dlg.Created.Count == 0) return;
         MarkDirty();
-        BuildTree(select: dlg.Created[^1]);
+        ShowResult(dlg.Created[^1]);
         UpdateStatus($"{dlg.Created.Count} analysis item(s) added to \"{ch.Title}\".");
         await ExtractEntitiesAsync(ch, text);
     }
@@ -2347,7 +2349,7 @@ public partial class MainWindow : Window, ISuggestionActions
         plotItem.Provider = _ai.DefaultProvider.ToString(); plotItem.PromptName = AiPrompts.ChapterExtract; plotItem.ModifiedUtc = DateTime.UtcNow;
 
         MarkDirty();
-        BuildTree(select: charItem);
+        ShowResult(charItem);
         UpdateStatus($"\"{ch.Title}\": {extract.Characters.Count} characters and {extract.Plotlines.Count} plotlines listed; {newCharacters.Count + newPlotlines.Count} were new.");
     }
 
@@ -2450,7 +2452,7 @@ public partial class MainWindow : Window, ISuggestionActions
         dlg.ShowDialog();
         if (dlg.Created.Count == 0) return;
         MarkDirty();
-        BuildTree(select: dlg.Created[^1]);
+        ShowResult(dlg.Created[^1]);
         UpdateStatus($"{aspect} analysis added to \"{ch.Title}\".");
     }
 
@@ -2480,7 +2482,9 @@ public partial class MainWindow : Window, ISuggestionActions
         };
         var run = new AiRunWindow(_ai, _book, item.OwnerId, ItemKind.Suggestions, $"Ask again — {aspect}", "Suggestions", AiPrompts.SuggestionRefine,
             $"Fresh rewrites of the same passage, aimed at what you said you are conveying{(form.Intent.Length > 0 ? ": " + form.Intent : "")}. " +
-            "They are added to this same Suggestions item, under the one you asked about, so you can compare them.",
+            (item.Kind == ItemKind.ParagraphAnalysis
+                ? "They are added to this paragraph's read, under the one you asked about, so you can compare them."
+                : "They are added to this same Suggestions item, under the one you asked about, so you can compare them."),
             provider => _ai.Prompts.Get(AiPrompts.SuggestionRefine).Bind(values, provider), ConfirmSend,
             nextLabel: "Next: compare the new suggestions →",
             handleResponse: r => AppendRefinements(item, entry, r, form.Intent, form.Request)) { Owner = this };
@@ -2528,6 +2532,12 @@ public partial class MainWindow : Window, ISuggestionActions
     public void Refresh(Item item)
     {
         RefreshTreeTexts();
+        if (item.Kind == ItemKind.ParagraphAnalysis && _current is Chapter open && item.OwnerId == open.Id)
+        {
+            RefreshMarks();
+            ShowSidePanel(keepScroll: true);
+            return;
+        }
         if (ReferenceEquals(_current, item)) ShowCurrent();
         else BuildTree(select: item);
     }
@@ -2640,7 +2650,7 @@ public partial class MainWindow : Window, ISuggestionActions
 
         if (!_ai.IsAvailable() || text.Trim().Length < 200)
         {
-            BuildTree(select: item);
+            ShowResult(item);
             UpdateStatus("Characters matched by name; no AI pass (no key or too little text).");
             return;
         }
@@ -2665,7 +2675,7 @@ public partial class MainWindow : Window, ISuggestionActions
             }
             SyncChapterFromItem(item);
             MarkDirty();
-            BuildTree(select: item);
+            ShowResult(item);
             return r;
         });
     }
@@ -2717,7 +2727,7 @@ public partial class MainWindow : Window, ISuggestionActions
 
     private async void AiCharacter_Click(object sender, RoutedEventArgs e)
     {
-        if (_book == null || _current is not Character c) { UpdateStatus("Select a character first."); return; }
+        if (_book == null || CharacterInView() is not { } c) { UpdateStatus("Select a character first."); return; }
         if (!EnsureAiOrExplain()) return;
 
         var known = $"Name: {c.Name}\nRole: {c.Role}\nOrigin: {c.Origin}\nPhysical description: {c.PhysicalDescription}\nPersonality: {c.Personality}\n" +
@@ -2814,6 +2824,7 @@ public partial class MainWindow : Window, ISuggestionActions
         _aiCts?.Cancel();
         _aiCts = new CancellationTokenSource();
         MnuAi.IsEnabled = false;
+        RefreshPanelForAi();
         TxtAi.Text = statusText;
         Cursor = Cursors.AppStarting;
         try
@@ -2839,6 +2850,7 @@ public partial class MainWindow : Window, ISuggestionActions
         {
             Cursor = Cursors.Arrow;
             MnuAi.IsEnabled = true;
+            RefreshPanelForAi();
         }
     }
 

@@ -31,6 +31,7 @@ public static class AiPrompts
     public const string ContinuityCheck     = "continuity-check";
     public const string PlotAnalysis        = "plot-analysis";
     public const string StyleRead           = "style-read";
+    public const string ParagraphRead       = "paragraph-read";
 
     /// <summary>Deep single-aspect analyses, keyed by the aspect name shown on the analysis cards.</summary>
     public static readonly IReadOnlyDictionary<string, string> AspectTemplates = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
@@ -193,6 +194,25 @@ public static class AiPrompts
                     "What the author is aiming for in this chapter (may be blank):\n{chapter_intent}\n\nThe chapter, for context:\n{text}",
             description: "Rewrites of a passage the author picked themselves — by selecting it in the editor or choosing paragraphs — guided by what they say it is for.",
             maxTokens: 8000),
+
+        new PromptTemplate(ParagraphRead,
+            system: Purpose +
+                    "You are a line editor reading ONE paragraph of the author's chapter, with the paragraphs around it for context. " +
+                    "First, under the heading READ:, give 2–5 short bullet points: what the paragraph is doing in the scene, what works, and anything to watch — " +
+                    "pacing, clarity, voice, rhythm, continuity with what comes just before. Quote the words you mean. No praise padding. " +
+                    "If the author has said what the paragraph should do, judge it against that. " +
+                    "Then offer 1–4 rewrites, of the whole paragraph or of single sentences in it, wherever the work is; if the paragraph already does its job, say so in READ and offer at most one. " +
+                    "Every ORIGINAL must be quoted from the paragraph itself, never from the paragraphs around it.\n\n" +
+                    "Reply in exactly this shape and nothing else:\n\nREAD:\n- …\n- …\n\n" +
+                    "SUGGESTION 1\nORIGINAL:\n<the words exactly as they appear in the paragraph, copied character for character — no ellipses, no paraphrase>\n" +
+                    "REWRITE:\n<the replacement in the author's own voice>\nWHY:\n<one or two sentences on what it does>\n\nSUGGESTION 2\n…\n\n" +
+                    "The ORIGINAL must be a verbatim quotation so it can be found and replaced. Do not add plot the text does not have.",
+            user:   "Book: {book}\nChapter: {chapter}\n\nWhat the chapter is about (its summary; may be blank):\n{summary}\n\n" +
+                    "The paragraphs just before:\n{before}\n\nTHE PARAGRAPH TO READ (paragraph {number} of {count}):\n{paragraph}\n\n" +
+                    "The paragraphs just after:\n{after}\n\nWhat the author wants this paragraph to do (may be blank):\n{request}\n\n" +
+                    "What the author is aiming for in this chapter (may be blank):\n{chapter_intent}",
+            description: "Analysis mode: a read of one paragraph (what it does, what works, what to watch) and rewrites of it, from the ¶ beside the paragraph. Sends the paragraph, a few around it and the chapter summary — not the whole chapter.",
+            maxTokens: 4000),
 
         new PromptTemplate(SuggestionRefine,
             system: Purpose +

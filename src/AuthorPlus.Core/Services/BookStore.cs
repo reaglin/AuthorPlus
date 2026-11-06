@@ -103,7 +103,8 @@ public sealed class BookStore
         {
             Id = meta.Id, Title = meta.Title, Author = meta.Author, Synopsis = meta.Synopsis,
             Genre = meta.Genre, TargetWords = meta.TargetWords, CreatedUtc = meta.CreatedUtc,
-            ModifiedUtc = meta.ModifiedUtc, FormatVersion = meta.FormatVersion, FolderPath = folder
+            ModifiedUtc = meta.ModifiedUtc, FormatVersion = meta.FormatVersion, FolderPath = folder,
+            NotNames = meta.NotNames ?? new()
         };
 
         book.Sections   = LoadItems<Section>      (folder, "sections",   meta.SectionOrder,   s => s.Id);
@@ -221,7 +222,8 @@ public sealed class BookStore
             ItemOrder      = book.Items.Select(i => i.Id).ToList(),
             CharacterOrder = book.Characters.Select(c => c.Id).ToList(),
             TimelineOrder  = book.Timeline.Select(t => t.Id).ToList(),
-            PlotlineOrder  = book.Plotlines.Select(p => p.Id).ToList()
+            PlotlineOrder  = book.Plotlines.Select(p => p.Id).ToList(),
+            NotNames       = book.NotNames.ToList()
         };
         WriteAtomic(Path.Combine(book.FolderPath, BookFileName), JsonSerializer.Serialize(meta, Json));
     }
@@ -320,5 +322,6 @@ public sealed class BookStore
         public List<Guid> CharacterOrder { get; set; } = new();
         public List<Guid> TimelineOrder  { get; set; } = new();
         public List<Guid> PlotlineOrder  { get; set; } = new();
+        public List<string>? NotNames    { get; set; }
     }
 }

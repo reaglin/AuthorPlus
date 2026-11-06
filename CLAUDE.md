@@ -134,6 +134,11 @@ unit tests and must keep them (the AI layer's tests live in the AiManager repo).
    TextBox per property, writing straight into the model — so adding a field to a model is one
    line in `ShowCurrent`. Item kinds each get a small editor (Summary/Notes: text; Analysis:
    read-only body with a metadata header and Re-run; Characters in chapter: checklist + POV).
+   **The chapter editor has three modes** (Ron, 2026-11-06; `MainWindow.Modes.cs`, plan phase 6): Write (the editing
+   tools only), Analysis (a ¶ beside each paragraph opens its read and rewrites in a panel; with none chosen the panel
+   makes the chapter's summary, characters, plotlines and analysis) and Characters (names coloured per character; the
+   character's form in the panel). Marks are drawn by `ChapterOverlay`, an adorner — never written into the
+   FlowDocument, so they are never saved. A paragraph read is `ItemKind.ParagraphAnalysis`, kept out of the tree.
 
 5. **A book's history is a git repository in its own folder, and git is never said out loud.**
    `Core/Services/Versioning/BookRepository` is the whole of git the app uses — a version is a

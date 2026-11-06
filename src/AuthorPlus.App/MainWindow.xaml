@@ -17,6 +17,9 @@
         <KeyBinding Key="K" Modifiers="Ctrl" Command="{x:Static local:MainWindow.ConsistencyCommand}"/>
         <KeyBinding Key="S" Modifiers="Ctrl+Shift" Command="{x:Static local:MainWindow.SaveVersionCommand}"/>
         <KeyBinding Key="H" Modifiers="Ctrl" Command="{x:Static local:MainWindow.VersionsCommand}"/>
+        <KeyBinding Key="D1" Modifiers="Ctrl" Command="{x:Static local:MainWindow.WriteModeCommand}"/>
+        <KeyBinding Key="D2" Modifiers="Ctrl" Command="{x:Static local:MainWindow.AnalyzeModeCommand}"/>
+        <KeyBinding Key="D3" Modifiers="Ctrl" Command="{x:Static local:MainWindow.CharactersModeCommand}"/>
     </Window.InputBindings>
 
     <DockPanel>
@@ -87,6 +90,13 @@
                 <MenuItem Header="Start _Keeping Versions…" x:Name="MnuStartVersioning" Click="StartVersioning_Click"/>
             </MenuItem>
             <MenuItem Header="_View">
+                <MenuItem Header="_Write Mode" x:Name="MnuWriteMode" IsCheckable="True" Command="{x:Static local:MainWindow.WriteModeCommand}" InputGestureText="Ctrl+1"
+                          ToolTip="The chapter editor with the editing tools"/>
+                <MenuItem Header="_Analysis Mode" x:Name="MnuAnalyzeMode" IsCheckable="True" Command="{x:Static local:MainWindow.AnalyzeModeCommand}" InputGestureText="Ctrl+2"
+                          ToolTip="Click a paragraph (or the ¶ beside it) for the AI's read and rewrites; the chapter's summary, characters, plotlines and analysis beside the text"/>
+                <MenuItem Header="_Characters Mode" x:Name="MnuCharactersMode" IsCheckable="True" Command="{x:Static local:MainWindow.CharactersModeCommand}" InputGestureText="Ctrl+3"
+                          ToolTip="Every character's name coloured in the chapter; click one for their form beside the text"/>
+                <Separator/>
                 <MenuItem Header="_Find and Replace" Click="Find_Click" InputGestureText="Ctrl+F"/>
                 <Separator/>
                 <MenuItem Header="_Distraction-free Writing" Click="Focus_Click" InputGestureText="F11" x:Name="MnuFocus"/>

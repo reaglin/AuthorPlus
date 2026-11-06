@@ -41,6 +41,9 @@ public sealed class Book
     public List<TimelineEvent> Timeline   { get; set; } = new();
     public List<Plotline>      Plotlines  { get; set; } = new();
 
+    /// <summary>Capitalised names the author said are not characters (a place, a boat); Character mode stops marking them.</summary>
+    public List<string>        NotNames   { get; set; } = new();
+
     /// <summary>Absolute folder the book was loaded from / saved to. Not serialised.</summary>
     [JsonIgnore] public string FolderPath { get; set; } = string.Empty;
 
@@ -306,7 +309,13 @@ public enum ItemKind
     /// <summary>Which plotlines run through a chapter, with what happens in each. One per chapter.</summary>
     ChapterPlotlines,
     /// <summary>Rewrite suggestions for one aspect of an analysis. Owned by the Analysis item.</summary>
-    Suggestions
+    Suggestions,
+    /// <summary>
+    /// A read of ONE paragraph of a chapter, with rewrites (Analysis mode). Owned by the chapter;
+    /// <see cref="Item.Passage"/> holds the paragraph as it was read. Not shown in the tree:
+    /// it is reached from the paragraph's icon in the chapter.
+    /// </summary>
+    ParagraphAnalysis
 }
 
 /// <summary>
@@ -334,6 +343,10 @@ public sealed class Item
     public Guid?      PovCharacterId { get; set; }
     /// <summary>For <see cref="ItemKind.ChapterPlotlines"/>: the plotlines running through the chapter.</summary>
     public List<Guid> PlotlineIds    { get; set; } = new();
+
+    /// <summary>For <see cref="ItemKind.ParagraphAnalysis"/>: the paragraph as it stood when it was read, and where it was.</summary>
+    public string     Passage        { get; set; } = string.Empty;
+    public int?       ParagraphIndex { get; set; }
 
     /// <summary>For <see cref="ItemKind.Suggestions"/>: the structured suggestions (the Body keeps the raw reply).</summary>
     public List<SuggestionEntry> Suggestions { get; set; } = new();

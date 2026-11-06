@@ -125,7 +125,11 @@ public static class SuggestionsEditor
         buttons.Children.Add(toggle);
 
         // The passage itself, once.
-        body.Children.Add(new TextBlock { Text = "The passage as it stands", Foreground = Brushes.Gray, FontSize = 11, Margin = new Thickness(0, 0, 0, 2) });
+        body.Children.Add(new TextBlock
+        {
+            Text = group.All(s => s.Status == SuggestionStatus.Applied) ? "The passage before your change" : "The passage as it stands",
+            Foreground = Brushes.Gray, FontSize = 11, Margin = new Thickness(0, 0, 0, 2)
+        });
         body.Children.Add(new TextBox
         {
             Text = group[0].Original, IsReadOnly = true, TextWrapping = TextWrapping.Wrap, Background = Brushes.White,
@@ -162,14 +166,17 @@ public static class SuggestionsEditor
     {
         var headerText = new TextBlock { VerticalAlignment = VerticalAlignment.Center, TextTrimming = TextTrimming.CharacterEllipsis };
         var status = new TextBlock { VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(8, 0, 0, 0), Foreground = Brushes.Gray, FontSize = 11 };
-        var head = new StackPanel { Orientation = Orientation.Horizontal, MaxWidth = 780 };
-        head.Children.Add(headerText);
+        // The status keeps its room on the right; the preview takes what is left and trims, so a narrow panel never cuts the frame.
+        var head = new DockPanel { MaxWidth = 780, LastChildFill = true };
+        DockPanel.SetDock(status, Dock.Right);
         head.Children.Add(status);
+        head.Children.Add(headerText);
 
         var frame = new Expander
         {
             Header = head, IsExpanded = expanded, Margin = new Thickness(0, 0, 0, 4), Padding = new Thickness(0, 2, 0, 6),
-            Background = Brushes.White, BorderBrush = Line, BorderThickness = new Thickness(1)
+            Background = Brushes.White, BorderBrush = Line, BorderThickness = new Thickness(1),
+            HorizontalContentAlignment = HorizontalAlignment.Stretch
         };
 
         var body = new StackPanel { Margin = new Thickness(10, 4, 8, 4) };
@@ -209,16 +216,19 @@ public static class SuggestionsEditor
         body.Children.Add(mine);
 
         // Actions for this suggestion.
-        var actionRow = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 10, 0, 0) };
+        var actionRow = new WrapPanel { Margin = new Thickness(0, 10, 0, 0) };   // wraps in the narrow panel of Analysis mode
         var askAgain = new Button { Content = "Ask again…", Padding = new Thickness(10, 3, 10, 3), Margin = new Thickness(0, 0, 6, 0), FontWeight = FontWeights.SemiBold,
                                     ToolTip = "Tell the AI what this passage is meant to convey — the mood, the joke, the threat — and get fresh rewrites aimed at that" };
         var apply   = new Button { Content = "Apply", Padding = new Thickness(10, 3, 10, 3), Margin = new Thickness(0, 0, 6, 0), ToolTip = "Put this text into the chapter in place of the passage" };
         var mark    = new Button { Content = "Mark", Padding = new Thickness(10, 3, 10, 3), Margin = new Thickness(0, 0, 6, 0), ToolTip = "Keep this passage to rewrite in your own words (see Marked Passages)" };
         var resolve = new Button { Content = "Resolve", Padding = new Thickness(10, 3, 10, 3), Margin = new Thickness(0, 0, 6, 0), ToolTip = "Done with this one" };
         var reopen  = new Button { Content = "Reopen", Padding = new Thickness(10, 3, 10, 3), Margin = new Thickness(0, 0, 6, 0) };
-        var dismiss = new Button { Content = "Dismiss", Padding = new Thickness(10, 3, 10, 3), ToolTip = "Delete this suggestion" };
-        actionRow.Children.Add(askAgain); actionRow.Children.Add(apply); actionRow.Children.Add(mark);
+        var dismiss = new Button { Content = "Dismiss", Padding = new Thickness(10, 3, 10, 3), Margin = new Thickness(0, 0, 6, 0), ToolTip = "Delete this suggestion" };
+        var undo    = new Button { Content = "Undo apply", Padding = new Thickness(10, 3, 10, 3), Margin = new Thickness(0, 0, 6, 0), ToolTip = "Put the original words back in the chapter in place of this rewrite" };
+        foreach (var b in new[] { askAgain, apply, mark }) ToolTipService.SetShowOnDisabled(b, true);
+        actionRow.Children.Add(askAgain); actionRow.Children.Add(apply); actionRow.Children.Add(undo); actionRow.Children.Add(mark);
         actionRow.Children.Add(resolve); actionRow.Children.Add(reopen); actionRow.Children.Add(dismiss);
+        actionRow.Children.OfType<Button>().ToList().ForEach(b => b.Margin = new Thickness(0, 0, 6, 6));
         body.Children.Add(actionRow);
 
         var note = new TextBlock { Foreground = Brushes.Firebrick, TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 4, 0, 0), Visibility = Visibility.Collapsed };
@@ -241,6 +251,13 @@ public static class SuggestionsEditor
             apply.IsEnabled = chapter != null && open;
             mark.IsEnabled = chapter != null && open;
             askAgain.IsEnabled = chapter != null && e.Status != SuggestionStatus.Applied;
+            undo.Visibility = e.Status == SuggestionStatus.Applied ? Visibility.Visible : Visibility.Collapsed;
+            apply.ToolTip = open ? "Put this text into the chapter in place of the passage — Undo apply puts the original back"
+                          : e.Status == SuggestionStatus.Applied ? "Already applied — Undo apply puts the original back"
+                          : "Only an open suggestion can be applied — Reopen it first";
+            mark.ToolTip = open ? "Keep this passage to rewrite in your own words (see Marked Passages)" : "Only an open suggestion can be marked";
+            askAgain.ToolTip = askAgain.IsEnabled ? "Tell the AI what this passage is meant to convey — the mood, the joke, the threat — and get fresh rewrites aimed at that"
+                             : "This one is applied — Undo apply first to ask again about the original";
             resolve.Visibility = e.Status == SuggestionStatus.Resolved ? Visibility.Collapsed : Visibility.Visible;
             reopen.Visibility = e.Status == SuggestionStatus.Resolved ? Visibility.Visible : Visibility.Collapsed;
             mine.Visibility = e.Status == SuggestionStatus.Marked ? Visibility.Visible : Visibility.Collapsed;
@@ -260,6 +277,16 @@ public static class SuggestionsEditor
             if (chapter == null || mineBox.Text.Trim().Length == 0) return;
             if (!actions.Apply(chapter, e, mineBox.Text.Trim())) { Failed(); return; }
             e.Status = SuggestionStatus.Applied; e.ActedUtc = DateTime.UtcNow; actions.Changed(item); Paint();
+        };
+        undo.Click += (_, _) =>
+        {
+            if (chapter == null) return;
+            // What went in was the rewrite, or the author's own version of it.
+            bool back = actions.Apply(chapter, new SuggestionEntry { Original = e.Rewrite }, e.Original) ||
+                        (e.AuthorRewrite.Trim().Length > 0 && actions.Apply(chapter, new SuggestionEntry { Original = e.AuthorRewrite.Trim() }, e.Original));
+            if (!back) { note.Text = "The rewrite is not in the chapter as it was applied (it has been edited since), so the original cannot be put back automatically. The original is shown above."; note.Visibility = Visibility.Visible; return; }
+            note.Visibility = Visibility.Collapsed;
+            e.Status = SuggestionStatus.Open; e.ActedUtc = null; actions.Changed(item); Paint();
         };
         mark.Click    += (_, _) => { e.Status = SuggestionStatus.Marked; e.ActedUtc = DateTime.UtcNow; actions.Changed(item); Paint(); frame.IsExpanded = true; mineBox.Focus(); };
         resolve.Click += (_, _) => { e.Status = SuggestionStatus.Resolved; e.ActedUtc = DateTime.UtcNow; actions.Changed(item); Paint(); };
@@ -322,7 +349,7 @@ public sealed class MarkedPassagesWindow : Window
 
         var stack = new StackPanel();
         int n = 0;
-        foreach (var item in book.Items.Where(i => i.Kind == ItemKind.Suggestions))
+        foreach (var item in book.Items.Where(i => i.Kind is ItemKind.Suggestions or ItemKind.ParagraphAnalysis))
         {
             var ch = ChapterOf(book, item);
             if (ch == null || (chapter != null && ch.Id != chapter.Id)) continue;

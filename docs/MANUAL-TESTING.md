@@ -19,6 +19,51 @@ prompts, log and usage ledger are the shared ones in `Documents\AiManager\`.
 Open the trilogy with **File › Open Recent › The Book of One**, or drag the book folder onto
 the exe (`AuthorPlus.exe "<book folder>"` opens it). Books live in `Documents\AuthorPlus\Books`.
 
+## Round 2026-11-06 — the editor's modes (plan phase 6)
+
+Build: `manual-test\AuthorPlus.exe` (made 2026-11-06). Close any copy that is open first. Open *The Book of One* and a
+chapter. Record each step as ✅ / ❌ with a note; ❌ and notes go back into `docs/DEVELOPMENT-PLAN.md`, phase 6.
+
+### M. The modes (6.1)
+M1. Above the chapter: **✎ Write · ¶ Analysis · 👤 Characters**, with a line saying what the mode is for. Write is ticked;
+    its toolbar has the editing tools only — no Summarize / Analyze / Chapter Characters / Suggestions buttons (they are in
+    Analysis mode and the AI menu).
+M2. **Ctrl+2**, **Ctrl+3**, **Ctrl+1** (or View › … Mode) switch modes; the chapter stays at the same place in the text.
+    Click another chapter in the tree — it opens in the same mode.
+M3. In Analysis and Characters the text cannot be typed into: type a letter — a yellow note says so. **Double-click** a word —
+    it goes back to Write with the caret there.
+
+### N. Analysis mode (6.2, 6.3)
+N1. Every paragraph has a grey **¶** in the left margin (scene breaks and one- or two-word lines do not). Hover: it says
+    "not read yet". The panel on the right shows **This chapter**: Summary, Characters, Plotlines, Chapter analysis, Paragraphs.
+N2. On a chapter with no summary: **Write the summary (AI)** — it is written, the card shows it, and you stay on the chapter.
+    Do the same with **Find who is in it (AI)**, **Find its plotlines (AI)** and **Analyze the chapter (AI)…** / **One aspect ▾**.
+    **Open** on a card opens that item in the tree.
+N3. Click a paragraph (or its **¶**) — the panel shows that paragraph, a band marks it in the text. Type what it should do (optional),
+    **Read this paragraph (AI)…**, Send Prompt, then **Next: see it beside the paragraph →**: the read and its rewrites are in
+    the panel; the ¶ is amber.
+N4. **Apply** a rewrite — the text changes in place, the box above says "The passage before your change"; when every rewrite
+    is applied, marked or resolved the ¶ turns green ("dealt with"). **Undo apply** puts the original back. **Dealt with**
+    turns it green by hand. **‹ Previous / Next ›** walk the paragraphs.
+N5. Switch to Write, change a few words of a read paragraph, back to Analysis — the read is still on it, marked "the paragraph
+    has changed since this read". **Delete this read** removes it (the text stays).
+N6. Close and reopen the book: the reads and colours are still there. The tree does not list the reads.
+
+### P. Character mode (6.4)
+P1. Each character's name — and their "also called" — is washed in their own colour; names that are not characters yet are
+    underlined with dots. The panel lists the chapter's cast with how often each is named.
+P2. Click a coloured name — their form opens beside the text; **◀ Previous / Next ▶** select each mention in turn. Edit a field
+    (Edit…): it is saved like on their own page. Change their name at the top: the tree follows.
+P3. A character named in the text but not on the chapter's list shows "not on the chapter's list" — the button adds them.
+P4. Click a dotted name: **Add as a character** adds them and opens their form; or pick a character and **Add as their other
+    name** — the name is then coloured as them. For a place: **Not a character — stop marking it**; it moves to "Not marked"
+    in the panel, where "mark again" undoes it.
+P5. An "also called" written with a capital (Father) colours "Father" but not "her father".
+
+### Q. Look (the review could not judge these from the code)
+Q1. The white ¶ on the amber and green icons — readable? The colour washes behind the text (yellow, teal especially)?
+Q2. At 150 % scaling: the panel (430 px) — nothing cut off; the mode bar's line of help wraps tidily.
+
 ## Round 2026-11 — the 1.0.0 release (Export / Import Project)
 
 Build: `manual-test\AuthorPlus.exe` (made 2026-11-05, version 1.0.0, AI Manager 1.7.0). Close any copy that is open first.
