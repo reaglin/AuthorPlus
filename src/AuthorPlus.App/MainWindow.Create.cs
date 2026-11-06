@@ -27,6 +27,9 @@ public partial class MainWindow
     private bool _showingPutIn;                         // Create: the panel shows "New text is in the chapter"
     private string? _draftAsWritten;                    // Create: the draft as the AI wrote it, to know whether the author changed it
     private string _chapterTitle = "", _chapterAction = "", _chapterStyle = "", _chapterLength = "About 2,000 words";
+    private string? _chapterDraft, _chapterDraftAsWritten;   // Create: a new chapter the AI wrote, to read before it goes into the book
+    private Guid? _chapterDraftAfter;                         // … and the chapter it goes after
+    private FrameworkElement? _chapterDraftCard;              // … its card in the panel, brought into view when it arrives
     private readonly WritingStyles _styles = new();
 
     private static readonly string[] PassageLengths = { "A sentence or two", "One paragraph", "Two or three paragraphs", "A scene (about 500 words)" };
@@ -367,7 +370,7 @@ public partial class MainWindow
             PanelButton("At the start", "Chooses the + before the first paragraph; ‹ › in the panel then move the place", () => { OpenInsert(0); ScrollToPlace(); })));
 
         var form = new StackPanel();
-        form.Children.Add(Body($"The AI writes it in the voice of the book; it goes after \"{ch.Title}\" in the tree and opens here to read. Delete it like any chapter if it is not right.", muted: true));
+        form.Children.Add(Body($"The AI writes it in the voice of the book. You read it here, change it if you like, and only then add it to the book, after \"{ch.Title}\".", muted: true));
         form.Children.Add(Label("Title"));
         form.Children.Add(Box(_chapterTitle, v => _chapterTitle = v, "The new chapter's title", "Title", lines: 1));
         form.Children.Add(Label("Action — what should happen in it?"));
@@ -376,10 +379,64 @@ public partial class MainWindow
         form.Children.Add(StyleBox(() => _chapterStyle, v => _chapterStyle = v, "For example: slow and close, mostly what Nell notices, little dialogue"));
         form.Children.Add(Label("Length"));
         form.Children.Add(Choice(ChapterLengths, _chapterLength, v => _chapterLength = v));
+        bool hasDraft = _chapterDraft != null && _chapterDraftAfter == ch.Id;
         p.Children.Add(Card("A new chapter after this one", form,
-            AiButton("Write the chapter (AI)…", "Sends the action, the style, the book's synopsis, and this chapter's summary and ending; the AI writes the new chapter",
-                     () => WriteChapter(ch), primary: false)));
+            AiButton(hasDraft ? "Write it again (AI)…" : "Write the chapter (AI)…",
+                     "Sends the action, the style, the book's synopsis, and this chapter's summary and ending; the AI writes the new chapter for you to read here first",
+                     () => WriteChapter(ch), primary: !hasDraft)));
+
+        if (hasDraft)
+        {
+            var draft = new TextBox
+            {
+                Text = _chapterDraft, TextWrapping = TextWrapping.Wrap, AcceptsReturn = true, FontFamily = new FontFamily("Georgia"), FontSize = 14,
+                Padding = new Thickness(8), MinHeight = 240, MaxHeight = 520, VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
+                ToolTip = "What the AI wrote. Change anything you like before it goes into the book; a blank line starts a new paragraph."
+            };
+            System.Windows.Automation.AutomationProperties.SetName(draft, "The new chapter the AI wrote");
+            draft.TextChanged += (_, _) => _chapterDraft = draft.Text;
+            var words = WordCounter.Count(_chapterDraft ?? "");
+            var box = new StackPanel();
+            box.Children.Add(Body($"\"{ChapterDraftTitle()}\" · about {words:N0} words. Nothing is in the book yet.", muted: true));
+            box.Children.Add(new Border { Height = 6 });
+            box.Children.Add(draft);
+            p.Children.Add(_chapterDraftCard = Card("The new chapter — read it first", box,
+                PanelButton("Add it to the book", $"Adds it as a new chapter after \"{ch.Title}\", with the title above, and opens it", () => AddChapterDraft(ch), primary: true),
+                PanelButton("Discard", "Throws this chapter away; the book is not changed", () =>
+                {
+                    if (!LetChapterDraftGo()) return;
+                    _chapterDraft = _chapterDraftAsWritten = null; _chapterDraftAfter = null; ShowSidePanel();
+                })));
+        }
         return Scroll(p);
+    }
+
+    private string ChapterDraftTitle() => _chapterTitle.Trim().Length > 0 ? _chapterTitle.Trim() : "New Chapter";
+
+    /// <summary>True when the chapter draft can be thrown away: there is none, it is as the AI wrote it, or the author says so.</summary>
+    private bool LetChapterDraftGo()
+    {
+        if (_chapterDraft == null || _chapterDraft == _chapterDraftAsWritten) return true;
+        return MessageBox.Show(this, "You have changed the new chapter and not added it to the book. Throw your changes away?", "Create",
+                               MessageBoxButton.YesNo, MessageBoxImage.Question) == MessageBoxResult.Yes;
+    }
+
+    /// <summary>Puts the read (and perhaps edited) chapter into the book after <paramref name="after"/> and opens it.</summary>
+    private void AddChapterDraft(Chapter after)
+    {
+        if (_book == null || _chapterDraft == null) return;
+        var text = string.Join("\n\n", CreatedText.Paragraphs(_chapterDraft));
+        if (text.Length == 0) { MessageBox.Show(this, "The chapter is empty — write it again, or type it in the box.", "Create", MessageBoxButton.OK, MessageBoxImage.Information); return; }
+        CommitCurrent();
+        var title = ChapterDraftTitle();
+        var ch = new Chapter { Title = title, SectionId = after.SectionId };
+        _book.Chapters.Insert(_book.Chapters.IndexOf(after) + 1, ch);
+        _store.SaveChapterBody(_book, ch, FlowDocumentXaml.FromPlainText(text), WordCounter.Count(text));
+        _chapterTitle = ""; _chapterAction = "";
+        _chapterDraft = _chapterDraftAsWritten = null; _chapterDraftAfter = null;
+        MarkDirty();
+        BuildTree(select: ch);
+        UpdateStatus($"\"{title}\" added after \"{after.Title}\" — double-click the text to edit it in Write mode.");
     }
 
     private void WriteChapter(Chapter after)
@@ -390,9 +447,10 @@ public partial class MainWindow
             MessageBox.Show(this, "Say what should happen in the new chapter first — the Action box.", "Create", MessageBoxButton.OK, MessageBoxImage.Information);
             return;
         }
+        if (!LetChapterDraftGo()) return;
         if (!EnsureAiOrExplain()) return;
         CommitCurrent();
-        var title = _chapterTitle.Trim().Length > 0 ? _chapterTitle.Trim() : "New Chapter";
+        var title = ChapterDraftTitle();
         var endText = ChapterText(after).Replace("\r\n", "\n").Split("\n", StringSplitOptions.RemoveEmptyEntries).Where(l => l.Trim().Length > 0).TakeLast(3);
         var values = new
         {
@@ -406,21 +464,19 @@ public partial class MainWindow
         };
         string? written = null;
         var dlg = new AiRunWindow(_ai, _book, after.Id, ItemKind.Notes, $"Write a new chapter after \"{after.Title}\"", "New chapter", AiPrompts.CreateChapter,
-            "A new chapter, from your action and style, in the voice of the book. It is added after this chapter and opens for you to read. " +
+            "A new chapter, from your action and style, in the voice of the book. You read it beside this chapter, and only then add it to the book. " +
             "The prompt is \"create-chapter\" in AI › Prompt Library.",
             provider => _ai.Prompts.Get(AiPrompts.CreateChapter).Bind(values, provider), ConfirmSend,
-            nextLabel: "Next: open the new chapter →", handleResponse: r => written = r.Text) { Owner = this };
+            nextLabel: "Next: read it beside the chapter →", handleResponse: r => written = r.Text) { Owner = this };
         dlg.ShowDialog();
         if (written == null) return;
 
         _styles.Remember(_chapterStyle);
-        var text = string.Join("\n\n", CreatedText.Paragraphs(written));
-        var ch = new Chapter { Title = title, SectionId = after.SectionId };
-        _book.Chapters.Insert(_book.Chapters.IndexOf(after) + 1, ch);
-        _store.SaveChapterBody(_book, ch, FlowDocumentXaml.FromPlainText(text), WordCounter.Count(text));
-        _chapterTitle = ""; _chapterAction = "";
-        MarkDirty();
-        BuildTree(select: ch);
-        UpdateStatus($"\"{title}\" written after \"{after.Title}\" — read it; double-click to edit in Write mode. Delete it like any chapter if it is not right.");
+        _chapterDraft = _chapterDraftAsWritten = string.Join("\n\n", CreatedText.Paragraphs(written));
+        _chapterDraftAfter = after.Id;
+        ShowSidePanel();
+        var card = _chapterDraftCard;
+        card?.Dispatcher.BeginInvoke(System.Windows.Threading.DispatcherPriority.Loaded, () => card.BringIntoView());
+        UpdateStatus($"The new chapter is beside this one — read it, change it if you like, then Add it to the book.");
     }
 }

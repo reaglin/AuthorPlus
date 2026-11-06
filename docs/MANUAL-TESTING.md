@@ -87,7 +87,9 @@ S2. **Choose a saved style ▾** under the style box: the style you just used is
 S3. **Put it in the chapter** — it goes in with a green band, looking like the paragraphs around it. **Take it out again** —
     gone. Put one in, switch to Write and back to Create: **Take it out again** still works.
 S4. With an edited draft, click another + or **Discard** — it asks first. **‹ Earlier place / Later place ›** move the place.
-S5. **Create — the whole chapter**: Title, Action, Style, **Write the chapter (AI)…** — a new chapter after this one, open.
+S5. **Create — the whole chapter**: Title, Action, Style, **Write the chapter (AI)…** — the chapter appears in the panel under
+    "The new chapter — read it first"; nothing is in the tree yet. Change a word, then **Discard** — it asks first. Write it again,
+    **Add it to the book** — it is after this chapter in the tree, open.
 
 ### T. Plotlines mode (plan 8.4–8.6)
 T1. Plotlines (Ctrl+5): the chapter's plotlines with their part here. **Add a plotline ▾** links another; **Find its
