@@ -292,10 +292,53 @@ never versioned (the book's `.gitignore`, added to older books when they open) a
 | 9.3 | **Who speaks.** Every line of dialogue (in double quotation marks; a speech left open runs to the end of its paragraph) coloured by its speaker in Listen mode, dotted when not known; **Find who speaks (AI)…** (prompt `dialogue-speakers`: the chapter with each line numbered, the cast); click a line: **Who says it?** — a character, the narrator, or someone new (added as a character); ‹ › and **Next not known** | `Core/Services/Dialogue.cs`, `MainWindow.Listen.cs` | 9 new tests; 187 in all, green | ⚠️ built 2026-11-06 — Ron to try (V3–V4) |
 | 9.4 | **Listen.** **▶ Play** from the clicked paragraph (or the start), **■ Stop**; the piece being read highlighted and followed; the next piece fetched while one plays; what it will cost before playing (characters not heard before × the voice's price) and what was spent | `MainWindow.Listen.cs`, `ChapterOverlay.cs` | tried 2026-11-06 on the sample book: the AI marked both of Tom's lines; played with Charon (narrator) and Algenib (Tom), the paragraph being read highlighted, about $0.01; afterwards only the parts not yet heard were counted | ⚠️ built 2026-11-06 — Ron to try (V5–V6) |
 | 9.5 | UX review of Listen mode (walkthrough + heuristics, 2026-11-06): 3 severity-3, 6 severity-2, 3 severity-1 | | **Fixed:** Stop no longer rebuilt under the mouse while reading (only the status line changes), Space plays/stops and Esc stops; a new character takes every line the AI gave that name; a speaker stays with their line when the same words are added earlier (the words around a line are kept with it); a correction stays on its line; ▶ in the margin where Play starts, and a click while reading reads from there; paragraph numbers count only paragraphs that are read; the cost is asked once a session above 25 cents or when a price is not known; "Getting the voices from Google…"; Stop on a line's panel; a chapter with no dialogue says so (and that only double quotation marks count); a damaged kept piece is made again; leaving says it stopped; a pace for each voice; "Others in the book". Found in the running app: the voice rows were squeezed — two lines now | ⚠️ Ron to look: the colours of speakers and the narrator's grey, the highlight while reading |
-| 9.6 | **The audiobook** — export the book as audio: a file per chapter (MP3), chapter titles read, a list of chapters; later one file with chapter marks (M4B) | `Core/Services/Export` | | to plan with Ron |
-| 9.7 | **Publish in different formats** (audio and text): the text exports (DOCX, EPUB, PDF, Markdown) and the audiobook from one place | | | to plan with Ron |
+| 9.6 | **The audiobook** — planned as phase 10 (Ron, 2026-11-06) | | | → phase 10 |
+| 9.7 | **Publish in different formats** (audio and text): the text exports (DOCX, EPUB, PDF, Markdown) and the audiobook from one place | | | → phase 10 (10.10) |
 | 9.8 | Single quotation marks for dialogue (‘…’, as many British books use) — told apart from apostrophes | `Dialogue.cs` | | to do |
-| 9.9 | Pronunciation of names (AI Manager's shared dictionary, plan A.5) | | | to do |
+| 9.9 | Pronunciation of names | | | → phase 10 (a list per book, Ron 2026-11-06) |
+
+## Phase 10 — The audiobook and name pronunciations (Ron, 2026-11-06) — planned, not built
+
+Ron, 2026-11-06 (after hearing a chapter read by the narrator alone: *"the read was very good"*): *"Let's plan the audiobook
+export next. We will want to be able to create by Chapter and put them together into a single file. We will need a strategy
+for name pronunciations."*
+
+**Decided with Ron (2026-11-06):**
+1. **Per chapter, then one file:** an MP3 for every chapter (what the stores take), and **one M4B** with chapter marks (the
+   audiobook format: Apple Books and most audiobook players jump between chapters). Made with **Windows' own encoder** (Media
+   Foundation, through NAudio, MIT) — nothing else to install, nothing GPL shipped.
+2. **Names: a list kept with the book, drafted by the AI.** Each name, place or invented word with **"say it as"** — a plain
+   respelling (*oh-leh-meh-LOO-kway*) that every voice can read — and, where the voice takes it, **exact phonetics** (IPA;
+   Google's custom pronunciations, Chirp 3: HD in English (US) today). The AI proposes entries for every character, also-called
+   and place; the author **hears each one** in the narrator's voice and adjusts. The same list is used by Listen mode.
+3. **The store standard:** 192 kbps MP3 at 44.1 kHz, steady loudness, a short silence at the head and tail of each chapter,
+   opening and closing credits that say the narration is a **synthesized voice** (Google Play Books, Kobo and Apple Books
+   accept synthesized narration when it is declared; Audible/ACX does not take it from outside — the export says so).
+
+**What it costs and how long it is (the trilogy):** 162,878 words ≈ 950,000 characters ≈ 18 hours of audio. In Chirp 3: HD at
+Google's $30 per million characters that is about $28, and Google's first million characters each month are free — so the whole
+trilogy may cost little or nothing the first time. What has been heard in Listen mode is already paid for and reused.
+
+**How it will be built.** The chapter is read exactly as Listen mode reads it (the narrator, each character's voice, the
+speakers the author confirmed, the pronunciation list), but asked of Google as **WAV at 44,100 Hz** so it is encoded once, at
+the store's quality. Each chapter's audio is kept in the book's `audio\chapters\` (never versioned or exported, like the cache)
+with a note of the words it was made from, so **only chapters whose text, speakers, voices or pronunciations changed are made
+again**. Joining, silences, loudness and the M4B's chapter marks are worked out in Core (tested); the encoding is in the App
+(Windows only). A long export runs in the background with progress, can be stopped and picked up again, and says what it will
+cost before it starts.
+
+| # | Task | Targets | Done when | Status |
+|---|---|---|---|---|
+| 10.1 | **AI Manager 1.9.0:** `AiSpeechRequest.SampleRateHertz` (WAV at 44,100 Hz) and `Pronunciations` (phrase → IPA, sent as Google's custom pronunciations where the voice accepts them; otherwise left to the respelling); `AiVoice.AcceptsPronunciations` | `..\AiManager` | tests; one real call each | |
+| 10.2 | **Pronunciations list** (Core): `Book.Pronunciations` — word or name, "say it as", optional IPA, note; applied to the words sent to Google (whole words, case-aware, the longest first; IPA where the voice takes it, the respelling otherwise); part of the audio key, so a changed pronunciation is heard again | `Core/Models`, `Core/Services/Pronunciation.cs` | tests (whole words, "Dalgo's", longest first, case) | |
+| 10.3 | **Pronunciations page:** a node under the book; the list with **Hear it** (in the narrator's voice) for each, **+ Add a word**, **Suggest from the book (AI)…** (prompt `pronunciations`: the cast, also-calleds, places and capitalised words the book uses; returns respelling + IPA + why, marked as the AI's); words in Listen mode can be added from a right-click | `App` | | |
+| 10.4 | **A chapter's audio:** the chapter read part by part (as Listen), WAV pieces joined with natural pauses (a short one between sentences' pieces, longer at a paragraph, a scene break's own), the chapter title read first, 1 s of silence at the head and 3 s at the tail, loudness evened (RMS −20 dB, peaks below −3 dB), encoded to 192 kbps MP3 | `Core/Services/Audio` (joining, pauses, loudness), `App` (encoding) | tests on the PCM work; a real chapter | |
+| 10.5 | **Export audiobook…** (File menu and the Listen panel): which chapters (all / a part / chosen), the cost and time first, progress per chapter, Stop and carry on later, chapters that have not changed not made again | `App` | | |
+| 10.6 | **Credits:** an opening ("*{Title}*, written by {Author}. Narrated by a synthesized voice, Google {voice}.") and a closing ("This has been *{Title}* … The end."), in the narrator's voice, as their own tracks; wording editable | `App`, `Core` | | |
+| 10.7 | **One M4B:** every chapter's audio in order, in one AAC file with **chapter marks** (the chapter titles), the cover picture and the book's details (title, author, narrator "Synthesized voice", year) | `Core` (chapter marks), `App` (encoding) | a player shows the chapters | |
+| 10.8 | **The output folder:** `Documents\AuthorPlus\Audiobooks\{Title}\` — `00 Opening credits.mp3`, `01 {chapter}.mp3` …, `99 Closing credits.mp3`, `{Title}.m4b`, a `chapters.txt` (titles and times), and a short **"Where to publish"** note (Google Play Books, Kobo, Apple Books: declare a synthesized voice; not Audible/ACX) | `App` | | |
+| 10.9 | UX review; Ron's hand-test with a part of the trilogy | | | |
+| 10.10 | **Publish (audio and text) from one place:** one window for the book's exports — DOCX, EPUB, PDF, Markdown and the audiobook — with what each is for | `App` | | later |
 
 ## Every release — AI Manager and the manual-test build (Ron, 2026-10-11)
 
