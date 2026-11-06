@@ -352,7 +352,7 @@ Phases 6–10 go to the Store as 1.1.0. The steps and the text to paste are in `
 | R11.2 | The submission package `artifacts\AuthorPlus_1.1.0.0_x64_bundle.msixupload` (80.4 MB) with the real identity; family name checked; NAudio and AI Manager inside | Ron uploads it first (his request) | ⚠️ built 2026-11-06 — Ron to upload |
 | R11.3 | WACK on the 1.1.0 bundle | PASS | ⚠️ PASS 2026-11-06 (overall), on 1.1.0.0 |
 | R11.4 | Privacy policy covers the voices (Google Cloud Text-to-Speech: what is sent, where, the audio kept in the book folder) | deployed | ⚠️ live 2026-11-06 |
-| R11.5 | Listing: What's new, the description's two new parts, four features, six screenshots (`store\screenshots-1.1`), the certification note on the voices | pasted in Partner Center | ⚠️ Ron |
+| R11.5 | Listing: What's new, the description's two new parts, four features, six screenshots (`store\screenshots-1.1`), the certification note on the voices | pasted in Partner Center | ⚠️ done 2026-11-06; **submitted for certification 2026-11-06** (Ron: "you can complete the remainder of the publish") — publishes as soon as it passes |
 | R11.6 | Ron's hand-test of the rounds M–W (`manual-test\AuthorPlus.exe`) before submitting | | ⚠️ Ron |
 | R11.7 | After it is live: SoftwarePlus.ai's Author+ page (the modes, voices, audiobook; the examples of 10.12), the home tile's version, tag `v1.1.0` | | after |
 

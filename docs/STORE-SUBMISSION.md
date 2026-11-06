@@ -22,8 +22,10 @@ Statistle, so most of the identity is already known.
 | ☑ | WACK on the 1.1.0 bundle — **PASS**, 23 of 24 (the one failure, Blocked executables, is optional — as in 1.0.0) | 2026-11-06 |
 | ☑ | Privacy policy updated for the voices (Google Cloud Text-to-Speech) and deployed | https://softwareplus.ai/author/privacy/ — 2026-11-06 |
 | ☐ | Ron's hand-test of `manual-test\AuthorPlus.exe` (rounds 2026-11-06: M–W) | before submitting |
-| ☐ | Store listing: What's new, the description's new parts, features, screenshots (below) | Partner Center |
-| ☐ | Notes for certification: the voices paragraph (below) | Partner Center |
+| ☑ | Package uploaded by Ron; validated | 2026-11-06 |
+| ☑ | Store listing: What's new, the description's two new parts, features 17–20, ten screenshots (the six new first, then 1.0's write-a-chapter, AI analysis, characters chart, plotlines chart) | 2026-11-06 (search terms left as they were) |
+| ☑ | Notes for certification: the voices paragraph (Additional Testing Information) | 2026-11-06 |
+| ☑ | **Submitted for certification** — "Update in certification", publishes as soon as it passes | 2026-11-06 |
 | ☐ | After it is live: SoftwarePlus.ai page, the examples (plan 10.12), tag `v1.1.0` | §12 |
 
 **Packages:** upload `AuthorPlus_1.1.0.0_x64_bundle.msixupload`; remove the 1.0.0 package from the submission if Partner Center
