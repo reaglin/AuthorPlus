@@ -2483,7 +2483,7 @@ public partial class MainWindow : Window, ISuggestionActions
         var run = new AiRunWindow(_ai, _book, item.OwnerId, ItemKind.Suggestions, $"Ask again — {aspect}", "Suggestions", AiPrompts.SuggestionRefine,
             $"Fresh rewrites of the same passage, aimed at what you said you are conveying{(form.Intent.Length > 0 ? ": " + form.Intent : "")}. " +
             (item.Kind == ItemKind.ParagraphAnalysis
-                ? "They are added to this paragraph's read, under the one you asked about, so you can compare them."
+                ? "They are added to this paragraph's suggestions, under the one you asked about, so you can compare them."
                 : "They are added to this same Suggestions item, under the one you asked about, so you can compare them."),
             provider => _ai.Prompts.Get(AiPrompts.SuggestionRefine).Bind(values, provider), ConfirmSend,
             nextLabel: "Next: compare the new suggestions →",

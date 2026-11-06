@@ -127,7 +127,7 @@ public partial class MainWindow
         foreach (var (mode, label, tip) in new[]
         {
             (EditorMode.Write,      "✎  Write",      "Write mode (Ctrl+1): the editing tools — type, format, find and replace."),
-            (EditorMode.Analyze,    "¶  Analysis",   "Analysis mode (Ctrl+2): click the ¶ beside a paragraph for the AI's read and rewrites of it; the chapter's summary, characters, plotlines and analysis are in the panel."),
+            (EditorMode.Analyze,    "¶  Analysis",   "Analysis mode (Ctrl+2): click the ¶ beside a paragraph to analyze it or get suggestions for it; the chapter's summary, characters, plotlines and analysis are in the panel."),
             (EditorMode.Characters, "👤  Characters", "Characters mode (Ctrl+3): every character's name coloured where the text uses it; click a name to open their form beside the text.")
         })
         {
@@ -157,7 +157,7 @@ public partial class MainWindow
         {
             Text = _mode switch
             {
-                EditorMode.Analyze    => "Click a paragraph (or the ¶ beside it) for its read and rewrites. The whole chapter's summary, characters, plotlines and analysis are on the right. The text is read-only here — double-click to go back to writing there.",
+                EditorMode.Analyze    => "Click a paragraph (or the ¶ beside it) to analyze it or get suggestions for it. The whole chapter's summary, characters, plotlines and analysis are on the right. The text is read-only here — double-click to go back to writing there.",
                 EditorMode.Characters => "Each character is coloured wherever the text names them; click a name for their form on the right. Dotted underlines are names that are not characters yet. The text is read-only here — double-click to go back to writing there.",
                 _                     => "The editing tools. Analysis has the AI's read of a paragraph or the chapter; Characters shows who is named where."
             },
@@ -355,10 +355,10 @@ public partial class MainWindow
 
     private static (Brush Fill, string Word) StateLook(ParagraphState s) => s switch
     {
-        ParagraphState.Read => (StateRead, "read"),
-        ParagraphState.Open => (StateOpen, "rewrites waiting"),
+        ParagraphState.Read => (StateRead, "analysed"),
+        ParagraphState.Open => (StateOpen, "suggestions waiting"),
         ParagraphState.Done => (StateDone, "dealt with"),
-        _                   => (StateNone, "not read yet")
+        _                   => (StateNone, "not looked at yet")
     };
 
     // ── Marks over the text ───────────────────────────────────────────────────
@@ -664,8 +664,8 @@ public partial class MainWindow
             legend.Children.Add(new TextBlock { Text = word, Margin = new Thickness(0, 0, 12, 0), FontSize = 12, VerticalAlignment = VerticalAlignment.Center });
         }
         var paraBody = new StackPanel();
-        paraBody.Children.Add(Body(_readable.Count == 0 ? "This chapter has no paragraphs to read yet."
-                                   : $"{read} of {_readable.Count} paragraphs read" + (open > 0 ? $" · {open} with rewrites waiting." : ".")));
+        paraBody.Children.Add(Body(_readable.Count == 0 ? "This chapter has no paragraphs to look at yet."
+                                   : $"{read} of {_readable.Count} paragraphs looked at" + (open > 0 ? $" · {open} with suggestions waiting." : ".")));
         paraBody.Children.Add(legend);
         var gone = reads.TryGetValue(-1, out var orphans) ? orphans.Count : 0;
         if (gone > 0)
@@ -679,9 +679,9 @@ public partial class MainWindow
         if (_readable.Count > 0)
         {
             int next = Enumerable.Range(0, _readable.Count).FirstOrDefault(i => !reads.ContainsKey(i), -1);
-            if (next >= 0) nextButtons.Add(PanelButton("Go to the first one not read", "Opens that paragraph here and scrolls the text to it", () => OpenParagraph(next, scroll: true)));
+            if (next >= 0) nextButtons.Add(PanelButton("Go to the first one not looked at", "Opens that paragraph here and scrolls the text to it", () => OpenParagraph(next, scroll: true)));
             int waiting = Enumerable.Range(0, _readable.Count).FirstOrDefault(i => reads.TryGetValue(i, out var r) && ParagraphReads.StateOf(r.Select(x => x.Read)) == ParagraphState.Open, -1);
-            if (waiting >= 0) nextButtons.Add(PanelButton("Go to rewrites waiting", "Opens the first paragraph with rewrites you have not acted on", () => OpenParagraph(waiting, scroll: true)));
+            if (waiting >= 0) nextButtons.Add(PanelButton("Go to suggestions waiting", "Opens the first paragraph with suggestions you have not acted on", () => OpenParagraph(waiting, scroll: true)));
             if (nextButtons.Count == 0) nextButtons.Add(PanelButton("Open paragraph 1", "Opens the first paragraph here; Next › walks through the rest", () => OpenParagraph(0, scroll: true)));
         }
         p.Children.Add(Card("¶  Paragraphs", paraBody, nextButtons.ToArray()));
@@ -760,42 +760,57 @@ public partial class MainWindow
         request.TextChanged += (_, _) => _paragraphRequest = request.Text;
         p.Children.Add(request);
         p.Children.Add(Hint("The AI judges the paragraph against what you write here. Leave it blank and it works out what the paragraph is reaching for."));
-        p.Children.Add(PanelButton(reads.Count == 0 ? "Read this paragraph (AI)…" : "Read it again (AI)…",
-            "What the paragraph is doing, what works, what to watch, and rewrites you can apply. Sends this paragraph, the three before it, the two after and the chapter's summary — not the whole chapter.",
-            () => ReadParagraph(ch, index, request.Text.Trim()), primary: true));
+
+        bool analysed = reads.Any(x => KindOfRead(x.Read) != ParagraphReadKind.Suggestions);
+        bool suggested = reads.Any(x => KindOfRead(x.Read) != ParagraphReadKind.Analysis);
+        var asks = new WrapPanel { Margin = new Thickness(0, 4, 0, 0) };
+        asks.Children.Add(PanelButton(analysed ? "Analyze it again (AI)…" : "Analyze this paragraph (AI)…",
+            "An analysis only — no changes: its tone, whether it is consistent with the paragraphs around it, its style, and what it achieves. " +
+            "Sends this paragraph, the three before it, the two after and the chapter's summary — not the whole chapter.",
+            () => ReadParagraph(ch, index, request.Text.Trim(), suggest: false), primary: true));
+        asks.Children.Add(PanelButton(suggested ? "More suggestions (AI)…" : "Suggest changes (AI)…",
+            "Changes, additions and readability fixes for this paragraph, each one you can apply to the chapter. " +
+            "Sends this paragraph, the three before it, the two after and the chapter's summary — not the whole chapter.",
+            () => ReadParagraph(ch, index, request.Text.Trim(), suggest: true), primary: true));
+        p.Children.Add(asks);
+        p.Children.Add(Hint("Analyze says how the paragraph reads: tone, consistency, style, what it achieves. Suggest offers changes, additions and readability fixes you can apply. Use either, or both."));
 
         if (reads.Count == 0)
         {
-            p.Children.Add(Hint("\nNot read yet. The read says what the paragraph is doing in the scene, what works and what to watch — pacing, clarity, voice, continuity with what comes before — " +
-                                "then offers rewrites. Apply puts one into the chapter; the ¶ turns green when you have dealt with them."));
+            p.Children.Add(Hint("\nNothing yet. After an analysis the ¶ turns blue; suggestions waiting turn it amber; Apply puts one into the chapter, and the ¶ turns green when you have dealt with them."));
             return Scroll(p);
         }
 
         foreach (var (read, exact) in reads)
         {
             _readSig[read.Id] = Sig(read);
+            var kind = KindOfRead(read);
             var box = new StackPanel();
             box.Children.Add(new TextBlock
             {
-                Text = $"{read.Provider ?? "AI"} · {read.CreatedUtc.ToLocalTime():yyyy-MM-dd HH:mm}" + (exact ? "" : "  ·  you have changed the paragraph since this read"),
+                Text = $"{read.Provider ?? "AI"} · {read.CreatedUtc.ToLocalTime():yyyy-MM-dd HH:mm}" + (exact ? "" : "  ·  you have changed the paragraph since this was made"),
                 Foreground = exact ? Brushes.Gray : StateOpen, FontSize = 11, Margin = new Thickness(0, 0, 0, 4), TextWrapping = TextWrapping.Wrap
             });
-            var readText = ParagraphReads.ReadPart(read.Body);
-            box.Children.Add(Body(readText.Length > 0 ? readText : "(The reply had no READ part — see the rewrites below.)", muted: readText.Length == 0));
-            if (read.Suggestions.Count == 0 && read.Body.Contains("SUGGESTION", StringComparison.OrdinalIgnoreCase)) read.Suggestions = SuggestionParser.Parse(read.Body);
+            var readText = kind == ParagraphReadKind.Analysis ? read.Body.Trim() : ParagraphReads.ReadPart(read.Body);
+            if (readText.Length > 0) box.Children.Add(Body(readText));
+            else if (kind == ParagraphReadKind.Combined) box.Children.Add(Body("(The reply had no READ part — see the rewrites below.)", muted: true));
+            if (read.Suggestions.Count == 0 && kind != ParagraphReadKind.Analysis && read.Body.Contains("SUGGESTION", StringComparison.OrdinalIgnoreCase)) read.Suggestions = SuggestionParser.Parse(read.Body);
+            if (kind == ParagraphReadKind.Suggestions && read.Suggestions.Count == 0)
+                box.Children.Add(Body("No suggestion could be read from the reply. Its text is below.\n\n" + read.Body.Trim(), muted: true));
             int n = 0;
             if (read.Suggestions.Count > 0)
             {
-                box.Children.Add(new TextBlock { Text = "Rewrites", FontWeight = FontWeights.SemiBold, Margin = new Thickness(0, 10, 0, 4) });
+                if (kind == ParagraphReadKind.Combined) box.Children.Add(new TextBlock { Text = "Rewrites", FontWeight = FontWeights.SemiBold, Margin = new Thickness(0, 10, 0, 4) });
                 foreach (var group in SuggestionsEditor.GroupByPassage(read.Suggestions))
                 {
                     n++;
-                    box.Children.Add(SuggestionsEditor.PassageBlock(read, ch, group, this, $"Rewrite {n}", $"R{n}", showChapterTitle: false));
+                    box.Children.Add(SuggestionsEditor.PassageBlock(read, ch, group, this, $"Passage {n}", $"P{n}", showChapterTitle: false));
                 }
             }
             var footer = new WrapPanel { Margin = new Thickness(0, 6, 0, 0) };
+            var noun = kind switch { ParagraphReadKind.Analysis => "analysis", ParagraphReadKind.Suggestions => "set of suggestions", _ => "read" };
             var done = new CheckBox { Content = "Dealt with", IsChecked = read.Resolved, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(0, 6, 12, 0),
-                                      ToolTip = "Tick when you have done what you mean to with this read; the ¶ turns green" };
+                                      ToolTip = $"Tick when you have done what you mean to with this {noun}; the ¶ turns green" };
             var target = read;
             done.Click += (_, _) =>
             {
@@ -806,9 +821,9 @@ public partial class MainWindow
                 ShowSidePanel();
             };
             footer.Children.Add(done);
-            footer.Children.Add(PanelButton("Delete this read", "Removes this read and its rewrites (the chapter text is not changed)", () =>
+            footer.Children.Add(PanelButton($"Delete this {noun}", $"Removes this {noun} (the chapter text is not changed)", () =>
             {
-                if (MessageBox.Show(this, "Delete this read of the paragraph, and its rewrites? The chapter text stays as it is.", "Delete read",
+                if (MessageBox.Show(this, $"Delete this {noun} of the paragraph? The chapter text stays as it is.", "Delete",
                                     MessageBoxButton.YesNo, MessageBoxImage.Question) != MessageBoxResult.Yes) return;
                 _book!.Items.Remove(target);
                 MarkDirty();
@@ -816,13 +831,23 @@ public partial class MainWindow
                 ShowSidePanel();
             }));
             box.Children.Add(footer);
-            p.Children.Add(Card("Read", box));
+            p.Children.Add(Card(kind switch { ParagraphReadKind.Analysis => "Analysis", ParagraphReadKind.Suggestions => "Suggestions", _ => "Read" }, box));
         }
         return Scroll(p);
     }
 
-    /// <summary>Sends one paragraph, with a few around it and the chapter's summary, for a read and rewrites.</summary>
-    private void ReadParagraph(Chapter ch, int index, string request)
+    private enum ParagraphReadKind { Analysis, Suggestions, Combined }
+
+    /// <summary>Which of the paragraph's two AI asks made this item; reads from the first build (read + rewrites in one) are Combined.</summary>
+    private static ParagraphReadKind KindOfRead(Item read) => read.PromptName switch
+    {
+        AiPrompts.ParagraphAnalyze => ParagraphReadKind.Analysis,
+        AiPrompts.ParagraphSuggest => ParagraphReadKind.Suggestions,
+        _                          => ParagraphReadKind.Combined
+    };
+
+    /// <summary>Sends one paragraph, with a few around it and the chapter's summary, for an analysis or for suggestions.</summary>
+    private void ReadParagraph(Chapter ch, int index, string request, bool suggest)
     {
         if (_book == null || index < 0 || index >= _readable.Count) return;
         if (!EnsureAiOrExplain()) return;
@@ -839,10 +864,15 @@ public partial class MainWindow
             request = request.Length > 0 ? request : "(not stated)",
             chapter_intent = IntentOf(ch)
         };
-        var dlg = new AiRunWindow(_ai, _book, ch.Id, ItemKind.ParagraphAnalysis, $"Read paragraph {index + 1} — \"{ch.Title}\"", $"¶ {index + 1}", AiPrompts.ParagraphRead,
-            "A read of this paragraph — what it is doing, what works, what to watch — and rewrites you can apply. It is shown beside the paragraph in Analysis mode and kept with the chapter. " +
-            "The prompt is \"paragraph-read\" in AI › Prompt Library.",
-            provider => _ai.Prompts.Get(AiPrompts.ParagraphRead).Bind(values, provider), ConfirmSend,
+        var prompt = suggest ? AiPrompts.ParagraphSuggest : AiPrompts.ParagraphAnalyze;
+        var dlg = new AiRunWindow(_ai, _book, ch.Id, ItemKind.ParagraphAnalysis,
+            suggest ? $"Suggest changes to paragraph {index + 1} — \"{ch.Title}\"" : $"Analyze paragraph {index + 1} — \"{ch.Title}\"",
+            suggest ? $"¶ {index + 1} suggestions" : $"¶ {index + 1} analysis", prompt,
+            (suggest
+                ? "Changes, additions and readability fixes for this paragraph, each one you can apply to the chapter. "
+                : "An analysis of this paragraph — its tone, consistency with what is around it, style, and what it achieves. It changes nothing. ") +
+            $"It is shown beside the paragraph in Analysis mode and kept with the chapter. The prompt is \"{prompt}\" in AI › Prompt Library.",
+            provider => _ai.Prompts.Get(prompt).Bind(values, provider), ConfirmSend,
             nextLabel: "Next: see it beside the paragraph →") { Owner = this };
         dlg.ShowDialog();
         if (dlg.Created.Count == 0) return;
@@ -850,14 +880,15 @@ public partial class MainWindow
         {
             item.Passage = text;
             item.ParagraphIndex = index;
-            item.Suggestions = SuggestionParser.Parse(item.Body);
+            item.Suggestions = suggest ? SuggestionParser.Parse(item.Body) : new();
             foreach (var s in item.Suggestions) { s.Provider = item.Provider; s.Model = item.Model; }
         }
         MarkDirty();
         _panelParagraph = index;
         RefreshMarks();
         ShowSidePanel();
-        UpdateStatus($"Paragraph {index + 1} read: {dlg.Created.Sum(i => i.Suggestions.Count)} rewrite(s) beside it.");
+        UpdateStatus(suggest ? $"Paragraph {index + 1}: {dlg.Created.Sum(i => i.Suggestions.Count)} suggestion(s) beside it."
+                             : $"Paragraph {index + 1} analysed: the analysis is beside it.");
     }
 
     // ── Characters: the cast of the chapter ───────────────────────────────────

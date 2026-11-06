@@ -35,18 +35,21 @@ M3. In Analysis and Characters the text cannot be typed into: type a letter — 
 
 ### N. Analysis mode (6.2, 6.3)
 N1. Every paragraph has a grey **¶** in the left margin (scene breaks and one- or two-word lines do not). Hover: it says
-    "not read yet". The panel on the right shows **This chapter**: Summary, Characters, Plotlines, Chapter analysis, Paragraphs.
+    "not looked at yet". The panel on the right shows **This chapter**: Summary, Characters, Plotlines, Chapter analysis, Paragraphs.
 N2. On a chapter with no summary: **Write the summary (AI)** — it is written, the card shows it, and you stay on the chapter.
     Do the same with **Find who is in it (AI)**, **Find its plotlines (AI)** and **Analyze the chapter (AI)…** / **One aspect ▾**.
     **Open** on a card opens that item in the tree.
-N3. Click a paragraph (or its **¶**) — the panel shows that paragraph, a band marks it in the text. Type what it should do (optional),
-    **Read this paragraph (AI)…**, Send Prompt, then **Next: see it beside the paragraph →**: the read and its rewrites are in
-    the panel; the ¶ is amber.
-N4. **Apply** a rewrite — the text changes in place, the box above says "The passage before your change"; when every rewrite
+N3. Click a paragraph (or its **¶**) — the panel shows that paragraph, a band marks it in the text. Type what it should do (optional).
+    There are two AI buttons (6.8):
+    - **Analyze this paragraph (AI)…**, Send Prompt, **Next: see it beside the paragraph →** — an **Analysis** card with TONE,
+      CONSISTENCY, STYLE and WHAT IT ACHIEVES, and no rewrites; the ¶ is blue ("analysed").
+    - **Suggest changes (AI)…** the same way — a **Suggestions** card: changes, additions and readability fixes, each one you
+      can apply (open one: its "why" starts [Change], [Addition] or [Readability]); the ¶ is amber ("suggestions waiting").
+N4. **Apply** a suggestion — the text changes in place, the box above says "The passage before your change"; when every rewrite
     is applied, marked or resolved the ¶ turns green ("dealt with"). **Undo apply** puts the original back. **Dealt with**
     turns it green by hand. **‹ Previous / Next ›** walk the paragraphs.
-N5. Switch to Write, change a few words of a read paragraph, back to Analysis — the read is still on it, marked "the paragraph
-    has changed since this read". **Delete this read** removes it (the text stays).
+N5. Switch to Write, change a few words of an analysed paragraph, back to Analysis — the analysis is still on it, marked "you have
+    changed the paragraph since this was made". **Delete this analysis** / **Delete this set of suggestions** removes it (the text stays).
 N6. Close and reopen the book: the reads and colours are still there. The tree does not list the reads.
 
 ### P. Character mode (6.4)

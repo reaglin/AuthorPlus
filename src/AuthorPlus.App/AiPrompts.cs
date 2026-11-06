@@ -31,6 +31,9 @@ public static class AiPrompts
     public const string ContinuityCheck     = "continuity-check";
     public const string PlotAnalysis        = "plot-analysis";
     public const string StyleRead           = "style-read";
+    public const string ParagraphAnalyze    = "paragraph-analysis";
+    public const string ParagraphSuggest    = "paragraph-suggestions";
+    /// <summary>The 2026-11-06 build's single read-and-rewrites prompt; reads made with it are still shown.</summary>
     public const string ParagraphRead       = "paragraph-read";
 
     /// <summary>Deep single-aspect analyses, keyed by the aspect name shown on the analysis cards.</summary>
@@ -195,23 +198,40 @@ public static class AiPrompts
             description: "Rewrites of a passage the author picked themselves — by selecting it in the editor or choosing paragraphs — guided by what they say it is for.",
             maxTokens: 8000),
 
-        new PromptTemplate(ParagraphRead,
+        new PromptTemplate(ParagraphAnalyze,
             system: Purpose +
-                    "You are a line editor reading ONE paragraph of the author's chapter, with the paragraphs around it for context. " +
-                    "First, under the heading READ:, give 2–5 short bullet points: what the paragraph is doing in the scene, what works, and anything to watch — " +
-                    "pacing, clarity, voice, rhythm, continuity with what comes just before. Quote the words you mean. No praise padding. " +
-                    "If the author has said what the paragraph should do, judge it against that. " +
-                    "Then offer 1–4 rewrites, of the whole paragraph or of single sentences in it, wherever the work is; if the paragraph already does its job, say so in READ and offer at most one. " +
-                    "Every ORIGINAL must be quoted from the paragraph itself, never from the paragraphs around it.\n\n" +
-                    "Reply in exactly this shape and nothing else:\n\nREAD:\n- …\n- …\n\n" +
-                    "SUGGESTION 1\nORIGINAL:\n<the words exactly as they appear in the paragraph, copied character for character — no ellipses, no paraphrase>\n" +
-                    "REWRITE:\n<the replacement in the author's own voice>\nWHY:\n<one or two sentences on what it does>\n\nSUGGESTION 2\n…\n\n" +
-                    "The ORIGINAL must be a verbatim quotation so it can be found and replaced. Do not add plot the text does not have.",
+                    "You are a line editor analysing ONE paragraph of the author's chapter, with the paragraphs around it for context. " +
+                    "Do not rewrite anything and do not suggest changes — this is an analysis only. Under each of these four headings give 1–3 short bullet points, quoting the words you mean:" + "\n\n" +
+                    "TONE:\n- the mood and attitude of the paragraph, and whether it is the one the scene needs\n" +
+                    "CONSISTENCY:\n- whether it agrees with the paragraphs before and after: tone, tense, point of view, facts, names, what a character knows\n" +
+                    "STYLE:\n- sentence rhythm and length, word choice, imagery, voice, habits worth noticing\n" +
+                    "WHAT IT ACHIEVES:\n- what the paragraph does for the scene and the story, and whether it does it\n\n" +
+                    "If the author has said what the paragraph should do, judge it against that under WHAT IT ACHIEVES. No praise padding; if something works, say why in a few words. " +
+                    "Reply with the four headings and their bullets and nothing else.",
             user:   "Book: {book}\nChapter: {chapter}\n\nWhat the chapter is about (its summary; may be blank):\n{summary}\n\n" +
-                    "The paragraphs just before:\n{before}\n\nTHE PARAGRAPH TO READ (paragraph {number} of {count}):\n{paragraph}\n\n" +
+                    "The paragraphs just before:\n{before}\n\nTHE PARAGRAPH (paragraph {number} of {count}):\n{paragraph}\n\n" +
                     "The paragraphs just after:\n{after}\n\nWhat the author wants this paragraph to do (may be blank):\n{request}\n\n" +
                     "What the author is aiming for in this chapter (may be blank):\n{chapter_intent}",
-            description: "Analysis mode: a read of one paragraph (what it does, what works, what to watch) and rewrites of it, from the ¶ beside the paragraph. Sends the paragraph, a few around it and the chapter summary — not the whole chapter.",
+            description: "Analysis mode: an analysis of one paragraph — its tone, consistency with what is around it, style, and what it achieves. No rewrites. Sends the paragraph, a few around it and the chapter summary — not the whole chapter.",
+            maxTokens: 2500),
+
+        new PromptTemplate(ParagraphSuggest,
+            system: Purpose +
+                    "You are a line editor improving ONE paragraph of the author's chapter, with the paragraphs around it for context. " +
+                    "Offer 2–5 suggestions that make it read better: changes (a clearer, tighter or more vivid way to say something), additions (a detail, a beat, a line of " +
+                    "dialogue or a transition the paragraph is missing) and readability fixes (long or tangled sentences, unclear references, repetition, rhythm). " +
+                    "If the author has said what the paragraph should do, aim the suggestions at that. Stay in the author's voice and inside the facts of the story. " +
+                    "Every ORIGINAL must be quoted from the paragraph itself, never from the paragraphs around it. For an addition, ORIGINAL is the sentence it follows " +
+                    "and REWRITE is that sentence with the new words after it, so it can be put in place." + "\n\n" +
+                    "Reply in exactly this shape and nothing else:\n\n" +
+                    "SUGGESTION 1\nORIGINAL:\n<the words exactly as they appear in the paragraph, copied character for character — no ellipses, no paraphrase>\n" +
+                    "REWRITE:\n<the replacement in the author's own voice>\nWHY:\n<start with [Change], [Addition] or [Readability], then one or two sentences on what it does>\n\nSUGGESTION 2\n…\n\n" +
+                    "The ORIGINAL must be a verbatim quotation so it can be found and replaced. Do not add plot the text does not have.",
+            user:   "Book: {book}\nChapter: {chapter}\n\nWhat the chapter is about (its summary; may be blank):\n{summary}\n\n" +
+                    "The paragraphs just before:\n{before}\n\nTHE PARAGRAPH (paragraph {number} of {count}):\n{paragraph}\n\n" +
+                    "The paragraphs just after:\n{after}\n\nWhat the author wants this paragraph to do (may be blank):\n{request}\n\n" +
+                    "What the author is aiming for in this chapter (may be blank):\n{chapter_intent}",
+            description: "Analysis mode: suggestions for one paragraph — changes, additions and readability fixes, each one you can apply. Sends the paragraph, a few around it and the chapter summary — not the whole chapter.",
             maxTokens: 4000),
 
         new PromptTemplate(SuggestionRefine,
