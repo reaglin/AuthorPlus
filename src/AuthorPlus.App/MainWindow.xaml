@@ -22,6 +22,7 @@
         <KeyBinding Key="D3" Modifiers="Ctrl" Command="{x:Static local:MainWindow.AnalyzeModeCommand}"/>
         <KeyBinding Key="D4" Modifiers="Ctrl" Command="{x:Static local:MainWindow.CharactersModeCommand}"/>
         <KeyBinding Key="D5" Modifiers="Ctrl" Command="{x:Static local:MainWindow.PlotlinesModeCommand}"/>
+        <KeyBinding Key="D6" Modifiers="Ctrl" Command="{x:Static local:MainWindow.ListenModeCommand}"/>
     </Window.InputBindings>
 
     <DockPanel>
@@ -102,6 +103,8 @@
                           ToolTip="Every character's name coloured in the chapter; click one for them in this chapter, in the book, and their form"/>
                 <MenuItem Header="_Plotlines Mode" x:Name="MnuPlotlinesMode" IsCheckable="True" Command="{x:Static local:MainWindow.PlotlinesModeCommand}" InputGestureText="Ctrl+5"
                           ToolTip="The plotlines in this chapter, their key moments marked in the text; each one in this chapter and across the book"/>
+                <MenuItem Header="_Listen Mode" x:Name="MnuListenMode" IsCheckable="True" Command="{x:Static local:MainWindow.ListenModeCommand}" InputGestureText="Ctrl+6"
+                          ToolTip="The chapter read aloud by Google voices — the narrator's and each character's; who says each line of dialogue"/>
                 <Separator/>
                 <MenuItem Header="_Find and Replace" Click="Find_Click" InputGestureText="Ctrl+F"/>
                 <Separator/>

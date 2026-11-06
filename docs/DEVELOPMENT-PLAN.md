@@ -266,6 +266,37 @@ Ctrl+2 to Ctrl+3, Characters from Ctrl+3 to Ctrl+4) and on the View menu.
 | 8.7 | Core: `PlotlineAnalyses` (latest per chapter and book, the chapter's threads, key moments as the ways to find them), `Book.AddToChapter`, `WritingStyles`, `CreatedText` (the AI's reply as paragraphs); the heading parser no longer takes "Characters gather…" as a heading | `Core/Services/*`, `tests/…/CreateAndPlotlinesTests.cs` | 11 new tests; 178 in all, green | ⚠️ built 2026-11-06 |
 | 8.8 | UX review (walkthrough + heuristics, 2026-11-06): 1 severity-3, 7 severity-2, 4 severity-1 | | **Fixed:** Take it out again after a mode switch removed nothing (it finds the text again now); take-out kept until the chapter is left; "Just before / Just after" labels; no paragraph numbers in Create (they differed from Analysis); new text styled like an ordinary paragraph, not a scene break; ‹ Earlier place / Later place › and "At the start" for the keyboard; Whose story asks, links chapters and says what it did, and is in the panel's *Its page* too; the story's summary from the story arc; edited drafts are not thrown away without asking; styles kept only when the AI ran; "See {name} in this chapter"; the not-found line wraps; a clearer green band; "analyzed". A new chapter now has a read-first step too (8.3) | ⚠️ Ron to look: the + marks between close paragraphs, overlapping washes of two threads, the green band |
 
+## Phase 9 — Voices: Listen mode and the audiobook (Ron, 2026-11-06)
+
+Ron, 2026-11-06: *"This is the biggest addition to the book, it is voices. We plan to have the ability to create an audiobook
+from the book and use Google TTS voices for the characters. To do this we need connectivity to Google TTS, the ability to assign
+voices to speaking characters and the selection of a narrator voice. There will be other requirements as we progress, we will want
+the ability to listen to a chapter, and to publish in different formats (audio and text)."* This brings forward
+"Version 2 — Audio" below.
+
+**Decided with Ron (2026-11-06):** Google is reached through **AI Manager 1.8.0** (its Phase 5), with a **Google API key first**
+and a service-account file accepted too (CourseBuilder+'s can be imported); a **🔊 Listen mode** (the sixth, Ctrl+6); the **AI marks
+who says each line, the author confirms** or changes it.
+
+**How it is built.** `Book.NarratorVoice`, `Book.VoiceLanguage` and `Character.Voice` (`VoiceChoice`: a Google voice name and
+pace). Who says each line of a chapter is an item of the chapter (`ItemKind.ChapterSpeakers`, its `Lines`), each line found again
+by its words and which time they are said; the author's choice is never overwritten by the AI. A chapter is read as parts
+(`Dialogue.Plan`): narration in the narrator's voice, each line in its speaker's (the narrator's when they have no voice). Every
+spoken part is kept in the book's `audio\cache` folder under a key of voice, pace and words, so it is paid for once; `audio\` is
+never versioned (the book's `.gitignore`, added to older books when they open) and never in an Export Project file.
+
+| # | Task | Targets | Acceptance | Status |
+|---|---|---|---|---|
+| 9.1 | **AI Manager 1.8.0 — text to speech** (in `..\AiManager`): the Google credential (API key or service account) in AI Settings with step-by-step help and Test; the voice list; speaking long text in pieces under Google's 5,000-byte limit; prices and the usage ledger; a voice chooser with **Hear it** | `..\AiManager` (its plan, Phase 5) | its tests; ⚠️ a real Google key | ⚠️ built 2026-11-06 (AiManager `7c3c33f`; 170 + 219 tests) — it found CourseBuilder+'s service account and imported it; 2,066 voices listed, one line spoken. Ron: make an **API key** (AI Settings ▸ Voices ▸ How?) and Test — that path has not met Google yet |
+| 9.2 | **Voices.** The narrator's voice (Listen panel) and each character's (Listen panel and their page): **Choose…** opens the voice chooser — language, kind of voice and its price, Hear it; **Use the narrator's** | `MainWindow.Listen.cs`, `Book.cs`, `BookStore.cs` | tests (round trip) | ⚠️ built 2026-11-06 — Ron to try (V1–V2) |
+| 9.3 | **Who speaks.** Every line of dialogue (in double quotation marks; a speech left open runs to the end of its paragraph) coloured by its speaker in Listen mode, dotted when not known; **Find who speaks (AI)…** (prompt `dialogue-speakers`: the chapter with each line numbered, the cast); click a line: **Who says it?** — a character, the narrator, or someone new (added as a character); ‹ › and **Next not known** | `Core/Services/Dialogue.cs`, `MainWindow.Listen.cs` | 9 new tests; 187 in all, green | ⚠️ built 2026-11-06 — Ron to try (V3–V4) |
+| 9.4 | **Listen.** **▶ Play** from the clicked paragraph (or the start), **■ Stop**; the piece being read highlighted and followed; the next piece fetched while one plays; what it will cost before playing (characters not heard before × the voice's price) and what was spent | `MainWindow.Listen.cs`, `ChapterOverlay.cs` | tried 2026-11-06 on the sample book: the AI marked both of Tom's lines; played with Charon (narrator) and Algenib (Tom), the paragraph being read highlighted, about $0.01; afterwards only the parts not yet heard were counted | ⚠️ built 2026-11-06 — Ron to try (V5–V6) |
+| 9.5 | UX review of Listen mode (walkthrough + heuristics, 2026-11-06): 3 severity-3, 6 severity-2, 3 severity-1 | | **Fixed:** Stop no longer rebuilt under the mouse while reading (only the status line changes), Space plays/stops and Esc stops; a new character takes every line the AI gave that name; a speaker stays with their line when the same words are added earlier (the words around a line are kept with it); a correction stays on its line; ▶ in the margin where Play starts, and a click while reading reads from there; paragraph numbers count only paragraphs that are read; the cost is asked once a session above 25 cents or when a price is not known; "Getting the voices from Google…"; Stop on a line's panel; a chapter with no dialogue says so (and that only double quotation marks count); a damaged kept piece is made again; leaving says it stopped; a pace for each voice; "Others in the book". Found in the running app: the voice rows were squeezed — two lines now | ⚠️ Ron to look: the colours of speakers and the narrator's grey, the highlight while reading |
+| 9.6 | **The audiobook** — export the book as audio: a file per chapter (MP3), chapter titles read, a list of chapters; later one file with chapter marks (M4B) | `Core/Services/Export` | | to plan with Ron |
+| 9.7 | **Publish in different formats** (audio and text): the text exports (DOCX, EPUB, PDF, Markdown) and the audiobook from one place | | | to plan with Ron |
+| 9.8 | Single quotation marks for dialogue (‘…’, as many British books use) — told apart from apostrophes | `Dialogue.cs` | | to do |
+| 9.9 | Pronunciation of names (AI Manager's shared dictionary, plan A.5) | | | to do |
+
 ## Every release — AI Manager and the manual-test build (Ron, 2026-10-11)
 
 Ron: *"the new releases will need to update to the latest version and this will be something that

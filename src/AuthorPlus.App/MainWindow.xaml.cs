@@ -269,6 +269,7 @@ public partial class MainWindow : Window, ISuggestionActions
             ItemKind.CharacterInBook     => "👤",
             ItemKind.PlotlineInChapter   => "🧵",
             ItemKind.PlotlineInBook      => "🧵",
+            ItemKind.ChapterSpeakers     => "🔊",
             ItemKind.Outline             => "☰",
             _                            => "📝"
         },
@@ -352,7 +353,7 @@ public partial class MainWindow : Window, ISuggestionActions
     {
         var node = Node(chapter);
         // Paragraph reads and character analyses are reached from the chapter's modes (and a character's page), not the tree.
-        foreach (var item in _book!.ItemsOf(chapter.Id).Where(i => i.Kind is not (ItemKind.ParagraphAnalysis or ItemKind.CharacterInChapter or ItemKind.PlotlineInChapter))) node.Items.Add(ItemNode(item));
+        foreach (var item in _book!.ItemsOf(chapter.Id).Where(i => i.Kind is not (ItemKind.ParagraphAnalysis or ItemKind.CharacterInChapter or ItemKind.PlotlineInChapter or ItemKind.ChapterSpeakers))) node.Items.Add(ItemNode(item));
         return node;
     }
 
@@ -587,7 +588,8 @@ public partial class MainWindow : Window, ISuggestionActions
                     ItemKind.Summary => "Summary", ItemKind.Analysis => "Analysis", ItemKind.CharactersInChapter => "Chapter Characters",
                     ItemKind.ChapterPlotlines => "Chapter Plotlines", ItemKind.Suggestions => "Suggestions", ItemKind.Outline => "Outline", ItemKind.ParagraphAnalysis => "Paragraph read",
                     ItemKind.CharacterInChapter => "Character analysis", ItemKind.CharacterInBook => "Character analysis",
-                    ItemKind.PlotlineInChapter => "Plotline analysis", ItemKind.PlotlineInBook => "Plotline analysis", _ => "Notes"
+                    ItemKind.PlotlineInChapter => "Plotline analysis", ItemKind.PlotlineInBook => "Plotline analysis",
+                    ItemKind.ChapterSpeakers => "Who speaks", _ => "Notes"
                 } + " of " + OwnerLabel(it);
                 TxtName.Text = it.Kind == ItemKind.Summary ? "Summary" : it.Title;
                 Editor.Content = BuildItemEditor(it);
@@ -821,6 +823,10 @@ public partial class MainWindow : Window, ISuggestionActions
         profile.Click += AiCharacter_Click;
         buttons.Children.Add(scan); buttons.Children.Add(profile);
         panel.Children.Add(buttons);
+
+        // Their voice, for Listen mode and audiobooks.
+        panel.Children.Add(new TextBlock { Text = "Voice", FontWeight = FontWeights.SemiBold, Margin = new Thickness(0, 16, 0, 2) });
+        panel.Children.Add(VoiceRow(c.Name, null, c.Voice, $"Reads what {c.Name} says in Listen mode and audiobooks", v => { c.Voice = v; MarkDirty(); ShowCurrent(); }));
 
         // The AI's analysis of them: across the book, and in each chapter (Characters mode makes the chapter ones).
         if (!inPanel)

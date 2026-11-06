@@ -43,6 +43,10 @@ public sealed class Book
 
     /// <summary>Capitalised names the author said are not characters (a place, a boat); Character mode stops marking them.</summary>
     public List<string>        NotNames   { get; set; } = new();
+    /// <summary>The voice that reads everything that is not a character's speech (Listen mode, audiobooks). Null = not chosen yet.</summary>
+    public VoiceChoice?        NarratorVoice { get; set; }
+    /// <summary>The language the book is read in, for choosing voices ("en-US").</summary>
+    public string              VoiceLanguage { get; set; } = "en-US";
 
     /// <summary>Absolute folder the book was loaded from / saved to. Not serialised.</summary>
     [JsonIgnore] public string FolderPath { get; set; } = string.Empty;
@@ -347,6 +351,11 @@ public enum ItemKind
     /// holds the plotline. Not shown in the tree.
     /// </summary>
     PlotlineInChapter,
+    /// <summary>
+    /// Who says each line of dialogue in a chapter (<see cref="Item.Lines"/>), as the AI marked it and the
+    /// author confirmed or changed it. One per chapter, owned by it; not shown in the tree.
+    /// </summary>
+    ChapterSpeakers,
     /// <summary>One plotline across the book: summary, progression, characters, convergences. Owned by the plotline.</summary>
     PlotlineInBook
 }
@@ -381,6 +390,9 @@ public sealed class Item
     public string     Passage        { get; set; } = string.Empty;
     public int?       ParagraphIndex { get; set; }
 
+    /// <summary>For <see cref="ItemKind.ChapterSpeakers"/>: each line of dialogue and who says it.</summary>
+    public List<SpokenLine> Lines { get; set; } = new();
+
     /// <summary>For <see cref="ItemKind.Suggestions"/>: the structured suggestions (the Body keeps the raw reply).</summary>
     public List<SuggestionEntry> Suggestions { get; set; } = new();
 
@@ -389,6 +401,37 @@ public sealed class Item
     public DateTime? ResolvedUtc { get; set; }
 
     [JsonIgnore] public bool IsAiMade => !string.IsNullOrEmpty(Provider);
+}
+
+/// <summary>A Google voice chosen for the narrator or a character, and how fast it reads.</summary>
+public sealed class VoiceChoice
+{
+    /// <summary>The voice's name ("en-US-Chirp3-HD-Charon").</summary>
+    public string Name { get; set; } = string.Empty;
+    /// <summary>0.25–2.0; 1 is the voice's own pace.</summary>
+    public double SpeakingRate { get; set; } = 1.0;
+    /// <summary>What the author saw when choosing it ("Charon — Chirp 3: HD, male (en-US)").</summary>
+    public string Label { get; set; } = string.Empty;
+}
+
+/// <summary>
+/// One line of dialogue in a chapter and who says it. A line is found again by its words and which
+/// time those words come in the chapter (the same "Yes." can be said by two people).
+/// </summary>
+public sealed class SpokenLine
+{
+    /// <summary>The words inside the quotation marks, spaces tidied (see <c>Dialogue.Key</c>).</summary>
+    public string Quote { get; set; } = string.Empty;
+    /// <summary>0 for the first time these words are said in the chapter, 1 for the second…</summary>
+    public int Occurrence { get; set; }
+    /// <summary>The words around the line in its paragraph (see <c>Dialogue.Context</c>), so it is found again when an earlier "Yes." is added.</summary>
+    public string Context { get; set; } = string.Empty;
+    /// <summary>Who says it; null = the narrator reads it (or no one is known yet, see <see cref="SpeakerName"/>).</summary>
+    public Guid? CharacterId { get; set; }
+    /// <summary>The name the AI gave when it is no character of the book yet ("the ferryman").</summary>
+    public string? SpeakerName { get; set; }
+    /// <summary>The author chose this speaker (the AI never overwrites it).</summary>
+    public bool ByAuthor { get; set; }
 }
 
 public enum SuggestionStatus
@@ -449,6 +492,8 @@ public sealed class Character
     public string Notes       { get; set; } = string.Empty;
     /// <summary>Other names the text uses for this character ("Lucy", "Detective Dalgo"), one per line.</summary>
     public string Aliases     { get; set; } = string.Empty;
+    /// <summary>The voice their speech is read in (Listen mode, audiobooks). Null = the narrator's.</summary>
+    public VoiceChoice? Voice { get; set; }
 
     /// <summary>
     /// What the character does in each chapter they are in: they arrive, they are about, or they

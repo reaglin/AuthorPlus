@@ -40,6 +40,9 @@ public sealed class ChapterOverlay : Adorner
     private int _selected = -1;
     private object? _selectedTarget;
     private NameMark? _currentMark;
+    private TextPointer? _speakStart, _speakEnd;
+    private Paragraph? _startPara;
+    private static readonly Brush Speaking = new SolidColorBrush(Color.FromArgb(0x55, 0xFF, 0xD5, 0x4F));
     private readonly List<(Rect Rect, object Target, string Tip)> _hits = new();
 
     /// <summary>A ¶ icon was clicked: the paragraph's index.</summary>
@@ -93,6 +96,20 @@ public sealed class ChapterOverlay : Adorner
     public void SetCurrent(NameMark? mark)
     {
         _currentMark = mark;
+        InvalidateVisual();
+    }
+
+    /// <summary>Listen mode: where Play starts — a ▶ in the margin beside that paragraph (null: none).</summary>
+    public void SetStart(Paragraph? paragraph)
+    {
+        _startPara = paragraph;
+        InvalidateVisual();
+    }
+
+    /// <summary>Listen mode: the piece being read aloud, highlighted (null, null: none).</summary>
+    public void SetSpeaking(TextPointer? start, TextPointer? end)
+    {
+        _speakStart = start; _speakEnd = end;
         InvalidateVisual();
     }
 
@@ -150,6 +167,31 @@ public sealed class ChapterOverlay : Adorner
             }
         }
         DrawInserts(dc, width, height);
+        if (_startPara != null)
+        {
+            Rect at = Rect.Empty;
+            try { at = _startPara.ContentStart.GetCharacterRect(LogicalDirection.Forward); } catch (InvalidOperationException) { }
+            if (!at.IsEmpty && at.Bottom > 0 && at.Top < height)
+            {
+                double y = at.Top + at.Height / 2;
+                var tri = new StreamGeometry();
+                using (var g = tri.Open())
+                {
+                    g.BeginFigure(new Point(8, y - 7), true, true);
+                    g.LineTo(new Point(20, y), true, false);
+                    g.LineTo(new Point(8, y + 7), true, false);
+                }
+                tri.Freeze();
+                dc.DrawGeometry(Accent, null, tri);
+            }
+        }
+        if (_speakStart != null && _speakEnd != null)
+            foreach (var r in Rects(_speakStart, _speakEnd))
+            {
+                if (r.Bottom < 0 || r.Top > height) continue;
+                dc.DrawRectangle(Speaking, null, r);
+                dc.DrawRectangle(Accent, null, new Rect(r.Left, r.Bottom - 1, r.Width, 2));
+            }
         dc.Pop();
     }
 

@@ -31,6 +31,7 @@ public static class AiPrompts
     public const string PlotlineInBook      = "plotline-in-book";
     public const string CreatePassage       = "create-passage";
     public const string CreateChapter       = "create-chapter";
+    public const string DialogueSpeakers    = "dialogue-speakers";
     public const string PlotlineSummary     = "plotline-summary";
     public const string SectionOutline      = "section-outline";
     public const string SectionSummary      = "section-summary";
@@ -378,6 +379,17 @@ public static class AiPrompts
                     "The action — what the chapter must do or convey:\n{action}\n\nThe style — how to write it:\n{style}\n\nLength: {length}",
             description: "Create mode: a new chapter written after the open one, from what it must do (the action) and how (the style), in the voice of the book.",
             maxTokens: 12000),
+
+        new PromptTemplate(DialogueSpeakers,
+            system: "You are preparing a novel's chapter to be read aloud with a different voice for each character. Every line of dialogue in the chapter is marked " +
+                    "with a number in double brackets, like ⟦7⟧, just before its opening quotation mark. For each number, say who speaks that line. Use the dialogue tags, " +
+                    "the turn-taking of a conversation, who is present and who is addressed. Use the character's name exactly as it is in the cast list; for a speaker who " +
+                    "is not in the list, give the name or short description the text uses (\"the ferryman\"). When the quoted words are not spoken aloud by anyone — a sign, " +
+                    "a title, a word being discussed, a remembered phrase — answer Narrator. When you cannot tell, answer ?." + "\n\n" +
+                    "Reply with one line per number, in order, in exactly this shape and nothing else:\n1 | Name\n2 | Name\n…",
+            user:   "Book: {book}\nChapter: {chapter}\n\nThe cast (name, other names, role):\n{cast}\n\nThe chapter, with its {count} lines of dialogue numbered:\n{text}",
+            description: "Listen mode: who says each line of dialogue in a chapter, so each is read in the speaker's voice. The author confirms or changes them.",
+            maxTokens: 6000),
 
         new PromptTemplate(PlotlineSummary,
             system: "You are keeping an author's plotline sheet up to date. A thread was described once, early; the chapters it runs " +

@@ -208,6 +208,7 @@ public static class ProjectPackage
             {
                 if (SkippedExtensions.Contains(Path.GetExtension(rel), StringComparer.OrdinalIgnoreCase)) continue;
                 if (rel.Equals(ProgressFile, StringComparison.OrdinalIgnoreCase)) continue;
+                if (top.Equals("audio", StringComparison.OrdinalIgnoreCase)) continue;   // spoken audio is made from the book, and large
             }
             yield return rel;
         }

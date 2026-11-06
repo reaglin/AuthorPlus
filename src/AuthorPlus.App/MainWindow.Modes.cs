@@ -28,7 +28,9 @@ public enum EditorMode
     /// <summary>Every character's name coloured in the text; their form in a panel beside it.</summary>
     Characters,
     /// <summary>The plotlines in the chapter, their key moments washed in the text; each one in the chapter and the book beside it.</summary>
-    Plotlines
+    Plotlines,
+    /// <summary>The chapter read aloud: the narrator's voice and each character's; who says each line of dialogue.</summary>
+    Listen
 }
 
 /// <summary>
@@ -45,6 +47,7 @@ public partial class MainWindow
     public static readonly RoutedCommand CharactersModeCommand = new("CharactersMode", typeof(MainWindow));
     public static readonly RoutedCommand CreateModeCommand     = new("CreateMode",     typeof(MainWindow));
     public static readonly RoutedCommand PlotlinesModeCommand  = new("PlotlinesMode",  typeof(MainWindow));
+    public static readonly RoutedCommand ListenModeCommand     = new("ListenMode",     typeof(MainWindow));
 
     private EditorMode _mode = EditorMode.Write;
     private ChapterOverlay? _overlay;
@@ -93,7 +96,9 @@ public partial class MainWindow
         CommandBindings.Add(new CommandBinding(CharactersModeCommand, (_, _) => SetMode(EditorMode.Characters)));
         CommandBindings.Add(new CommandBinding(CreateModeCommand,     (_, _) => SetMode(EditorMode.Create)));
         CommandBindings.Add(new CommandBinding(PlotlinesModeCommand,  (_, _) => SetMode(EditorMode.Plotlines)));
+        CommandBindings.Add(new CommandBinding(ListenModeCommand,     (_, _) => SetMode(EditorMode.Listen)));
         UpdateModeMenu();
+        PreviewKeyDown += (_, e) => { if (e.Key == Key.Escape && ListenKey(Key.Escape)) e.Handled = true; };
     }
 
     private void UpdateModeMenu()
@@ -103,12 +108,14 @@ public partial class MainWindow
         MnuCharactersMode.IsChecked = _mode == EditorMode.Characters;
         MnuCreateMode.IsChecked = _mode == EditorMode.Create;
         MnuPlotlinesMode.IsChecked = _mode == EditorMode.Plotlines;
+        MnuListenMode.IsChecked = _mode == EditorMode.Listen;
     }
 
     private void SetMode(EditorMode mode)
     {
         UpdateModeMenu();                                    // a checkable menu item ticks itself; put it right
         if (_mode == mode) return;
+        if (_mode == EditorMode.Listen) StopListening("Stopped reading — you left Listen mode.");
         _mode = mode;
         UpdateModeMenu();
         if (_current is Chapter)
@@ -126,6 +133,7 @@ public partial class MainWindow
             EditorMode.Characters => "Characters mode is on — open a chapter to use it.",
             EditorMode.Create     => "Create mode is on — open a chapter to use it.",
             EditorMode.Plotlines  => "Plotlines mode is on — open a chapter to use it.",
+            EditorMode.Listen     => "Listen mode is on — open a chapter to use it.",
             _                     => "Write mode is on."
         });
     }
@@ -142,7 +150,8 @@ public partial class MainWindow
             (EditorMode.Create,     "✚  Create",     "Create mode (Ctrl+2): click a + between paragraphs, say what to write and how, and the AI writes it there; or write a new chapter."),
             (EditorMode.Analyze,    "¶  Analysis",   "Analysis mode (Ctrl+3): click the ¶ beside a paragraph to analyze it or get suggestions for it; the chapter's summary, characters, plotlines and analysis are in the panel."),
             (EditorMode.Characters, "👤  Characters", "Characters mode (Ctrl+4): every character's name coloured where the text uses it; click a name for what this chapter shows of them, the book analysis and their form."),
-            (EditorMode.Plotlines,  "🧵  Plotlines",  "Plotlines mode (Ctrl+5): the plotlines in this chapter, their key moments marked in the text; each one in this chapter and across the book.")
+            (EditorMode.Plotlines,  "🧵  Plotlines",  "Plotlines mode (Ctrl+5): the plotlines in this chapter, their key moments marked in the text; each one in this chapter and across the book."),
+            (EditorMode.Listen,     "🔊  Listen",     "Listen mode (Ctrl+6): the chapter read aloud — the narrator's voice and each character's; who says each line of dialogue.")
         })
         {
             var b = new RadioButton
@@ -173,6 +182,7 @@ public partial class MainWindow
             {
                 EditorMode.Analyze    => "Click a paragraph (or the ¶ beside it) to analyze it or get suggestions for it. The whole chapter's summary, characters, plotlines and analysis are on the right. The text is read-only here — double-click to go back to writing there.",
                 EditorMode.Create     => "Click a + between paragraphs (or the one at the end) and say on the right what to write and how — the AI writes it there for you to read before it goes in. With no + chosen, write a new chapter. The text is read-only here — double-click to go back to writing there.",
+                EditorMode.Listen     => "Each line of dialogue is coloured by who says it (dotted: not known yet) — click one to change it. Click a paragraph to play from there; Play and the voices are on the right. The text is read-only here — double-click to go back to writing there.",
                 EditorMode.Plotlines  => "The plotlines in this chapter are on the right; once one is analyzed here, its key moments are washed in its colour in the text — click one. The text is read-only here — double-click to go back to writing there.",
                 EditorMode.Characters => "Each character is coloured wherever the text names them; click a name to see them in this chapter and across the book, and their form, on the right. Dotted underlines are names that are not characters yet. The text is read-only here — double-click to go back to writing there.",
                 _                     => "The editing tools. Create has the AI write new text; Analysis reads a paragraph or the chapter; Characters and Plotlines show who and what is where."
@@ -210,12 +220,16 @@ public partial class MainWindow
         rtb.IsReadOnlyCaretVisible = false;
         rtb.IsInactiveSelectionHighlightEnabled = true;          // Previous / Next mention stays visible while the panel has focus
         rtb.SpellCheck.IsEnabled = false;
-        if (_mode == EditorMode.Analyze) rtb.Padding = new Thickness(ChapterOverlay.IconSize + 22, 16, 24, 16);
+        if (_mode is EditorMode.Analyze or EditorMode.Listen) rtb.Padding = new Thickness(ChapterOverlay.IconSize + 22, 16, 24, 16);
         if (_mode == EditorMode.Create) rtb.Padding = new Thickness(ChapterOverlay.IconSize + 22, 24, 24, 48);   // room for the + above the first paragraph and after the last
 
         // Typing here does nothing: say so, rather than ignore it.
         rtb.PreviewTextInput += (_, e) => { e.Handled = true; ReadOnlyNotice(); };
-        rtb.PreviewKeyDown += (_, e) => { if (e.Key is Key.Enter or Key.Back or Key.Delete or Key.Space or Key.Tab) { e.Handled = true; ReadOnlyNotice(); } };
+        rtb.PreviewKeyDown += (_, e) =>
+        {
+            if (ListenKey(e.Key)) { e.Handled = true; return; }
+            if (e.Key is Key.Enter or Key.Back or Key.Delete or Key.Space or Key.Tab) { e.Handled = true; ReadOnlyNotice(); }
+        };
         // Double-click: back to Write with the caret there.
         rtb.MouseDoubleClick += (_, e) =>
         {
@@ -224,6 +238,17 @@ public partial class MainWindow
             e.Handled = true;
             SetMode(EditorMode.Write);
         };
+        // Listen: clicking in a paragraph is where Play starts.
+        if (_mode == EditorMode.Listen)
+            rtb.PreviewMouseLeftButtonUp += (_, e) =>
+            {
+                if (!rtb.Selection.IsEmpty || e.ClickCount > 1) return;
+                var para = rtb.GetPositionFromPoint(e.GetPosition(rtb), false)?.Paragraph;
+                int i = _listenParas.FindIndex(r => ReferenceEquals(r.Paragraph, para));
+                if (i < 0) return;
+                if (_playCts != null && _current is Chapter playing) { _listenFrom = i; PlayFrom(playing, i); return; }   // while reading: read from here
+                if (i != _listenFrom) { _listenFrom = i; _panelQuote = null; _overlay?.SetStart(para); ShowSidePanel(); }
+            };
         // Analysis: clicking in a paragraph opens it, as the ¶ does (not when text is being selected).
         if (_mode == EditorMode.Analyze)
             rtb.PreviewMouseLeftButtonUp += (_, e) =>
@@ -274,6 +299,7 @@ public partial class MainWindow
             {
                 _panelParagraph = -1; _paragraphRequest = ""; _panelCharacterId = null; _panelCandidate = null; _mentionAt = -1;
                 _insertAt = -1; _draft = null; _draftAsWritten = null; _inserted = null; _insertedTexts = null; _showingPutIn = false; _panelPlotlineId = null;
+                _panelQuote = null; _listenFrom = 0; StopListening("Stopped reading — you left the chapter.");
             }
         }
         _shownChapterId = shownId;
@@ -430,6 +456,7 @@ public partial class MainWindow
         }
         else if (_mode == EditorMode.Create) ShowCreateMarks();
         else if (_mode == EditorMode.Plotlines) ShowPlotlineMarks(ch);
+        else if (_mode == EditorMode.Listen) ShowListenMarks(ch);
         else _overlay.Clear();
     }
 
@@ -490,6 +517,7 @@ public partial class MainWindow
                 if (_panelCharacterId != c.Id) _characterView = CharacterView.Chapter;   // another character opens on what this chapter shows of them
                 _panelCharacterId = c.Id; _panelCandidate = null; break;
             case NameCandidate n: _panelCandidate = n.Name; _panelCharacterId = null; break;
+            case QuoteLine q: _panelQuote = q; break;
             case Plotline p:
                 if (_panelPlotlineId != p.Id) _plotlineView = PlotlineView.Chapter;
                 _panelPlotlineId = p.Id; break;
@@ -517,6 +545,8 @@ public partial class MainWindow
             EditorMode.Create => CreateChapterPanel(ch),
             EditorMode.Plotlines when _panelPlotlineId is { } pid && _book.Plotlines.FirstOrDefault(x => x.Id == pid) is { } thread => PlotlinePanel(ch, thread),
             EditorMode.Plotlines => PlotlinesPanel(ch),
+            EditorMode.Listen when _panelQuote != null => QuotePanel(ch, _panelQuote),
+            EditorMode.Listen => ListenPanel(ch),
             _ => new TextBlock()
         };
         _side.Content = content;

@@ -104,7 +104,8 @@ public sealed class BookStore
             Id = meta.Id, Title = meta.Title, Author = meta.Author, Synopsis = meta.Synopsis,
             Genre = meta.Genre, TargetWords = meta.TargetWords, CreatedUtc = meta.CreatedUtc,
             ModifiedUtc = meta.ModifiedUtc, FormatVersion = meta.FormatVersion, FolderPath = folder,
-            NotNames = meta.NotNames ?? new()
+            NotNames = meta.NotNames ?? new(),
+            NarratorVoice = meta.NarratorVoice, VoiceLanguage = string.IsNullOrWhiteSpace(meta.VoiceLanguage) ? "en-US" : meta.VoiceLanguage
         };
 
         book.Sections   = LoadItems<Section>      (folder, "sections",   meta.SectionOrder,   s => s.Id);
@@ -223,7 +224,9 @@ public sealed class BookStore
             CharacterOrder = book.Characters.Select(c => c.Id).ToList(),
             TimelineOrder  = book.Timeline.Select(t => t.Id).ToList(),
             PlotlineOrder  = book.Plotlines.Select(p => p.Id).ToList(),
-            NotNames       = book.NotNames.ToList()
+            NotNames       = book.NotNames.ToList(),
+            NarratorVoice  = book.NarratorVoice,
+            VoiceLanguage  = book.VoiceLanguage
         };
         WriteAtomic(Path.Combine(book.FolderPath, BookFileName), JsonSerializer.Serialize(meta, Json));
     }
@@ -323,5 +326,7 @@ public sealed class BookStore
         public List<Guid> TimelineOrder  { get; set; } = new();
         public List<Guid> PlotlineOrder  { get; set; } = new();
         public List<string>? NotNames    { get; set; }
+        public VoiceChoice?  NarratorVoice { get; set; }
+        public string?       VoiceLanguage { get; set; }
     }
 }

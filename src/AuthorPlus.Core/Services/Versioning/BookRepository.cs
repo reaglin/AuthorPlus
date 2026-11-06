@@ -41,7 +41,24 @@ public sealed class BookRepository : IDisposable
         "\n# Today's word count on this computer, not part of the book.\n" +
         "progress.json\n" +
         "\n# Exports are made from the book; they are not the book.\n" +
-        "*.docx\n*.pdf\n*.epub\n";
+        "*.docx\n*.pdf\n*.epub\n" +
+        AudioIgnore;
+
+    /// <summary>Spoken audio (Listen mode, audiobooks) is made from the book and can be large: never versioned.</summary>
+    internal const string AudioIgnore = "\n# Spoken audio is made from the book (Listen mode, audiobooks); it is not the book.\naudio/\n";
+
+    /// <summary>Books versioned before audio existed get the audio line in their .gitignore.</summary>
+    internal static void EnsureAudioIgnored(string bookFolder)
+    {
+        try
+        {
+            var path = Path.Combine(bookFolder, ".gitignore");
+            var text = File.Exists(path) ? File.ReadAllText(path) : "";
+            if (!text.Split('\n').Any(l => l.Trim() == "audio/")) File.AppendAllText(path, AudioIgnore);
+        }
+        catch (IOException) { }
+        catch (UnauthorizedAccessException) { }
+    }
 
     private const CommitSortStrategies Newest = CommitSortStrategies.Time | CommitSortStrategies.Topological;
 
@@ -65,7 +82,7 @@ public sealed class BookRepository : IDisposable
     public static BookRepository? TryOpen(string bookFolder)
     {
         if (!IsVersioned(bookFolder)) return null;
-        try { return new BookRepository(new Repository(bookFolder), bookFolder); }
+        try { var repo = new Repository(bookFolder); EnsureAudioIgnored(bookFolder); return new BookRepository(repo, bookFolder); }
         catch (LibGit2SharpException) { return null; }
     }
 

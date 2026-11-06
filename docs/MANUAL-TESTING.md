@@ -103,6 +103,20 @@ T5. A character's *In the book* (Characters mode): **Make {name}'s story a plotl
     another plotline's page, **Whose story is it?** → that character: it asks before moving the story, then offers to link
     their chapters.
 
+### V. Voices and Listen mode (plan phase 9)
+V1. Help ▸ AI Settings: **Voices — Google text-to-speech**. Follow its steps to get a key (Google Cloud: a project with billing,
+    the Cloud Text-to-Speech API turned on, Credentials ▸ Create API key), paste it, **Test** — it says how many voices it sees.
+V2. A chapter, **Listen** (Ctrl+6). Voices: **Choose…** for the Narrator — the chooser lists voices with their kind and price;
+    **Hear it** plays the sample. Pick one (Chirp 3: HD sounds best). A character's page has the same **Voice** row.
+V3. **Find who speaks (AI)…** — every line of dialogue is coloured by its speaker; dotted lines are not known. The characters
+    who speak are listed under Voices; give one a voice.
+V4. Click a line: **Who says it?** — change it; it goes on to the next line not known. "Someone new" adds a character.
+    Find who speaks again: the lines you chose are kept.
+V5. Click a paragraph, **▶ Play**: it reads from there, each line in its speaker's voice, the piece being read highlighted;
+    **■ Stop**. The panel says what playing will cost; play the same part again — "heard before", no cost.
+V6. Versions ▸ save a version: no audio files in it (the book's `audio` folder is not part of the book). File ▸ Export Project:
+    the file is no bigger for having listened.
+
 ### Q. Look (the review could not judge these from the code)
 Q1. The white ¶ on the amber and green icons — readable? The colour washes behind the text (yellow, teal especially)?
 Q2. At 150 % scaling: the panel (430 px) — nothing cut off; the mode bar's line of help wraps tidily.
