@@ -134,7 +134,7 @@ unit tests and must keep them (the AI layer's tests live in the AiManager repo).
    TextBox per property, writing straight into the model — so adding a field to a model is one
    line in `ShowCurrent`. Item kinds each get a small editor (Summary/Notes: text; Analysis:
    read-only body with a metadata header and Re-run; Characters in chapter: checklist + POV).
-   **The chapter editor has three modes** (Ron, 2026-11-06; `MainWindow.Modes.cs`, plan phase 6): Write (the editing
+   **The chapter editor has modes** (Ron, 2026-11-06; `MainWindow.Modes.cs`, plan phases 6 and 8 — Write, Create, Analysis, Characters, Plotlines): Write (the editing
    tools only), Analysis (a ¶ beside each paragraph opens it in a panel, to analyze it or get suggestions for it; with none chosen the panel
    makes the chapter's summary, characters, plotlines and analysis) and Characters (names coloured per character; the
    character's form in the panel). Marks are drawn by `ChapterOverlay`, an adorner — never written into the
