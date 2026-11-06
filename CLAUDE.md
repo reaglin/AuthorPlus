@@ -141,7 +141,10 @@ unit tests and must keep them (the AI layer's tests live in the AiManager repo).
    FlowDocument, so they are never saved. A paragraph read is `ItemKind.ParagraphAnalysis`, kept out of the tree.
    **Character analysis** (plan phase 7, `MainWindow.CharacterAnalysis.cs`): in a chapter (`ItemKind.CharacterInChapter`, owned by
    the chapter) and across the book (`ItemKind.CharacterInBook`, owned by the character), both out of the tree; Characters mode
-   shows them beside the text, and the book one is also on the character's page.
+   shows them beside the text, and the book one is also on the character's page. **Create** and **Plotlines** modes (plan
+   phase 8; `MainWindow.Create.cs`, `MainWindow.Plotlines.cs`): the AI writes at a + between paragraphs or a new chapter
+   (styles kept in `Documents\AuthorPlus\writing-styles.json`); plotline analyses in a chapter (`ItemKind.PlotlineInChapter`,
+   key moments washed in the text) and across the book (`ItemKind.PlotlineInBook`); `Plotline.CharacterId` = a character's story.
 
 5. **A book's history is a git repository in its own folder, and git is never said out loud.**
    `Core/Services/Versioning/BookRepository` is the whole of git the app uses — a version is a

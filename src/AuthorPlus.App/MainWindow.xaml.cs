@@ -267,6 +267,8 @@ public partial class MainWindow : Window, ISuggestionActions
             ItemKind.ParagraphAnalysis   => "¶",
             ItemKind.CharacterInChapter  => "👤",
             ItemKind.CharacterInBook     => "👤",
+            ItemKind.PlotlineInChapter   => "🧵",
+            ItemKind.PlotlineInBook      => "🧵",
             ItemKind.Outline             => "☰",
             _                            => "📝"
         },
@@ -350,7 +352,7 @@ public partial class MainWindow : Window, ISuggestionActions
     {
         var node = Node(chapter);
         // Paragraph reads and character analyses are reached from the chapter's modes (and a character's page), not the tree.
-        foreach (var item in _book!.ItemsOf(chapter.Id).Where(i => i.Kind is not (ItemKind.ParagraphAnalysis or ItemKind.CharacterInChapter))) node.Items.Add(ItemNode(item));
+        foreach (var item in _book!.ItemsOf(chapter.Id).Where(i => i.Kind is not (ItemKind.ParagraphAnalysis or ItemKind.CharacterInChapter or ItemKind.PlotlineInChapter))) node.Items.Add(ItemNode(item));
         return node;
     }
 
@@ -375,7 +377,7 @@ public partial class MainWindow : Window, ISuggestionActions
         {
             var child = Node(item);
             // A character's book analysis is on their page, not the tree.
-            if (IdOf(item) is { } id) foreach (var it in _book!.ItemsOf(id).Where(i => i.Kind != ItemKind.CharacterInBook)) child.Items.Add(ItemNode(it));
+            if (IdOf(item) is { } id) foreach (var it in _book!.ItemsOf(id).Where(i => i.Kind is not (ItemKind.CharacterInBook or ItemKind.PlotlineInBook))) child.Items.Add(ItemNode(it));
             node.Items.Add(child);
         }
         return node;
@@ -584,7 +586,8 @@ public partial class MainWindow : Window, ISuggestionActions
                 {
                     ItemKind.Summary => "Summary", ItemKind.Analysis => "Analysis", ItemKind.CharactersInChapter => "Chapter Characters",
                     ItemKind.ChapterPlotlines => "Chapter Plotlines", ItemKind.Suggestions => "Suggestions", ItemKind.Outline => "Outline", ItemKind.ParagraphAnalysis => "Paragraph read",
-                    ItemKind.CharacterInChapter => "Character analysis", ItemKind.CharacterInBook => "Character analysis", _ => "Notes"
+                    ItemKind.CharacterInChapter => "Character analysis", ItemKind.CharacterInBook => "Character analysis",
+                    ItemKind.PlotlineInChapter => "Plotline analysis", ItemKind.PlotlineInBook => "Plotline analysis", _ => "Notes"
                 } + " of " + OwnerLabel(it);
                 TxtName.Text = it.Kind == ItemKind.Summary ? "Summary" : it.Title;
                 Editor.Content = BuildItemEditor(it);
@@ -842,9 +845,9 @@ public partial class MainWindow : Window, ISuggestionActions
     /// can add to as later chapters say more), and the chapters it runs through with the part it
     /// plays in each.
     /// </summary>
-    private UIElement BuildPlotlinePage(Plotline p)
+    private UIElement BuildPlotlinePage(Plotline p, bool inPanel = false)
     {
-        var panel = new StackPanel { Margin = new Thickness(16, 12, 16, 16) };
+        var panel = new StackPanel { Margin = inPanel ? new Thickness(14, 0, 14, 16) : new Thickness(16, 12, 16, 16) };
         panel.Children.Add(new TextBlock
         {
             Text = "The thread itself. Its status follows the chapters: planned until it runs anywhere, active once it does, resolved when a chapter closes it — set that on the chart on the Plotlines page, by clicking the dot for a chapter.",
@@ -904,12 +907,16 @@ public partial class MainWindow : Window, ISuggestionActions
         }
 
         var extend = new Button { Content = "Add to the summary from the chapters (AI)…", Padding = new Thickness(10, 3, 10, 3), HorizontalAlignment = HorizontalAlignment.Left, Margin = new Thickness(0, 10, 0, 0),
-                                  IsEnabled = _ai.IsAvailable() && runs.Count > 0, ToolTip = "Reads the summaries of the chapters this thread runs through and adds what they say about it, each entry marked as the AI's" };
+                                  IsEnabled = runs.Count > 0, ToolTip = runs.Count > 0 ? "Reads the summaries of the chapters this thread runs through and adds what they say about it, each entry marked as the AI's"
+                                                                                     : "It runs through no chapter yet — mark it on the Plotlines chart first" };
+        ToolTipService.SetShowOnDisabled(extend, true);
         extend.Click += AiPlotlineSummary_Click;
         panel.Children.Add(extend);
 
         panel.Children.Add(new LinkPicker("Characters involved", CharacterCandidates(), p.CharacterIds, MarkDirty));
         panel.Children.Add(BuildConvergencesEditor(p));
+        if (!inPanel) AddPlotlineAnalysisBlock(panel, p);
+        else panel.Children.Add(WhoseStoryRow(p));
         return new ScrollViewer { Content = panel, VerticalScrollBarVisibility = ScrollBarVisibility.Auto };
     }
 
@@ -2112,7 +2119,7 @@ public partial class MainWindow : Window, ISuggestionActions
                 _book.Timeline.Remove(t); _book.Items.RemoveAll(i => i.OwnerId == t.Id); break;
             case Plotline p:
                 if (!ConfirmDelete(p.Name)) return;
-                _book.Plotlines.Remove(p); _book.Items.RemoveAll(i => i.OwnerId == p.Id);
+                _book.Plotlines.Remove(p); _book.Items.RemoveAll(i => i.OwnerId == p.Id || (i.Kind == ItemKind.PlotlineInChapter && i.PlotlineIds.Contains(p.Id)));
                 foreach (var ch in _book.Chapters) ch.PlotlineIds.Remove(p.Id);
                 foreach (var o in _book.Plotlines) o.Convergences.RemoveAll(x => x.OtherPlotlineId == p.Id);
                 break;

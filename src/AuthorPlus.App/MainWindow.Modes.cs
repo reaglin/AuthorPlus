@@ -21,10 +21,14 @@ public enum EditorMode
 {
     /// <summary>The editing tools, and nothing else.</summary>
     Write,
+    /// <summary>The AI writes new text where the author clicks a + between paragraphs, or a new chapter.</summary>
+    Create,
     /// <summary>The AI's read of a paragraph (from the ¶ beside it) or of the chapter, in a panel beside the text.</summary>
     Analyze,
     /// <summary>Every character's name coloured in the text; their form in a panel beside it.</summary>
-    Characters
+    Characters,
+    /// <summary>The plotlines in the chapter, their key moments washed in the text; each one in the chapter and the book beside it.</summary>
+    Plotlines
 }
 
 /// <summary>
@@ -39,6 +43,8 @@ public partial class MainWindow
     public static readonly RoutedCommand WriteModeCommand      = new("WriteMode",      typeof(MainWindow));
     public static readonly RoutedCommand AnalyzeModeCommand    = new("AnalyzeMode",    typeof(MainWindow));
     public static readonly RoutedCommand CharactersModeCommand = new("CharactersMode", typeof(MainWindow));
+    public static readonly RoutedCommand CreateModeCommand     = new("CreateMode",     typeof(MainWindow));
+    public static readonly RoutedCommand PlotlinesModeCommand  = new("PlotlinesMode",  typeof(MainWindow));
 
     private EditorMode _mode = EditorMode.Write;
     private ChapterOverlay? _overlay;
@@ -85,6 +91,8 @@ public partial class MainWindow
         CommandBindings.Add(new CommandBinding(WriteModeCommand,      (_, _) => SetMode(EditorMode.Write)));
         CommandBindings.Add(new CommandBinding(AnalyzeModeCommand,    (_, _) => SetMode(EditorMode.Analyze)));
         CommandBindings.Add(new CommandBinding(CharactersModeCommand, (_, _) => SetMode(EditorMode.Characters)));
+        CommandBindings.Add(new CommandBinding(CreateModeCommand,     (_, _) => SetMode(EditorMode.Create)));
+        CommandBindings.Add(new CommandBinding(PlotlinesModeCommand,  (_, _) => SetMode(EditorMode.Plotlines)));
         UpdateModeMenu();
     }
 
@@ -93,6 +101,8 @@ public partial class MainWindow
         MnuWriteMode.IsChecked = _mode == EditorMode.Write;
         MnuAnalyzeMode.IsChecked = _mode == EditorMode.Analyze;
         MnuCharactersMode.IsChecked = _mode == EditorMode.Characters;
+        MnuCreateMode.IsChecked = _mode == EditorMode.Create;
+        MnuPlotlinesMode.IsChecked = _mode == EditorMode.Plotlines;
     }
 
     private void SetMode(EditorMode mode)
@@ -114,6 +124,8 @@ public partial class MainWindow
         {
             EditorMode.Analyze    => "Analysis mode is on — open a chapter to use it.",
             EditorMode.Characters => "Characters mode is on — open a chapter to use it.",
+            EditorMode.Create     => "Create mode is on — open a chapter to use it.",
+            EditorMode.Plotlines  => "Plotlines mode is on — open a chapter to use it.",
             _                     => "Write mode is on."
         });
     }
@@ -127,8 +139,10 @@ public partial class MainWindow
         foreach (var (mode, label, tip) in new[]
         {
             (EditorMode.Write,      "✎  Write",      "Write mode (Ctrl+1): the editing tools — type, format, find and replace."),
-            (EditorMode.Analyze,    "¶  Analysis",   "Analysis mode (Ctrl+2): click the ¶ beside a paragraph to analyze it or get suggestions for it; the chapter's summary, characters, plotlines and analysis are in the panel."),
-            (EditorMode.Characters, "👤  Characters", "Characters mode (Ctrl+3): every character's name coloured where the text uses it; click a name for what this chapter shows of them, the book analysis and their form.")
+            (EditorMode.Create,     "✚  Create",     "Create mode (Ctrl+2): click a + between paragraphs, say what to write and how, and the AI writes it there; or write a new chapter."),
+            (EditorMode.Analyze,    "¶  Analysis",   "Analysis mode (Ctrl+3): click the ¶ beside a paragraph to analyze it or get suggestions for it; the chapter's summary, characters, plotlines and analysis are in the panel."),
+            (EditorMode.Characters, "👤  Characters", "Characters mode (Ctrl+4): every character's name coloured where the text uses it; click a name for what this chapter shows of them, the book analysis and their form."),
+            (EditorMode.Plotlines,  "🧵  Plotlines",  "Plotlines mode (Ctrl+5): the plotlines in this chapter, their key moments marked in the text; each one in this chapter and across the book.")
         })
         {
             var b = new RadioButton
@@ -158,8 +172,10 @@ public partial class MainWindow
             Text = _mode switch
             {
                 EditorMode.Analyze    => "Click a paragraph (or the ¶ beside it) to analyze it or get suggestions for it. The whole chapter's summary, characters, plotlines and analysis are on the right. The text is read-only here — double-click to go back to writing there.",
+                EditorMode.Create     => "Click a + between paragraphs (or the one at the end) and say on the right what to write and how — the AI writes it there for you to read before it goes in. With no + chosen, write a new chapter. The text is read-only here — double-click to go back to writing there.",
+                EditorMode.Plotlines  => "The plotlines in this chapter are on the right; once one is analyzed here, its key moments are washed in its colour in the text — click one. The text is read-only here — double-click to go back to writing there.",
                 EditorMode.Characters => "Each character is coloured wherever the text names them; click a name to see them in this chapter and across the book, and their form, on the right. Dotted underlines are names that are not characters yet. The text is read-only here — double-click to go back to writing there.",
-                _                     => "The editing tools. Analysis has the AI's read of a paragraph or the chapter; Characters shows who is named where."
+                _                     => "The editing tools. Create has the AI write new text; Analysis reads a paragraph or the chapter; Characters and Plotlines show who and what is where."
             },
             Foreground = Brushes.DimGray, TextWrapping = TextWrapping.Wrap, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(12, 0, 0, 0), FontSize = 12
         });
@@ -195,6 +211,7 @@ public partial class MainWindow
         rtb.IsInactiveSelectionHighlightEnabled = true;          // Previous / Next mention stays visible while the panel has focus
         rtb.SpellCheck.IsEnabled = false;
         if (_mode == EditorMode.Analyze) rtb.Padding = new Thickness(ChapterOverlay.IconSize + 22, 16, 24, 16);
+        if (_mode == EditorMode.Create) rtb.Padding = new Thickness(ChapterOverlay.IconSize + 22, 24, 24, 48);   // room for the + above the first paragraph and after the last
 
         // Typing here does nothing: say so, rather than ignore it.
         rtb.PreviewTextInput += (_, e) => { e.Handled = true; ReadOnlyNotice(); };
@@ -225,6 +242,7 @@ public partial class MainWindow
             _overlay = new ChapterOverlay(rtb);
             _overlay.ParagraphClicked += i => OpenParagraph(i, scroll: false);
             _overlay.NameClicked += OpenName;
+            _overlay.InsertClicked += OpenInsert;
             layer.Add(_overlay);
             RefreshMarks();
             ShowSidePanel();
@@ -255,6 +273,7 @@ public partial class MainWindow
             if (shownId != _shownChapterId)
             {
                 _panelParagraph = -1; _paragraphRequest = ""; _panelCharacterId = null; _panelCandidate = null; _mentionAt = -1;
+                _insertAt = -1; _draft = null; _draftAsWritten = null; _inserted = null; _insertedTexts = null; _showingPutIn = false; _panelPlotlineId = null;
             }
         }
         _shownChapterId = shownId;
@@ -355,7 +374,7 @@ public partial class MainWindow
 
     private static (Brush Fill, string Word) StateLook(ParagraphState s) => s switch
     {
-        ParagraphState.Read => (StateRead, "analysed"),
+        ParagraphState.Read => (StateRead, "analyzed"),
         ParagraphState.Open => (StateOpen, "suggestions waiting"),
         ParagraphState.Done => (StateDone, "dealt with"),
         _                   => (StateNone, "not looked at yet")
@@ -409,6 +428,8 @@ public partial class MainWindow
                              : _panelCandidate is { } n ? _candidates.FirstOrDefault(c => c.Name == n) : null;
             _overlay.ShowNames(_nameMarks, selected);
         }
+        else if (_mode == EditorMode.Create) ShowCreateMarks();
+        else if (_mode == EditorMode.Plotlines) ShowPlotlineMarks(ch);
         else _overlay.Clear();
     }
 
@@ -469,6 +490,9 @@ public partial class MainWindow
                 if (_panelCharacterId != c.Id) _characterView = CharacterView.Chapter;   // another character opens on what this chapter shows of them
                 _panelCharacterId = c.Id; _panelCandidate = null; break;
             case NameCandidate n: _panelCandidate = n.Name; _panelCharacterId = null; break;
+            case Plotline p:
+                if (_panelPlotlineId != p.Id) _plotlineView = PlotlineView.Chapter;
+                _panelPlotlineId = p.Id; break;
         }
         _mentionAt = -1;
         RefreshMarks();
@@ -489,6 +513,10 @@ public partial class MainWindow
             EditorMode.Characters when _panelCharacterId is { } id && _book.Characters.FirstOrDefault(c => c.Id == id) is { } who => CharacterPanel(ch, who),
             EditorMode.Characters when _panelCandidate is { } name => CandidatePanel(ch, name),
             EditorMode.Characters => CastPanel(ch),
+            EditorMode.Create when _insertAt >= 0 => InsertPanel(ch),
+            EditorMode.Create => CreateChapterPanel(ch),
+            EditorMode.Plotlines when _panelPlotlineId is { } pid && _book.Plotlines.FirstOrDefault(x => x.Id == pid) is { } thread => PlotlinePanel(ch, thread),
+            EditorMode.Plotlines => PlotlinesPanel(ch),
             _ => new TextBlock()
         };
         _side.Content = content;
@@ -560,7 +588,7 @@ public partial class MainWindow
         var p = PanelStack();
         p.Children.Add(Heading("This chapter"));
         p.Children.Add(Hint("What the AI can make for the whole chapter. Each one is saved under the chapter in the tree, where you can read and edit it in full " +
-                            "(Open goes there; Ctrl+2 brings you back here). For one paragraph, click it or the ¶ beside it. " +
+                            "(Open goes there; Ctrl+3 brings you back here). For one paragraph, click it or the ¶ beside it. " +
                             "Buttons ending in … open a window that shows what will be sent first; the others start straight away, with progress in the status bar."));
         if (AiBusy) p.Children.Add(Body("The AI is working — see the status bar at the bottom. The AI buttons come back when it finishes.", muted: true));
         var items = _book!.ItemsOf(ch.Id).ToList();
@@ -581,7 +609,7 @@ public partial class MainWindow
                          AiSummarize_Click(this, noArgs);
                      }, primary: summary == null)
         };
-        if (summary != null) sumButtons.Add(PanelButton("Open", "Open the summary to read or edit it (Ctrl+2 brings you back here)", () => SelectNode(summary)));
+        if (summary != null) sumButtons.Add(PanelButton("Open", "Open the summary to read or edit it (Ctrl+3 brings you back here)", () => SelectNode(summary)));
         p.Children.Add(Card("✦  Summary",
             summary == null ? Body("Not written yet. The AI writes what happens, in order, and who does what — the other AI tools use it as the chapter's record.", muted: true)
                             : Body(Shorten(summary.Body, 420)),
@@ -625,7 +653,7 @@ public partial class MainWindow
         {
             var target = a;
             var link = Palette.LinkText((a.Resolved ? "✓ " : "") + a.Title + $" — {a.Provider ?? "you"} · {a.CreatedUtc.ToLocalTime():yyyy-MM-dd HH:mm}",
-                                        () => SelectNode(target), "Open this analysis (Ctrl+2 brings you back here)");
+                                        () => SelectNode(target), "Open this analysis (Ctrl+3 brings you back here)");
             link.Margin = new Thickness(0, 1, 0, 1);
             list.Children.Add(link);
         }

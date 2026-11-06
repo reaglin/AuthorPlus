@@ -27,6 +27,10 @@ public static class AiPrompts
     public const string CharacterProfile    = "character-profile";
     public const string CharacterInChapter  = "character-in-chapter";
     public const string CharacterInBook     = "character-in-book";
+    public const string PlotlineInChapter   = "plotline-in-chapter";
+    public const string PlotlineInBook      = "plotline-in-book";
+    public const string CreatePassage       = "create-passage";
+    public const string CreateChapter       = "create-chapter";
     public const string PlotlineSummary     = "plotline-summary";
     public const string SectionOutline      = "section-outline";
     public const string SectionSummary      = "section-summary";
@@ -324,6 +328,56 @@ public static class AiPrompts
                     "The book's plotlines (name — what it is — the chapters it runs through):\n{plotlines}",
             description: "A character across the whole book — a summary as the book presents them, their story arc over the chapters, and how they meet the plotlines. Built from the chapter summaries and the character's chapter analyses.",
             maxTokens: 4000),
+
+        new PromptTemplate(PlotlineInChapter,
+            system: "You are a story editor helping an author follow ONE plotline (a thread of the story) through ONE chapter of their book. " +
+                    "Describe only what this chapter does with the thread, and never invent what the chapter does not show. " +
+                    "Reply with exactly these four headings, each followed by short bullet points:\n\n" +
+                    "ROLE:\n- the part this chapter plays in the thread: does it introduce it, move it on, turn it, or resolve it — and how much of the chapter it takes up\n" +
+                    "WHAT HAPPENS:\n- the events of the thread in this chapter, in order\n" +
+                    "CHARACTERS:\n- who drives the thread here and who it affects, and how\n" +
+                    "KEY MOMENTS:\n- 2 to 5 moments where the thread shows, each quoting the chapter's words exactly (copied character for character, in quotation marks, no ellipses), then a few words on why it matters\n\n" +
+                    "If the thread is not in this chapter at all, say so under ROLE and leave the other headings with \"- Nothing in this chapter.\". No preamble, no other headings.",
+            user:   "Book: {book}\nChapter: {chapter}\n\nThe plotline: {plotline}\nWhat it is (the author's notes; may be blank):\n{about}\n\n" +
+                    "Where it stands before this chapter: {before}\n\nThe chapter:\n{text}",
+            description: "Plotlines mode: one plotline in one chapter — the part the chapter plays in it, what happens, who drives it, and its key moments quoted from the text (marked in the chapter).",
+            maxTokens: 2500),
+
+        new PromptTemplate(PlotlineInBook,
+            system: "You are a story editor helping an author see ONE plotline across their whole book. You are given what each chapter it runs through does with it " +
+                    "(the chapter's summary and, where there is one, an analysis of the thread in that chapter), the characters, and the other plotlines. " +
+                    "Base everything on that material; where it is thin, say so rather than inventing. Reply with exactly these four headings, each followed by short bullet points:\n\n" +
+                    "SUMMARY:\n- what the thread is, the question it asks, and where it stands (3–5 points)\n" +
+                    "PROGRESSION:\n- how it moves through the chapters, in reading order: one point per chapter or stretch of chapters, beginning with the chapter number and title, saying what changes\n" +
+                    "CHARACTERS:\n- who carries it and whose story it is part of: for each character, what they do to the thread and what it does to them\n" +
+                    "CONVERGENCES:\n- where it meets other plotlines (name them and the chapter), and what each meeting does\n\n" +
+                    "No preamble, no other headings.",
+            user:   "Book: {book}\nSynopsis: {synopsis}\n\nThe plotline: {plotline}\nWhat the author has written about it:\n{about}\n\n" +
+                    "The chapters it runs through, in reading order:\n{chapters}\n\nThe characters:\n{characters}\n\nThe other plotlines:\n{others}",
+            description: "A plotline across the whole book — summary, its progression over the chapters, the characters who carry it, and where it meets other plotlines. Built from the chapter summaries and the thread's chapter analyses.",
+            maxTokens: 4000),
+
+        new PromptTemplate(CreatePassage,
+            system: "You are writing new prose for a novelist, to go INTO their chapter at a place they have chosen. Write as the author writes: match the voice, tense, " +
+                    "point of view and rhythm of the paragraphs around the place, and keep to the facts of the story. The author says what the passage must do (the action) " +
+                    "and how (the style); follow both — the style governs how much detail and how it is told. The new text must read on naturally from the paragraph " +
+                    "before and lead into the paragraph after. Reply with the new prose only: paragraphs separated by a blank line, no title, no quotation marks round it, " +
+                    "no notes or commentary.",
+            user:   "Book: {book}\nChapter: {chapter}\nWhat the chapter is about (may be blank):\n{summary}\n\nThe paragraphs just before the place:\n{before}\n\n" +
+                    "The paragraphs just after the place:\n{after}\n\nThe action — what the new text must do or convey:\n{action}\n\n" +
+                    "The style — how to write it:\n{style}\n\nLength: {length}",
+            description: "Create mode: new prose written into the chapter at the + the author chose, from what it must do (the action) and how (the style), in the voice of the text around it.",
+            maxTokens: 4000),
+
+        new PromptTemplate(CreateChapter,
+            system: "You are drafting a new chapter of a novel for its author. Write as the author writes — match the voice, tense, point of view and rhythm of the " +
+                    "passage from their book you are given — and keep to the facts of the story. The author says what the chapter must do (the action) and how (the style). " +
+                    "Reply with the chapter's prose only: paragraphs separated by a blank line, no chapter title or number, no notes or commentary.",
+            user:   "Book: {book}\nSynopsis: {synopsis}\n\nThe chapter before it: {previous}\nWhat happens in it (may be blank):\n{previous_summary}\n\n" +
+                    "How it ends (its last paragraphs; may be blank):\n{previous_end}\n\nThe new chapter's title: {title}\n\n" +
+                    "The action — what the chapter must do or convey:\n{action}\n\nThe style — how to write it:\n{style}\n\nLength: {length}",
+            description: "Create mode: a new chapter written after the open one, from what it must do (the action) and how (the style), in the voice of the book.",
+            maxTokens: 12000),
 
         new PromptTemplate(PlotlineSummary,
             system: "You are keeping an author's plotline sheet up to date. A thread was described once, early; the chapters it runs " +

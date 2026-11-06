@@ -169,6 +169,7 @@ public partial class MainWindow
             else each.Children.Add(Body("Not analyzed in this chapter yet.", muted: true));
         }
         p.Children.Add(Card("In each chapter", each));
+        p.Children.Add(StoryCard(c));
         return p;
     }
 
@@ -177,7 +178,7 @@ public partial class MainWindow
     {
         var chapters = CharacterAnalyses.ChaptersOf(_book!, c);
         if (chapters.Count == 0)
-            return $"No chapter lists {c.Name} yet, so there is nothing to build the book analysis from. Open a chapter they are in, switch to Characters mode (Ctrl+3) " +
+            return $"No chapter lists {c.Name} yet, so there is nothing to build the book analysis from. Open a chapter they are in, switch to Characters mode (Ctrl+4) " +
                    "and click their name to analyze them there — or list them on the Characters chart (the Characters page).";
         if (chapters.All(ch => _book!.SummaryText(ch).Length == 0 && CharacterAnalyses.InChapter(_book, c.Id, ch.Id) == null))
             return $"None of the {chapters.Count} chapter(s) {c.Name} is in has a summary or an analysis of them yet. Analyze them in a chapter (Characters mode, click their name), " +

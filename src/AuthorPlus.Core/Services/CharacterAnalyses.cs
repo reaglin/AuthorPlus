@@ -27,7 +27,7 @@ public static class CharacterAnalyses
     {
         var wanted = headings.ToList();
         var text = (body ?? "").Replace("\r\n", "\n");
-        var pattern = @"^[ \t]*(?:#+[ \t]*)?(?:\*\*)?(" + string.Join("|", wanted.Select(Regex.Escape)) + @")(?:\*\*)?[ \t]*:?[ \t]*(?:\*\*)?[ \t]*(.*)$";
+        var pattern = @"^[ \t]*(?:#+[ \t]*)?(?:\*\*)?(" + string.Join("|", wanted.Select(Regex.Escape)) + @")(?:\*\*)?[ \t]*(?::(?:\*\*)?[ \t]*(.*)|(?:\*\*)?[ \t]*)$";   // a heading ends the line or takes a colon: "Characters gather…" is not one
         var matches = Regex.Matches(text, pattern, RegexOptions.IgnoreCase | RegexOptions.Multiline);
         if (matches.Count == 0) return text.Trim().Length == 0 ? Array.Empty<(string, string)>() : new[] { ("", text.Trim()) };
 

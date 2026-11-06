@@ -28,7 +28,8 @@ chapter. Record each step as ✅ / ❌ with a note; ❌ and notes go back into `
 M1. Above the chapter: **✎ Write · ¶ Analysis · 👤 Characters**, with a line saying what the mode is for. Write is ticked;
     its toolbar has the editing tools only — no Summarize / Analyze / Chapter Characters / Suggestions buttons (they are in
     Analysis mode and the AI menu).
-M2. **Ctrl+2**, **Ctrl+3**, **Ctrl+1** (or View › … Mode) switch modes; the chapter stays at the same place in the text.
+M2. **Ctrl+1** to **Ctrl+5** (Write, Create, Analysis, Characters, Plotlines — or View › … Mode) switch modes; the chapter stays
+    at the same place in the text.
     Click another chapter in the tree — it opens in the same mode.
 M3. In Analysis and Characters the text cannot be typed into: type a letter — a yellow note says so. **Double-click** a word —
     it goes back to Write with the caret there.
@@ -77,9 +78,33 @@ R5. Their page in the tree: the link at the top goes to **Character analysis** a
 R6. A character no chapter lists: no Analyze-across-the-book button, but a line saying what to do. Delete a character: their
     analyses go with them.
 
+### S. Create mode (plan 8.1–8.3)
+S1. Create (Ctrl+2): a green **+** above each paragraph and one after the last. Click one between two paragraphs: the panel
+    shows the paragraph just before and just after. Type an **Action** ("Greg woke up feeling very much his age of 75 years")
+    and a **Style** ("Full description of the challenges of old age"), **Write it (AI)…**, Send Prompt, **Next** — the text is
+    beside the chapter; change a word in it.
+S2. **Choose a saved style ▾** under the style box: the style you just used is there; pick it on another +. **Forget a style**.
+S3. **Put it in the chapter** — it goes in with a green band, looking like the paragraphs around it. **Take it out again** —
+    gone. Put one in, switch to Write and back to Create: **Take it out again** still works.
+S4. With an edited draft, click another + or **Discard** — it asks first. **‹ Earlier place / Later place ›** move the place.
+S5. **Create — the whole chapter**: Title, Action, Style, **Write the chapter (AI)…** — a new chapter after this one, open.
+
+### T. Plotlines mode (plan 8.4–8.6)
+T1. Plotlines (Ctrl+5): the chapter's plotlines with their part here. **Add a plotline ▾** links another; **Find its
+    plotlines (AI)** works as in Analysis.
+T2. Click one: *In this chapter* — **Analyze it in this chapter (AI)…**: its part here, what happens, characters, key moments.
+    The key moments are washed in its colour in the text; **‹ Previous / Next ›** step through them; click a wash to open it.
+T3. A key moment the AI misquoted is listed under "Not found in the text".
+T4. **Analyze across the book (AI)…** — summary, progression, characters, where it meets other plotlines; **In each chapter**
+    opens a chapter in Plotlines mode with the thread beside it. Its page in the tree has the same at the end.
+T5. A character's *In the book* (Characters mode): **Make {name}'s story a plotline** — a new plotline in their chapters. On
+    another plotline's page, **Whose story is it?** → that character: it asks before moving the story, then offers to link
+    their chapters.
+
 ### Q. Look (the review could not judge these from the code)
 Q1. The white ¶ on the amber and green icons — readable? The colour washes behind the text (yellow, teal especially)?
 Q2. At 150 % scaling: the panel (430 px) — nothing cut off; the mode bar's line of help wraps tidily.
+Q4. The + marks between close paragraphs; two threads' washes overlapping; the green band on new text.
 Q3. The three view buttons of a character (R1): is the chosen one clear? Long buttons ("Analyze Nell Carrow in this chapter
     (AI)…") fit the panel?
 

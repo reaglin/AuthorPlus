@@ -18,8 +18,10 @@
         <KeyBinding Key="S" Modifiers="Ctrl+Shift" Command="{x:Static local:MainWindow.SaveVersionCommand}"/>
         <KeyBinding Key="H" Modifiers="Ctrl" Command="{x:Static local:MainWindow.VersionsCommand}"/>
         <KeyBinding Key="D1" Modifiers="Ctrl" Command="{x:Static local:MainWindow.WriteModeCommand}"/>
-        <KeyBinding Key="D2" Modifiers="Ctrl" Command="{x:Static local:MainWindow.AnalyzeModeCommand}"/>
-        <KeyBinding Key="D3" Modifiers="Ctrl" Command="{x:Static local:MainWindow.CharactersModeCommand}"/>
+        <KeyBinding Key="D2" Modifiers="Ctrl" Command="{x:Static local:MainWindow.CreateModeCommand}"/>
+        <KeyBinding Key="D3" Modifiers="Ctrl" Command="{x:Static local:MainWindow.AnalyzeModeCommand}"/>
+        <KeyBinding Key="D4" Modifiers="Ctrl" Command="{x:Static local:MainWindow.CharactersModeCommand}"/>
+        <KeyBinding Key="D5" Modifiers="Ctrl" Command="{x:Static local:MainWindow.PlotlinesModeCommand}"/>
     </Window.InputBindings>
 
     <DockPanel>
@@ -92,10 +94,14 @@
             <MenuItem Header="_View">
                 <MenuItem Header="_Write Mode" x:Name="MnuWriteMode" IsCheckable="True" Command="{x:Static local:MainWindow.WriteModeCommand}" InputGestureText="Ctrl+1"
                           ToolTip="The chapter editor with the editing tools"/>
-                <MenuItem Header="_Analysis Mode" x:Name="MnuAnalyzeMode" IsCheckable="True" Command="{x:Static local:MainWindow.AnalyzeModeCommand}" InputGestureText="Ctrl+2"
-                          ToolTip="Click a paragraph (or the ¶ beside it) for the AI's read and rewrites; the chapter's summary, characters, plotlines and analysis beside the text"/>
-                <MenuItem Header="_Characters Mode" x:Name="MnuCharactersMode" IsCheckable="True" Command="{x:Static local:MainWindow.CharactersModeCommand}" InputGestureText="Ctrl+3"
-                          ToolTip="Every character's name coloured in the chapter; click one for their form beside the text"/>
+                <MenuItem Header="C_reate Mode" x:Name="MnuCreateMode" IsCheckable="True" Command="{x:Static local:MainWindow.CreateModeCommand}" InputGestureText="Ctrl+2"
+                          ToolTip="Click a + between paragraphs and say what to write and how; the AI writes it there. Or write a new chapter"/>
+                <MenuItem Header="_Analysis Mode" x:Name="MnuAnalyzeMode" IsCheckable="True" Command="{x:Static local:MainWindow.AnalyzeModeCommand}" InputGestureText="Ctrl+3"
+                          ToolTip="Click a paragraph (or the ¶ beside it) to analyze it or get suggestions; the chapter's summary, characters, plotlines and analysis beside the text"/>
+                <MenuItem Header="_Characters Mode" x:Name="MnuCharactersMode" IsCheckable="True" Command="{x:Static local:MainWindow.CharactersModeCommand}" InputGestureText="Ctrl+4"
+                          ToolTip="Every character's name coloured in the chapter; click one for them in this chapter, in the book, and their form"/>
+                <MenuItem Header="_Plotlines Mode" x:Name="MnuPlotlinesMode" IsCheckable="True" Command="{x:Static local:MainWindow.PlotlinesModeCommand}" InputGestureText="Ctrl+5"
+                          ToolTip="The plotlines in this chapter, their key moments marked in the text; each one in this chapter and across the book"/>
                 <Separator/>
                 <MenuItem Header="_Find and Replace" Click="Find_Click" InputGestureText="Ctrl+F"/>
                 <Separator/>

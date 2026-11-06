@@ -18,6 +18,9 @@ public sealed record ParagraphMark(Paragraph Paragraph, int Index, Brush Fill, s
 /// <summary>A name in the open chapter as Character mode shows it: a character's (coloured) or a possible new one (dotted underline).</summary>
 public sealed record NameMark(TextPointer Start, TextPointer End, Brush? Fill, object Target, string Tip);
 
+/// <summary>A place new text can go in Create mode: before paragraph <see cref="Index"/>, or after the last when it equals the count.</summary>
+public sealed record InsertPoint(int Index);
+
 /// <summary>
 /// Drawn over the chapter's RichTextBox, never into its document — so nothing it shows is saved
 /// with the chapter. In Analysis mode: a coloured ¶ in the left margin at the start of each
@@ -30,6 +33,10 @@ public sealed class ChapterOverlay : Adorner
     private readonly RichTextBox _rtb;
     private IReadOnlyList<ParagraphMark> _paragraphs = Array.Empty<ParagraphMark>();
     private IReadOnlyList<NameMark> _names = Array.Empty<NameMark>();
+    private IReadOnlyList<Paragraph> _inserts = Array.Empty<Paragraph>();
+    private int _insertAt = -1;
+    private int _newStart = -1;
+    private int _insertCount;
     private int _selected = -1;
     private object? _selectedTarget;
     private NameMark? _currentMark;
@@ -39,6 +46,8 @@ public sealed class ChapterOverlay : Adorner
     public event Action<int>? ParagraphClicked;
     /// <summary>A name was clicked: its <see cref="NameMark.Target"/>.</summary>
     public event Action<object>? NameClicked;
+    /// <summary>A + was clicked: where the new text goes (see <see cref="InsertPoint"/>).</summary>
+    public event Action<int>? InsertClicked;
 
     public const double IconSize = 18;
     private static readonly Brush Accent = new SolidColorBrush(Color.FromRgb(0x1A, 0x5F, 0xB4));
@@ -57,12 +66,25 @@ public sealed class ChapterOverlay : Adorner
 
     public void ShowParagraphs(IReadOnlyList<ParagraphMark> marks, int selected)
     {
-        _paragraphs = marks; _names = Array.Empty<NameMark>(); _selected = selected;
+        _paragraphs = marks; _names = Array.Empty<NameMark>(); _inserts = Array.Empty<Paragraph>(); _insertAt = -1; _selected = selected;
+        InvalidateVisual();
+    }
+
+    /// <summary>
+    /// Create mode: a + before each of the paragraphs and one after the last. <paramref name="selected"/> is the
+    /// chosen place (drawn as a line across the text); <paramref name="newCount"/> paragraphs from there are the
+    /// text just put in (drawn with a band).
+    /// </summary>
+    public void ShowInserts(IReadOnlyList<Paragraph> paragraphs, int selected, int newStart = -1, int newCount = 0)
+    {
+        _inserts = paragraphs; _insertAt = selected; _newStart = newStart; _insertCount = newCount;
+        _paragraphs = Array.Empty<ParagraphMark>(); _names = Array.Empty<NameMark>();
         InvalidateVisual();
     }
 
     public void ShowNames(IReadOnlyList<NameMark> marks, object? selectedTarget)
     {
+        _inserts = Array.Empty<Paragraph>(); _insertAt = -1;
         _names = marks; _paragraphs = Array.Empty<ParagraphMark>(); _selectedTarget = selectedTarget; _currentMark = null;
         InvalidateVisual();
     }
@@ -76,7 +98,7 @@ public sealed class ChapterOverlay : Adorner
 
     public void Clear()
     {
-        _paragraphs = Array.Empty<ParagraphMark>(); _names = Array.Empty<NameMark>();
+        _paragraphs = Array.Empty<ParagraphMark>(); _names = Array.Empty<NameMark>(); _inserts = Array.Empty<Paragraph>(); _insertAt = -1;
         InvalidateVisual();
     }
 
@@ -127,7 +149,53 @@ public sealed class ChapterOverlay : Adorner
                 _hits.Add((r, n.Target, n.Tip));
             }
         }
+        DrawInserts(dc, width, height);
         dc.Pop();
+    }
+
+    private static readonly Pen InsertLine = new(new SolidColorBrush(Color.FromRgb(0x2E, 0x85, 0x40)), 2) { DashStyle = new DashStyle(new double[] { 3, 2 }, 0) };
+    private static readonly Brush InsertFill = new SolidColorBrush(Color.FromRgb(0x2E, 0x85, 0x40));
+    private static readonly Brush NewBand = new SolidColorBrush(Color.FromArgb(0x30, 0x2E, 0x85, 0x40));
+
+    /// <summary>The + marks: one in the gap above each paragraph, one under the last.</summary>
+    private void DrawInserts(DrawingContext dc, double width, double height)
+    {
+        if (_inserts.Count == 0 && _insertAt < 0 && _newStart < 0) return;
+        var tops = new List<(Rect Top, Rect Bottom)>();
+        foreach (var p in _inserts)
+        {
+            try { tops.Add((p.ContentStart.GetCharacterRect(LogicalDirection.Forward), p.ContentEnd.GetCharacterRect(LogicalDirection.Backward))); }
+            catch (InvalidOperationException) { return; }
+        }
+        // The new text just put in: a green band beside it.
+        if (_insertCount > 0 && _newStart >= 0 && _newStart + _insertCount <= tops.Count)
+        {
+            var a = tops[_newStart].Top; var b = tops[_newStart + _insertCount - 1].Bottom;
+            dc.DrawRectangle(InsertFill, null, new Rect(IconSize + 10, a.Top - 2, 3, Math.Max(4, b.Bottom - a.Top + 4)));
+            if (!a.IsEmpty && !b.IsEmpty)
+                dc.DrawRectangle(NewBand, null, new Rect(IconSize + 10, a.Top - 2, Math.Max(0, width - IconSize - 30), Math.Max(4, b.Bottom - a.Top + 4)));
+        }
+        for (int i = 0; i <= tops.Count; i++)
+        {
+            double y;
+            if (tops.Count == 0) y = 14;
+            else if (i == 0) y = tops[0].Top.Top - 10;
+            else if (i == tops.Count) y = tops[^1].Bottom.Bottom + 14;
+            else y = (tops[i - 1].Bottom.Bottom + tops[i].Top.Top) / 2;
+            if (double.IsNaN(y) || y < -IconSize || y > height + IconSize) continue;
+            var icon = new Rect(5, y - IconSize / 2, IconSize, IconSize);
+            bool chosen = i == _insertAt;
+            if (chosen) dc.DrawLine(InsertLine, new Point(IconSize + 10, y), new Point(width - 24, y));
+            dc.DrawEllipse(chosen ? InsertFill : Brushes.White, new Pen(InsertFill, 1.4), new Point(icon.Left + IconSize / 2, y), IconSize / 2, IconSize / 2);
+            var glyph = new FormattedText("+", CultureInfo.CurrentUICulture, FlowDirection.LeftToRight,
+                new Typeface(new System.Windows.Media.FontFamily("Segoe UI"), FontStyles.Normal, FontWeights.Bold, FontStretches.Normal), 15,
+                chosen ? Brushes.White : InsertFill, VisualTreeHelper.GetDpi(this).PixelsPerDip);
+            dc.DrawText(glyph, new Point(icon.Left + (IconSize - glyph.Width) / 2, icon.Top + (IconSize - glyph.Height) / 2 - 1));
+            _hits.Add((icon, new InsertPoint(i),
+                i == 0 ? "Write new text here, before the first paragraph"
+                : i == tops.Count ? "Write new text here, at the end of the chapter"
+                : "Write new text here, between these two paragraphs"));
+        }
     }
 
     /// <summary>The boxes a stretch of text covers: one per line it runs over.</summary>
@@ -190,6 +258,7 @@ public sealed class ChapterOverlay : Adorner
         if (hit == null) { base.OnMouseLeftButtonUp(e); return; }
         e.Handled = true;
         if (hit.Value.Target is int index) ParagraphClicked?.Invoke(index);
+        else if (hit.Value.Target is InsertPoint at) InsertClicked?.Invoke(at.Index);
         else NameClicked?.Invoke(hit.Value.Target);
     }
 }

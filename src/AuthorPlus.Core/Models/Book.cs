@@ -120,6 +120,19 @@ public sealed class Book
     }
 
     /// <summary>
+    /// Puts the thread in the chapter (both sides: the chapter's list and the thread's chapters), as
+    /// introduced when it runs in no earlier chapter, otherwise continuing. Nothing changes if it is there.
+    /// </summary>
+    public void AddToChapter(Plotline plotline, Chapter chapter)
+    {
+        if (!chapter.PlotlineIds.Contains(plotline.Id)) chapter.PlotlineIds.Add(plotline.Id);
+        if (plotline.RoleIn(chapter.Id) != null) return;
+        int here = Chapters.IndexOf(chapter);
+        bool earlier = plotline.ChapterIds.Any(id => Chapters.FindIndex(c => c.Id == id) is var i && i >= 0 && i < here);
+        SetRole(plotline, chapter.Id, earlier ? PlotlineRole.Continuing : PlotlineRole.Introduced);
+    }
+
+    /// <summary>
     /// The thread's status follows its chapters: resolved once a chapter resolves it, active while
     /// it runs anywhere, planned while it runs nowhere yet.
     /// </summary>
@@ -327,7 +340,15 @@ public enum ItemKind
     /// One character across the whole book: a summary as the book presents them, their story arc over
     /// the chapters, and how they meet the plotlines. Owned by the character.
     /// </summary>
-    CharacterInBook
+    CharacterInBook,
+    /// <summary>
+    /// One plotline in ONE chapter: the part the chapter plays in it, what happens to it there, who
+    /// drives it, and its key moments quoted from the text. Owned by the chapter; <see cref="Item.PlotlineIds"/>
+    /// holds the plotline. Not shown in the tree.
+    /// </summary>
+    PlotlineInChapter,
+    /// <summary>One plotline across the book: summary, progression, characters, convergences. Owned by the plotline.</summary>
+    PlotlineInBook
 }
 
 /// <summary>
@@ -516,6 +537,8 @@ public sealed class Plotline
     /// <summary>Introduced / continuing / resolved, per chapter. Seeded from <see cref="ChapterIds"/> on load.</summary>
     public List<ChapterRole> ChapterRoles { get; set; } = new();
     public List<Guid>     CharacterIds { get; set; } = new();
+    /// <summary>When the thread is a character's own story (their arc through the book): that character.</summary>
+    public Guid?          CharacterId  { get; set; }
     public List<PlotlineConvergence> Convergences { get; set; } = new();
     public string         Notes        { get; set; } = string.Empty;
 
