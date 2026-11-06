@@ -137,6 +137,7 @@ public partial class MainWindow
             buttons.Add(go); buttons.Add(top);
         }
         p.Children.Add(Card("Play", play, buttons.ToArray()));
+        if (_ai.CanSpeak && narrator != null) p.Children.Add(AudiobookCard(ch, narrator));
 
         // Voices
         var voices = new StackPanel();
@@ -170,6 +171,134 @@ public partial class MainWindow
             whoButtons.Add(PanelButton("Next not known ›", "Opens the next line whose speaker is not known", () => OpenQuote(_quoteLines.FirstOrDefault(l => !Known(l)))));
         p.Children.Add(Card("Who speaks", whoBody, whoButtons.ToArray()));
         return Scroll(p);
+    }
+
+    // ── This chapter in the audiobook (Ron, 2026-11-06: "the author listens to a chapter and then approves that chapter") ─
+
+    private CancellationTokenSource? _approveCts;
+    private string _approveStatus = "";
+    private TextBlock? _approveText;
+
+    /// <summary>
+    /// The chapter's audiobook track: approve it once it sounds right (the track is made now, at the audiobook's
+    /// quality, and the export uses it as it is), hear the made track, save its MP3, or withdraw the approval.
+    /// </summary>
+    private Border AudiobookCard(Chapter ch, VoiceChoice narrator)
+    {
+        var plan = ChapterPlan(ch, narrator);
+        var note = TrackNoteOf(plan.Id);
+        var why = WhyRemake(plan);
+        bool fresh = why == null;
+        var (chars, cost) = TrackCost(plan);
+        var price = cost is { } usd ? $"about ${usd:0.00}" : "a price not known for one of the voices";
+        var body = new StackPanel();
+        string text =
+            _approveCts != null ? _approveStatus
+            : fresh && note!.Approved ? $"Approved for the audiobook{(note.ApprovedUtc is { } d ? $" on {d.ToLocalTime():d MMM yyyy}" : "")} — {TimeSpan.FromSeconds(note.Seconds):m\\:ss} of audio. The audiobook export uses this track as it is."
+            : fresh ? $"Its audiobook track is made ({TimeSpan.FromSeconds(note!.Seconds):m\\:ss}) but not approved yet. Hear it, then approve it."
+            : note != null ? $"Its audiobook track is out of date: {why}. When the chapter sounds right, approve it again — the new track costs {price} ({chars:N0} characters)."
+            : $"Not in the audiobook yet. When the chapter sounds right, approve it: its track is made now at the audiobook's quality (192 kbps, steady loudness, " +
+              $"its title read first) — {chars:N0} characters, {price} — and the audiobook export uses it as it is.";
+        _approveText = Body(text, muted: !fresh && _approveCts == null);
+        body.Children.Add(_approveText);
+
+        var buttons = new List<Button>();
+        if (_approveCts != null)
+            buttons.Add(PanelButton("Stop", "Stops making the track; the pieces already made are kept and not paid for again", () => _approveCts?.Cancel(), primary: true));
+        else
+        {
+            if (!(fresh && note!.Approved))
+                buttons.Add(AiButton(fresh ? "✓ Approve for the audiobook" : note?.Approved == true ? "✓ Approve again…" : "✓ Approve for the audiobook…",
+                    fresh ? "Marks the made track as approved; the export uses it as it is"
+                          : "Makes this chapter's audiobook track now, as you have been hearing it (voices, speakers, pronunciations), and marks it approved",
+                    () => ApproveChapter(ch, plan, alreadyMade: fresh), primary: true));
+            if (fresh)
+            {
+                buttons.Add(PanelButton("▶ Hear the track", "Plays the audiobook track itself — the chapter as the audiobook has it", () => PlayTrack(ch, plan)));
+                buttons.Add(PanelButton("Save the MP3…", "Saves this chapter's audiobook MP3 where you choose — to send to a reader, or to upload one chapter", () => SaveTrack(ch, plan)));
+                if (note!.Approved)
+                    buttons.Add(PanelButton("Withdraw approval", "The track stays made, but the export no longer counts it as approved", () =>
+                    {
+                        SaveTrackNote(plan, approved: false); ShowSidePanel(keepScroll: true); UpdateStatus($"\"{ch.Title}\" is no longer approved for the audiobook.");
+                    }));
+            }
+        }
+        return Card("Audiobook", body, buttons.ToArray());
+    }
+
+    private async void ApproveChapter(Chapter ch, TrackPlan plan, bool alreadyMade)
+    {
+        // The chapter as it is now (a speaker or a word may have changed since the panel was drawn).
+        if (_book?.NarratorVoice is { } narrator) { plan = ChapterPlan(ch, narrator); alreadyMade = WhyRemake(plan) == null; }
+        if (alreadyMade)
+        {
+            SaveTrackNote(plan, approved: true);
+            ShowSidePanel(keepScroll: true);
+            UpdateStatus($"\"{ch.Title}\" is approved for the audiobook.");
+            return;
+        }
+        var (chars, cost) = TrackCost(plan);
+        if ((cost == null || cost > 0.25) &&
+            MessageBox.Show(this, $"Make the audiobook track for \"{ch.Title}\": about {chars:N0} characters, " +
+                                  (cost is { } usd ? $"about ${usd:0.00}" : "an amount not known for one of the voices") +
+                                  " at Google's price (its free characters each month come first)?\n\nYou can stop at any time; nothing paid for is lost.",
+                            "Approve for the audiobook", MessageBoxButton.YesNo, MessageBoxImage.Question) != MessageBoxResult.Yes) return;
+        StopListening();
+        CommitCurrent();
+        var cts = new CancellationTokenSource();
+        _approveCts = cts;
+        _approveStatus = "Making the audiobook track: getting the pieces from Google…";
+        ShowSidePanel(keepScroll: true);
+        var spent = new Spent();
+        try
+        {
+            await MakeTrack(plan, cts.Token, spent, (i, n) =>
+            {
+                _approveStatus = $"Making the audiobook track: piece {i} of {n}…";
+                if (_approveText != null) _approveText.Text = _approveStatus;
+            });
+            _approveStatus = "Making the audiobook track: putting it together…";
+            if (_approveText != null) _approveText.Text = _approveStatus;
+            SaveTrackNote(plan, approved: true);
+            UpdateStatus($"\"{ch.Title}\" is approved for the audiobook" + (spent.Usd > 0 ? $" (about ${spent.Usd:0.00} of speech made)." : "."));
+        }
+        catch (OperationCanceledException) { UpdateStatus("Stopped. The pieces already made are kept — approving again carries on from there."); }
+        catch (AiException ex) { MessageBox.Show(this, ex.Message, "Approve for the audiobook", MessageBoxButton.OK, MessageBoxImage.Warning); }
+        catch (Exception ex) when (ex is IOException or InvalidDataException or UnauthorizedAccessException or System.Runtime.InteropServices.COMException)
+        { MessageBox.Show(this, "The track could not be made: " + ex.Message, "Approve for the audiobook", MessageBoxButton.OK, MessageBoxImage.Warning); }
+        finally
+        {
+            if (ReferenceEquals(_approveCts, cts)) _approveCts = null;
+            cts.Dispose();
+            if (_mode == EditorMode.Listen && _side != null && ReferenceEquals(_current, ch)) ShowSidePanel(keepScroll: true);
+        }
+    }
+
+    private async void PlayTrack(Chapter ch, TrackPlan plan)
+    {
+        StopListening();
+        var cts = new CancellationTokenSource();
+        _playCts = cts;
+        _playStatus = $"Playing the audiobook track of \"{ch.Title}\" — Stop (or Esc) to stop.";
+        ShowSidePanel(keepScroll: true);
+        try { await PlayFile(TrackMp3(plan.Id), cts.Token); }
+        catch (OperationCanceledException) { }
+        catch (PlaybackException ex) { MessageBox.Show(this, ex.Message, "Listen", MessageBoxButton.OK, MessageBoxImage.Warning); }
+        finally
+        {
+            if (ReferenceEquals(_playCts, cts)) { _playCts = null; _playStatus = ""; if (_mode == EditorMode.Listen && _side != null) ShowSidePanel(keepScroll: true); }
+            cts.Dispose();
+        }
+    }
+
+    private void SaveTrack(Chapter ch, TrackPlan plan)
+    {
+        var name = $"{_book!.ChapterNumber(ch):00} {ch.Title}";
+        foreach (var c in Path.GetInvalidFileNameChars()) name = name.Replace(c, '_');
+        var dlg = new Microsoft.Win32.SaveFileDialog { FileName = name + ".mp3", Filter = "MP3 audio (*.mp3)|*.mp3", Title = "Save this chapter's audiobook MP3" };
+        if (dlg.ShowDialog(this) != true) return;
+        try { File.Copy(TrackMp3(plan.Id), dlg.FileName, overwrite: true); UpdateStatus("Saved: " + dlg.FileName); }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { MessageBox.Show(this, "It could not be saved there: " + ex.Message, "Save the MP3", MessageBoxButton.OK, MessageBoxImage.Warning); }
     }
 
     private bool Known(QuoteLine l) => Dialogue.SpeakerOf(_speakers, l) is { } s && (s.CharacterId != null || s.SpeakerName == "Narrator");

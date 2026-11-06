@@ -232,6 +232,9 @@ public partial class MainWindow
         public string Voices { get; set; } = "";
         public string Said { get; set; } = "";
         public double Seconds { get; set; }
+        /// <summary>The author heard the chapter in Listen mode and approved it for the audiobook (Ron, 2026-11-06).</summary>
+        public bool Approved { get; set; }
+        public DateTime? ApprovedUtc { get; set; }
     }
 
     private sealed record Piece(string Text, VoiceChoice Voice, SpokenText Spoken, int PauseMs);
@@ -284,6 +287,102 @@ public partial class MainWindow
     private string ClosingCredit() => _book!.ClosingCredits.Trim().Length > 0 ? _book.ClosingCredits.Trim()
         : $"This has been {_book.Title}, written by {(_book.Author.Length > 0 ? _book.Author : "the author")}. Narrated by a synthesized voice. The end.";
 
+    // ── A track's files (shared by Listen's Approve and the export) ───────────
+
+    private sealed class Spent { public double Usd; }
+
+    private string TrackNotePath(string id) => Path.Combine(AudioFolder("chapters"), id + ".json");
+    private string TrackMp3(string id) => Path.Combine(AudioFolder("chapters"), id + ".mp3");
+
+    private TrackNote? TrackNoteOf(string id)
+    {
+        try { return File.Exists(TrackNotePath(id)) && File.Exists(TrackMp3(id)) ? JsonSerializer.Deserialize<TrackNote>(File.ReadAllText(TrackNotePath(id))) : null; }
+        catch { return null; }
+    }
+
+    private void SaveTrackNote(TrackPlan t, bool approved)
+    {
+        double secs; using (var r = new MediaFoundationReader(TrackMp3(t.Id))) secs = r.TotalTime.TotalSeconds;
+        File.WriteAllText(TrackNotePath(t.Id), JsonSerializer.Serialize(new TrackNote
+        {
+            Fingerprint = t.Fingerprint, Title = t.TitleText, Words = t.WordsHash, Voices = t.VoicesHash, Said = t.SaidHash, Seconds = secs,
+            Approved = approved, ApprovedUtc = approved ? DateTime.UtcNow : null
+        }));
+    }
+
+    /// <summary>Why a made track would be made again, in a few words; null when it would not.</summary>
+    private string? WhyRemake(TrackPlan plan)
+    {
+        var note = TrackNoteOf(plan.Id);
+        if (note == null) return "not made yet";
+        if (note.Fingerprint == plan.Fingerprint) return null;
+        var why = note.Title.Length > 0 && note.Title != plan.TitleText ? "its number or title changed"
+                : note.Words.Length > 0 && note.Words != plan.WordsHash ? "its text or speakers changed"
+                : note.Voices.Length > 0 && note.Voices != plan.VoicesHash ? "a voice or pace changed"
+                : note.Said.Length > 0 && note.Said != plan.SaidHash ? "a pronunciation changed"
+                : "changed since it was made";
+        return note.Approved ? why + " since it was approved" : why;
+    }
+
+    /// <summary>What it costs to make a track (characters and price; null price when a voice's is not known).</summary>
+    private (int Chars, double? Cost) TrackCost(TrackPlan t)
+    {
+        double? cost = 0;
+        foreach (var p in t.Pieces) { var c = _ai.EstimateSpeech(p.Voice.Name, p.Spoken.Text.Length); cost = c == null || cost == null ? null : cost + c; }
+        return (t.Characters, cost);
+    }
+
+    /// <summary>
+    /// One track: its pieces from Google (three at a time), each kept on disk as it arrives — so a Stop loses
+    /// nothing paid for — then joined with their pauses, evened, encoded to 192 kbps MP3.
+    /// </summary>
+    private async Task MakeTrack(TrackPlan t, CancellationToken ct, Spent spent, Action<int, int>? progress)
+    {
+        var work = Path.Combine(AudioFolder("work"), t.Id);
+        Directory.CreateDirectory(work);
+        Directory.CreateDirectory(AudioFolder("chapters"));
+        string PiecePath(Piece p) => Path.Combine(work, Dialogue.AudioKey(p.Voice.Name, p.Voice.SpeakingRate, p.Spoken.Key) + ".wav");
+        using var gate = new SemaphoreSlim(3);
+        int finished = 0;
+        await Task.WhenAll(t.Pieces.Select(async p =>
+        {
+            var path = PiecePath(p);
+            if (!File.Exists(path))
+            {
+                await gate.WaitAsync(ct);
+                try
+                {
+                    var speech = await _ai.SpeakAsync(SpeechRequest(p.Spoken, p.Voice, storeQuality: true, "audiobook"), null, ct);
+                    await File.WriteAllBytesAsync(path + ".tmp", speech.Audio, CancellationToken.None);
+                    File.Move(path + ".tmp", path, overwrite: true);
+                    spent.Usd += speech.EstimatedCostUsd ?? 0;
+                }
+                finally { gate.Release(); }
+            }
+            progress?.Invoke(++finished, t.Pieces.Count);
+        }));
+        ct.ThrowIfCancellationRequested();
+        var mp3 = TrackMp3(t.Id);
+        await Task.Run(() =>
+        {
+            MediaFoundationApi.Startup();
+            var sounds = t.Pieces.Select(p => (Wav.Read(File.ReadAllBytes(PiecePath(p))), p.PauseMs)).ToList();
+            var joined = ChapterSound.Even(ChapterSound.Join(StoreRate, sounds));
+            var stereo = new byte[joined.Samples.Length * 4];
+            for (int i = 0; i < joined.Samples.Length; i++)
+            {
+                var v = joined.Samples[i];
+                stereo[4 * i] = stereo[4 * i + 2] = (byte)v;
+                stereo[4 * i + 1] = stereo[4 * i + 3] = (byte)(v >> 8);
+            }
+            var tmp = mp3 + ".tmp.mp3";
+            using (var src = new RawSourceWaveStream(new MemoryStream(stereo), new WaveFormat(StoreRate, 16, 2)))
+                MediaFoundationEncoder.EncodeToMp3(src, tmp, 192000);
+            File.Move(tmp, mp3, overwrite: true);
+        }, CancellationToken.None);
+        try { Directory.Delete(work, recursive: true); } catch (IOException) { }      // the track is made: its pieces are not needed
+    }
+
     private void ExportAudiobook_Click(object sender, RoutedEventArgs e)
     {
         if (_book == null) return;
@@ -323,7 +422,7 @@ public partial class MainWindow
             head.Children.Add(new TextBlock { Text = "Export audiobook", FontSize = 18, FontWeight = FontWeights.SemiBold });
             head.Children.Add(new TextBlock
             {
-                Text = "Each chapter is read as Listen mode reads it — the narrator's voice, each character's for their lines, the speakers you confirmed, the Pronunciations list — " +
+                Text = "Chapters you approved in Listen mode are used as they are. Each other chapter is read as Listen mode reads it — the narrator's voice, each character's for their lines, the speakers you confirmed, the Pronunciations list — " +
                        "and saved as an MP3 at the standard the audiobook stores ask for (192 kbps, 44.1 kHz, steady loudness, silence at the start and end). " +
                        "Then all of it is put together into one M4B file with chapter marks. Chapters already made and not changed since are not made (or paid for) again; " +
                        "Stop at any time and carry on later — nothing paid for is lost.",
@@ -365,6 +464,8 @@ public partial class MainWindow
             void Tick(Func<Chapter, bool> which) { foreach (var r in _rows) r.Box.IsChecked = which(r.Chapter); Changed(); }
             pick.Children.Add(SmallButton("All", "Tick every chapter", () => Tick(_ => true)));
             pick.Children.Add(SmallButton("None", "Untick every chapter", () => Tick(_ => false)));
+            pick.Children.Add(SmallButton("Approved only", "Tick only the chapters you approved in Listen mode, unchanged since", () =>
+                Tick(c => _plans.TryGetValue(c.Id, out var pl) && _w.TrackNoteOf(pl.Id) is { Approved: true } n && n.Fingerprint == pl.Fingerprint)));
             foreach (var section in _book.Sections)
             {
                 var s = section;
@@ -465,28 +566,6 @@ public partial class MainWindow
             Estimate();
         }
 
-        private string NotePath(string id) => Path.Combine(_w.AudioFolder("chapters"), id + ".json");
-        private string Mp3Path(string id) => Path.Combine(_w.AudioFolder("chapters"), id + ".mp3");
-
-        private TrackNote? NoteOf(string id)
-        {
-            try { return File.Exists(NotePath(id)) && File.Exists(Mp3Path(id)) ? JsonSerializer.Deserialize<TrackNote>(File.ReadAllText(NotePath(id))) : null; }
-            catch { return null; }
-        }
-
-        /// <summary>Why a made track would be made again, in a few words; null when it would not.</summary>
-        private string? WhyRemake(TrackPlan plan)
-        {
-            var note = NoteOf(plan.Id);
-            if (note == null) return "not made yet";
-            if (note.Fingerprint == plan.Fingerprint) return null;
-            if (note.Title.Length > 0 && note.Title != plan.TitleText) return "its number or title changed";
-            if (note.Words.Length > 0 && note.Words != plan.WordsHash) return "its text or speakers changed";
-            if (note.Voices.Length > 0 && note.Voices != plan.VoicesHash) return "a voice or pace changed";
-            if (note.Said.Length > 0 && note.Said != plan.SaidHash) return "a pronunciation changed";
-            return "changed since it was made";
-        }
-
         /// <summary>Works out every chapter's pieces once (the chapters are read from disk); a moment for a long book.</summary>
         private async Task Plan()
         {
@@ -499,7 +578,9 @@ public partial class MainWindow
             {
                 var plan = _w.ChapterPlan(ch, narrator);
                 _plans[ch.Id] = plan;
-                state.Text = WhyRemake(plan) is { } why ? why : $"made, {TimeSpan.FromSeconds(NoteOf(plan.Id)!.Seconds):h\\:mm\\:ss}";
+                state.Text = _w.WhyRemake(plan) is { } why ? why
+                           : _w.TrackNoteOf(plan.Id) is { Approved: true } n ? $"approved, {TimeSpan.FromSeconds(n.Seconds):h\\:mm\\:ss}"
+                           : $"made, not approved yet, {TimeSpan.FromSeconds(_w.TrackNoteOf(plan.Id)!.Seconds):h\\:mm\\:ss}";
                 if (++i % 4 == 0) await System.Windows.Threading.Dispatcher.Yield(System.Windows.Threading.DispatcherPriority.Background);   // the window stays alive
             }
             var cover = CoverOf(_book);
@@ -527,12 +608,12 @@ public partial class MainWindow
             int chars = 0, toMake = 0, pieces = 0; double? cost = 0; double seconds = 0;
             foreach (var t in tracks)
             {
-                var note = NoteOf(t.Id);
+                var note = _w.TrackNoteOf(t.Id);
                 bool fresh = note != null && note.Fingerprint == t.Fingerprint;
                 seconds += fresh ? note!.Seconds : t.Characters / 15.0;
                 if (fresh) continue;
                 toMake++; chars += t.Characters; pieces += t.Pieces.Count;
-                foreach (var p in t.Pieces) { var c = _w._ai.EstimateSpeech(p.Voice.Name, p.Spoken.Text.Length); cost = c == null || cost == null ? null : cost + c; }
+                var (_, c) = _w.TrackCost(t); cost = c == null || cost == null ? null : cost + c;
             }
             _last = (chars, cost, pieces, toMake);
             int chapters = tracks.Count(t => t.Id is not ("opening" or "closing"));
@@ -586,15 +667,11 @@ public partial class MainWindow
                 foreach (var t in tracks)
                 {
                     ct.ThrowIfCancellationRequested();
-                    if (NoteOf(t.Id)?.Fingerprint != t.Fingerprint)
+                    if (_w.TrackNoteOf(t.Id)?.Fingerprint != t.Fingerprint)
                     {
                         Step($"{t.Label}: getting {t.Pieces.Count} pieces from Google…");
-                        await MakeTrack(t, ct, spent, (i, n) => _progressText.Text = $"{t.Label}: piece {i} of {n}…");
-                        double secs; using (var r = new MediaFoundationReader(Mp3Path(t.Id))) secs = r.TotalTime.TotalSeconds;
-                        File.WriteAllText(NotePath(t.Id), JsonSerializer.Serialize(new TrackNote
-                        {
-                            Fingerprint = t.Fingerprint, Title = t.TitleText, Words = t.WordsHash, Voices = t.VoicesHash, Said = t.SaidHash, Seconds = secs
-                        }));
+                        await _w.MakeTrack(t, ct, spent, (i, n) => _progressText.Text = $"{t.Label}: piece {i} of {n}…");
+                        _w.SaveTrackNote(t, approved: false);
                     }
                     done++;
                     Step($"{t.Label} made.");
@@ -608,9 +685,9 @@ public partial class MainWindow
                 foreach (var t in tracks)
                 {
                     var number = t.Id == "opening" ? "00" : t.Id == "closing" ? "99" : (++n).ToString("00");
-                    File.Copy(Mp3Path(t.Id), Path.Combine(outDir, $"{number} {Safe(t.Label)}.mp3"), overwrite: true);
+                    File.Copy(_w.TrackMp3(t.Id), Path.Combine(outDir, $"{number} {Safe(t.Label)}.mp3"), overwrite: true);
                     times.Add(new ChapterMark(t.Label, at));
-                    using var reader = new MediaFoundationReader(Mp3Path(t.Id));
+                    using var reader = new MediaFoundationReader(_w.TrackMp3(t.Id));
                     at += reader.TotalTime;
                 }
                 var bookName = Safe(_book.Title + (Selection() is { Length: > 0 } sel ? " — " + sel : ""));
@@ -632,7 +709,7 @@ public partial class MainWindow
                     Step("Putting it all together into one M4B — this cannot be stopped part way, and takes a few minutes for a long book…");
                     var m4a = Path.Combine(_w.AudioFolder("work"), "book.m4a");
                     Directory.CreateDirectory(Path.GetDirectoryName(m4a)!);
-                    var paths = tracks.Select(t => Mp3Path(t.Id)).ToList();
+                    var paths = tracks.Select(t => _w.TrackMp3(t.Id)).ToList();
                     await Task.Run(() =>
                     {
                         MediaFoundationApi.Startup();
@@ -667,58 +744,6 @@ public partial class MainWindow
                 await Plan();
                 Estimate();
             }
-        }
-
-        private sealed class Spent { public double Usd; }
-
-        /// <summary>
-        /// One track: its pieces from Google (three at a time), each kept on disk as it arrives — so a Stop loses
-        /// nothing paid for — then joined with their pauses, evened, encoded to 192 kbps MP3.
-        /// </summary>
-        private async Task MakeTrack(TrackPlan t, CancellationToken ct, Spent spent, Action<int, int>? progress)
-        {
-            var work = Path.Combine(_w.AudioFolder("work"), t.Id);
-            Directory.CreateDirectory(work);
-            string PiecePath(Piece p) => Path.Combine(work, Dialogue.AudioKey(p.Voice.Name, p.Voice.SpeakingRate, p.Spoken.Key) + ".wav");
-            using var gate = new SemaphoreSlim(3);
-            int finished = 0;
-            await Task.WhenAll(t.Pieces.Select(async p =>
-            {
-                var path = PiecePath(p);
-                if (!File.Exists(path))
-                {
-                    await gate.WaitAsync(ct);
-                    try
-                    {
-                        var speech = await _w._ai.SpeakAsync(SpeechRequest(p.Spoken, p.Voice, storeQuality: true, "audiobook"), null, ct);
-                        await File.WriteAllBytesAsync(path + ".tmp", speech.Audio, CancellationToken.None);
-                        File.Move(path + ".tmp", path, overwrite: true);
-                        spent.Usd += speech.EstimatedCostUsd ?? 0;
-                    }
-                    finally { gate.Release(); }
-                }
-                progress?.Invoke(++finished, t.Pieces.Count);
-            }));
-            ct.ThrowIfCancellationRequested();
-            var mp3 = Mp3Path(t.Id);
-            await Task.Run(() =>
-            {
-                MediaFoundationApi.Startup();
-                var sounds = t.Pieces.Select(p => (Wav.Read(File.ReadAllBytes(PiecePath(p))), p.PauseMs)).ToList();
-                var joined = ChapterSound.Even(ChapterSound.Join(StoreRate, sounds));
-                var stereo = new byte[joined.Samples.Length * 4];
-                for (int i = 0; i < joined.Samples.Length; i++)
-                {
-                    var v = joined.Samples[i];
-                    stereo[4 * i] = stereo[4 * i + 2] = (byte)v;
-                    stereo[4 * i + 1] = stereo[4 * i + 3] = (byte)(v >> 8);
-                }
-                var tmp = mp3 + ".tmp.mp3";
-                using (var src = new RawSourceWaveStream(new MemoryStream(stereo), new WaveFormat(StoreRate, 16, 2)))
-                    MediaFoundationEncoder.EncodeToMp3(src, tmp, 192000);
-                File.Move(tmp, mp3, overwrite: true);
-            }, CancellationToken.None);
-            try { Directory.Delete(work, recursive: true); } catch (IOException) { }      // the track is made: its pieces are not needed
         }
 
         private static byte[]? CoverOf(Book book)

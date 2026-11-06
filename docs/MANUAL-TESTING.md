@@ -132,6 +132,10 @@ W6. Change a word in one chapter: only that chapter says "its text or speakers c
 W7. The folder: numbered MP3s, the M4B, chapters.txt, Where to publish.txt. Open the M4B in a player (Windows Media Player,
     VLC, Apple Books on a phone): the chapters are there by name. Put a `cover.jpg` in the book folder and export again: the
     M4B shows the cover.
+W8. Listen mode, a chapter you have heard: the **Audiobook** card. **✓ Approve for the audiobook…** — its track is made (the
+    cost first); then "Approved for the audiobook on …", **▶ Hear the track** plays it, **Save the MP3…** saves it where you
+    choose. Change a word in the chapter: the card says the track is out of date and why. Export ▸ Audiobook…: the chapter
+    says "approved"; **Approved only** ticks just those.
 
 ### Q. Look (the review could not judge these from the code)
 Q1. The white ¶ on the amber and green icons — readable? The colour washes behind the text (yellow, teal especially)?
