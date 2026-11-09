@@ -323,6 +323,7 @@ public partial class MainWindow
             Fingerprint = t.Fingerprint, Title = t.TitleText, Words = t.WordsHash, Voices = t.VoicesHash, Said = t.SaidHash, Seconds = secs,
             Approved = approved, ApprovedUtc = approved ? DateTime.UtcNow : null, PieceStarts = starts, PieceEnds = ends
         }));
+        RefreshTreeTexts();                                                // the count on Generated Audio/Video
     }
 
     /// <summary>Why a made track would be made again, in a few words; null when it would not.</summary>
@@ -778,6 +779,17 @@ public partial class MainWindow
                     done++;
                 }
                 _progress.Value = 1;
+                var m4bPath = Path.Combine(outDir, bookName + ".m4b");
+                try
+                {
+                    MadeMedia.Record(_book.FolderPath!, new MadeFile
+                    {
+                        Kind = MadeKind.Audiobook, Title = _book.Title + (Selection() is { Length: > 0 } s3 ? " — " + s3 : ""), Path = outDir,
+                        Listen = File.Exists(m4bPath) ? m4bPath : null, Seconds = at.TotalSeconds, Tracks = tracks.Count, MadeUtc = DateTime.UtcNow
+                    });
+                    _w.RefreshTreeTexts();
+                }
+                catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { }   // only the list on Generated Audio/Video
                 _progressText.Text = $"The audiobook is made: {tracks.Count} tracks, {at:h\\:mm\\:ss} of listening" +
                                      (spent.Usd > 0 ? $", about ${spent.Usd:0.00} of speech made this time" : ", nothing new to pay for") + $". Saved in {outDir}.";
                 _w.UpdateStatus("Audiobook made — " + outDir);

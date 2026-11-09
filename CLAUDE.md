@@ -154,6 +154,9 @@ unit tests and must keep them (the AI layer's tests live in the AiManager repo).
    **The video for YouTube** (plan phase 11, `MainWindow.Video.cs`, `Video.cs`, `Core/Services/Video/`): made from tracks already
    made (no cost), each paragraph on the screen while it is read; H.264 + AAC MP4 by Media Foundation's sink writer (NAudio's
    interop — no ffmpeg); the piece times are noted with each track (`TrackNote.PieceStarts/PieceEnds`).
+   **Generated Audio/Video** (plan 11.6, `MainWindow.Made.cs`, `Core/Services/MadeMedia.cs`): a node at the foot of the tree, one
+   page of what was made — videos and exported audiobooks from the book's `audio\made.json` (recorded when each is made), chapter
+   tracks from `audio\chapters` — to view or listen to.
 
 5. **A book's history is a git repository in its own folder, and git is never said out loud.**
    `Core/Services/Versioning/BookRepository` is the whole of git the app uses — a version is a

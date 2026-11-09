@@ -302,6 +302,7 @@ public partial class MainWindow
                 _panelQuote = null; _listenFrom = 0; StopListening("Stopped reading — you left the chapter.");
             }
         }
+        LeaveGenerated();
         _shownChapterId = shownId;
         _overlay = null; _side = null;
     }

@@ -149,6 +149,13 @@ X3. File ▸ Export ▸ Audiobook…: with a chapter not made, **🎬 Make a vid
     cover, if the book folder has `cover.jpg`); the description lists the chapters from 0:00.
 X4. Upload one to YouTube (Studio ▸ Create ▸ Upload videos), paste the description, choose the thumbnail: the chapters show
     on YouTube's progress bar (it needs at least three, each 10 seconds or longer).
+X5. The tree's last node, **Generated Audio/Video (n)**: the videos (with their thumbnails), the audiobooks exported and every
+    chapter's track. ▶ View opens a video in your player; Copy the YouTube description; ▶ Listen on a track plays it here and
+    turns into ■ Stop — choosing another page stops it too. Go to the chapter opens it in Listen mode. A chapter changed since
+    its track was made says "Out of date" in red. The first time, videos and audiobooks made before today are found in
+    Documents\AuthorPlus\Videos\{book} and Documents\AuthorPlus\Audiobooks.
+X6. Make a video (X1) or an audiobook (X3): it is on the page at once, newest first, and the count in the tree goes up. Move a
+    video file elsewhere: its entry says it is not there any more; Remove from the list takes it off (the files are not deleted).
 
 ### Q. Look (the review could not judge these from the code)
 Q1. The white ¶ on the amber and green icons — readable? The colour washes behind the text (yellow, teal especially)?

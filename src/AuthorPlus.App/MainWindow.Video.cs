@@ -4,6 +4,7 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media.Imaging;
 using AuthorPlus.Core.Models;
+using AuthorPlus.Core.Services;
 using AuthorPlus.Core.Services.Audio;
 using AuthorPlus.Core.Services.Video;
 using NAudio.Wave;
@@ -335,7 +336,18 @@ public partial class MainWindow
                 await File.WriteAllTextAsync(description, VideoScreens.YouTubeDescription(what, _book.Author, $"Google {_book.NarratorVoice?.Label ?? "voice"}",
                                                                                           _wholeBook ? marks : new List<ChapterMark>(), TimeSpan.FromSeconds(_seconds)));
                 _progress.Value = 1;
-                _progressText.Text = $"The video is made: {Path.GetFileName(saved)} ({new FileInfo(saved).Length / 1048576.0:0.0} MB, {Length(_seconds)}), with its thumbnail and YouTube description beside it." +
+                try
+                {
+                    MadeMedia.Record(_book.FolderPath!, new MadeFile
+                    {
+                        Kind = MadeKind.Video, Title = what, Path = saved, Thumbnail = thumb, Description = description,
+                        Seconds = _seconds, Tracks = _tracks.Count, MadeUtc = DateTime.UtcNow
+                    });
+                    _w.RefreshTreeTexts();
+                    if (Equals(_w._current, GeneratedHeader)) _w.ShowCurrent();
+                }
+                catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { }   // only the list on Generated Audio/Video
+                _progressText.Text = $"The video is made: {Path.GetFileName(saved)} ({new FileInfo(saved).Length / 1048576.0:0.0} MB, {Length(_seconds)}), with its thumbnail and YouTube description beside it. It is listed under Generated Audio/Video in the tree." +
                                      (saved != path ? $" (\"{Path.GetFileName(path)}\" was in use, so it was saved under this name.)" : "");
                 _w.UpdateStatus("Video made — " + saved);
             }
