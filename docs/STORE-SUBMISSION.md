@@ -8,7 +8,7 @@ Publisher account: sign-in `ron.eaglin@gmail.com`, publishing as **Dean Eaglin**
 (https://apps.microsoft.com/search/publisher?name=Dean+Eaglin). Same account as SMADA and
 Statistle, so most of the identity is already known.
 
-## Version 1.2.0 — the audiobook as a video for YouTube, and Generated Audio/Video (Ron, 2026-11-09)
+## Version 1.2.0 — the audiobook as a video for YouTube, and Generated Audio/Video (Ron, 2026-11-09) — submitted 2026-11-09
 
 An update of the same product (identity `DeanEaglin.Author`, Store ID 9MZCBQVSSDVG): **Partner Center › Author+ › Update**.
 
@@ -22,8 +22,8 @@ An update of the same product (identity `DeanEaglin.Author`, Store ID 9MZCBQVSSD
 | ☑ | WACK on the 1.2.0 bundle — **PASS**, 23 of 24 (Blocked executables, optional, as before) | 2026-11-09; run again on the rebuilt bundle (the fix below) |
 | ☑ | Privacy policy: nothing to change — the video is made on the computer from tracks already made; nothing is sent | 2026-11-09 |
 | ☐ | Ron's hand-test of `manual-test\AuthorPlus.exe` (X1–X6) | before submitting |
-| ☐ | Package uploaded; Store listing (below); notes for certification (below) | Ron |
-| ☐ | Submitted for certification | Ron |
+| ☑ | Package uploaded (Ron; replaced with the rebuilt one), validated; Store listing filled in through Chrome: What's new, "PUT IT ON YOUTUBE", features 15–16 (the two video lines replace "Read an old draft…" and "Put the whole book back…"), the two screenshots in place of Pronunciations (7th) and the 1.0 plotlines chart (10th) — the gallery holds 10; notes for certification written out whole again (the box was empty): 1.0's, the voices, the video | 2026-11-09 |
+| ☑ | **Submitted for certification** (Ron: "yes, submit it") — "Update in certification", publishes as soon as it passes | 2026-11-09 |
 | ☐ | After it is live: SoftwarePlus.ai's Author+ page (the video, Generated Audio/Video), tag `v1.2.0` | |
 
 **Packages:** upload `AuthorPlus_1.2.0.0_x64_bundle.msixupload`; remove the 1.1.0 package from the submission if Partner Center keeps it.

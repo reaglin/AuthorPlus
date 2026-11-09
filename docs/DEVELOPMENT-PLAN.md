@@ -376,7 +376,7 @@ Phase 11 goes to the Store as 1.2.0. The steps and the text to paste are in `doc
 | R12.2 | The submission package `artifacts\AuthorPlus_1.2.0.0_x64_bundle.msixupload` (80.4 MB), real identity, family name checked | Ron uploads it | ⚠️ built 2026-11-09; rebuilt the same day with the fix in 11.8 — Ron to replace the first upload with it |
 | R12.3 | WACK on the 1.2.0 bundle | PASS | ⚠️ PASS 23/24 2026-11-09; rerun on the rebuilt bundle |
 | R12.4 | Privacy policy: no change (the video is made locally; nothing is sent) | | ⚠️ checked 2026-11-09 |
-| R12.5 | Listing: What's new, "PUT IT ON YOUTUBE" in the description, two features, screenshots (`store\screenshots-1.2`), the certification note on the video | pasted in Partner Center | ⚠️ written 2026-11-09 — Ron to paste |
+| R12.5 | Listing: What's new, "PUT IT ON YOUTUBE" in the description, two features, screenshots (`store\screenshots-1.2`), the certification note on the video | pasted in Partner Center | ⚠️ pasted 2026-11-09 (through Chrome; the two screenshots replace Pronunciations and the 1.0 plotlines chart); **submitted for certification 2026-11-09** |
 | R12.6 | Ron's hand-test X1–X6 (`manual-test\AuthorPlus.exe`) before submitting | | ⚠️ Ron |
 | R12.7 | After it is live: SoftwarePlus.ai's Author+ page (the video for YouTube, Generated Audio/Video), tag `v1.2.0` | | |
 
