@@ -60,11 +60,13 @@ public static class MadeMedia
 
     /// <summary>
     /// The first time a book's list is opened: the videos and audiobooks already in their usual folders (made before the list
-    /// was kept) go on it. Only once — after that the list is what was made and what the author kept on it.
+    /// was kept) go on it, beside anything made since. Only once (a mark in audio\made.found) — after that the list is what
+    /// was made and what the author kept on it.
     /// </summary>
     public static void FindOlder(string bookFolder, IEnumerable<string> videoFolders, IEnumerable<string> audiobookFolders)
     {
-        if (File.Exists(ListPath(bookFolder))) return;
+        var mark = System.IO.Path.Combine(bookFolder, "audio", "made.found");
+        if (File.Exists(mark)) return;
         var found = new List<MadeFile>();
         foreach (var dir in videoFolders.Where(Directory.Exists).Distinct(StringComparer.OrdinalIgnoreCase))
             foreach (var mp4 in Directory.GetFiles(dir, "*.mp4").Where(f => !f.EndsWith(".making.mp4", StringComparison.OrdinalIgnoreCase)))
@@ -88,7 +90,10 @@ public static class MadeMedia
                 MadeUtc = mp3s.Append(m4b).OfType<string>().Max(File.GetLastWriteTimeUtc)
             });
         }
-        Save(bookFolder, found.OrderByDescending(f => f.MadeUtc).ToList());
+        var list = Load(bookFolder);
+        list.AddRange(found.Where(f => !list.Any(l => Same(l, f))));
+        Save(bookFolder, list.OrderByDescending(f => f.MadeUtc).ToList());
+        File.WriteAllText(mark, DateTime.UtcNow.ToString("O"));
     }
 
     private static bool Same(MadeFile a, MadeFile b) =>

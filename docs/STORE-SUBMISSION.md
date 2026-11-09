@@ -8,6 +8,60 @@ Publisher account: sign-in `ron.eaglin@gmail.com`, publishing as **Dean Eaglin**
 (https://apps.microsoft.com/search/publisher?name=Dean+Eaglin). Same account as SMADA and
 Statistle, so most of the identity is already known.
 
+## Version 1.2.0 — the audiobook as a video for YouTube, and Generated Audio/Video (Ron, 2026-11-09)
+
+An update of the same product (identity `DeanEaglin.Author`, Store ID 9MZCBQVSSDVG): **Partner Center › Author+ › Update**.
+
+| | Item | State |
+|---|---|---|
+| ☑ | AI Manager **1.9.0** (still the latest) | checked 2026-11-09 |
+| ☑ | Version **1.2.0** in `Directory.Build.props` | 2026-11-09 |
+| ☑ | Build clean (Release), **211 tests** green | 2026-11-09 |
+| ☑ | Rebuilt after the screenshots found that older audiobooks were missed when a video was made before the page was first opened (fixed, tested) | 2026-11-09 — **the package uploaded first must be replaced with this one** |
+| ☑ | **`artifacts\AuthorPlus_1.2.0.0_x64_bundle.msixupload`** (80.4 MB), real identity, family name `DeanEaglin.Author_xs303fgqvwdg8` checked | 2026-11-09 — **upload this** (Packages) |
+| ☑ | WACK on the 1.2.0 bundle — **PASS**, 23 of 24 (Blocked executables, optional, as before) | 2026-11-09; run again on the rebuilt bundle (the fix below) |
+| ☑ | Privacy policy: nothing to change — the video is made on the computer from tracks already made; nothing is sent | 2026-11-09 |
+| ☐ | Ron's hand-test of `manual-test\AuthorPlus.exe` (X1–X6) | before submitting |
+| ☐ | Package uploaded; Store listing (below); notes for certification (below) | Ron |
+| ☐ | Submitted for certification | Ron |
+| ☐ | After it is live: SoftwarePlus.ai's Author+ page (the video, Generated Audio/Video), tag `v1.2.0` | |
+
+**Packages:** upload `AuthorPlus_1.2.0.0_x64_bundle.msixupload`; remove the 1.1.0 package from the submission if Partner Center keeps it.
+
+**What's new in this version** [1500 — this text is about 640]
+
+```
+Your audiobook as a video for YouTube. Make a video of any chapter, or of the whole book, from the audiobook tracks you have made: each paragraph on the screen while it is read, the chapter titles as they are announced, and the credits with your cover. HD video, made on your computer in moments at no cost, with a thumbnail and a YouTube description beside it that lists the chapters.
+
+Generated Audio/Video. One page in the book's tree with everything made from the book: the videos, the audiobooks you exported and every chapter's track — watch or listen to any of them, copy a video's YouTube description, and see which tracks are out of date.
+```
+
+**Description — add after "HEAR IT, AND MAKE THE AUDIOBOOK"** (the rest stays):
+
+```
+PUT IT ON YOUTUBE
+Turn the audiobook into a video: each paragraph on the screen while it is read, the chapter's title while it is announced, and the credits with your cover — a light page or a dark one. It is made on your computer from the tracks you already have, so it costs nothing and takes moments. A thumbnail and a ready-to-paste YouTube description, with the chapter times, are saved beside it. Everything you have made — videos, audiobooks, each chapter's track — is on one page in the book's tree, to watch or listen to.
+```
+
+**Product features** — replace the last line with these two (20 is the limit; drop another if Partner Center refuses 21):
+
+```
+Make a video of the audiobook for YouTube: each paragraph on the screen as it is read
+Every video, audiobook and chapter track made from the book on one page, to watch or listen to
+```
+
+**Search terms** — consider `audiobook video`.
+
+**Screenshots** — `store\screenshots-1.2\` (1440 × 900, the sample book), to put **first**: 01 Generated Audio-Video — everything made from the book · 02 Make a video for YouTube.
+
+**Notes for certification — add this paragraph:**
+
+```
+The video for YouTube (new in 1.2). Listen mode ▸ a chapter's Audiobook card ▸ Make a video…, or File ▸ Export ▸ Audiobook ▸ Make a video for YouTube…, writes an MP4 (H.264 and AAC) with Windows' own Media Foundation encoders, from audiobook tracks already made — nothing is sent anywhere and no key is needed. It needs a made track: approving a chapter in Listen mode makes one (that step uses the user's Google key, as in 1.1). On a Windows "N" edition without the Media Feature Pack the video stops with a message, and nothing else is affected. The Generated Audio/Video page at the foot of the tree lists what was made; it opens videos and M4B files in the user's own player.
+```
+
+---
+
 ## Version 1.1.0 — voices, the audiobook and the editor's modes (Ron, 2026-11-06) — live 2026-11-06
 
 1.0.0 went live on 2026-11-06. 1.1.0 is an update of the same product (identity `DeanEaglin.Author`, Store ID 9MZCBQVSSDVG):

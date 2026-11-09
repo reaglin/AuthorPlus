@@ -59,10 +59,13 @@ public class MadeMediaTests : IDisposable
         File.WriteAllText(Path.Combine(book, "The book.m4b"), "m");
         var empty = Path.Combine(_dir, "Nothing"); Directory.CreateDirectory(empty);
         var bookFolder = Path.Combine(_dir, "Book");
+        // A video made with this version before the page was first opened: the older ones are still found, the new one kept once.
+        MadeMedia.Record(bookFolder, new MadeFile { Kind = MadeKind.Video, Title = "Chapter 1", Path = Path.Combine(videos, "Chapter 1.mp4"), Thumbnail = Path.Combine(videos, "Chapter 1 — thumbnail.jpg"), Seconds = 61, MadeUtc = DateTime.UtcNow });
 
         MadeMedia.FindOlder(bookFolder, new[] { videos, Path.Combine(_dir, "none") }, new[] { book, empty });
         var list = MadeMedia.Load(bookFolder);
         Assert.Equal(2, list.Count);
+        Assert.Equal(61, list.Single(f => f.Kind == MadeKind.Video).Seconds);          // the recorded entry, not a found copy
         var v = list.Single(f => f.Kind == MadeKind.Video);
         Assert.Equal("Chapter 1", v.Title);
         Assert.EndsWith("thumbnail.jpg", v.Thumbnail);
