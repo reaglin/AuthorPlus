@@ -107,7 +107,7 @@ public sealed class BookStore
             NotNames = meta.NotNames ?? new(),
             NarratorVoice = meta.NarratorVoice, VoiceLanguage = string.IsNullOrWhiteSpace(meta.VoiceLanguage) ? "en-US" : meta.VoiceLanguage,
             Pronunciations = meta.Pronunciations ?? new(), OpeningCredits = meta.OpeningCredits ?? "", ClosingCredits = meta.ClosingCredits ?? "",
-            AudiobookFolder = meta.AudiobookFolder ?? "", PronunciationsAsked = meta.PronunciationsAsked ?? new()
+            AudiobookFolder = meta.AudiobookFolder ?? "", VideoLook = meta.VideoLook ?? "Light", PronunciationsAsked = meta.PronunciationsAsked ?? new()
         };
 
         book.Sections   = LoadItems<Section>      (folder, "sections",   meta.SectionOrder,   s => s.Id);
@@ -231,7 +231,7 @@ public sealed class BookStore
             VoiceLanguage  = book.VoiceLanguage,
             Pronunciations = book.Pronunciations.ToList(),
             OpeningCredits = book.OpeningCredits, ClosingCredits = book.ClosingCredits,
-            AudiobookFolder = book.AudiobookFolder, PronunciationsAsked = book.PronunciationsAsked.ToList()
+            AudiobookFolder = book.AudiobookFolder, VideoLook = book.VideoLook, PronunciationsAsked = book.PronunciationsAsked.ToList()
         };
         WriteAtomic(Path.Combine(book.FolderPath, BookFileName), JsonSerializer.Serialize(meta, Json));
     }
@@ -337,6 +337,7 @@ public sealed class BookStore
         public string?       OpeningCredits { get; set; }
         public string?       ClosingCredits { get; set; }
         public string?       AudiobookFolder { get; set; }
+        public string?       VideoLook { get; set; }
         public List<string>? PronunciationsAsked { get; set; }
     }
 }

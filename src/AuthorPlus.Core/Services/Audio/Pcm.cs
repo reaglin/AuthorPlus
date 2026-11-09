@@ -84,19 +84,28 @@ public static class ChapterSound
         : InParagraphMs;
 
     /// <summary>The pieces joined, each after its pause, with the head and tail silences.</summary>
-    public static PcmAudio Join(int sampleRate, IEnumerable<(PcmAudio Sound, int PauseBeforeMs)> pieces)
+    public static PcmAudio Join(int sampleRate, IEnumerable<(PcmAudio Sound, int PauseBeforeMs)> pieces) => JoinTimed(sampleRate, pieces).Audio;
+
+    /// <summary>
+    /// The pieces joined, and where each one is heard in the result (seconds from the start) — what a
+    /// video needs to show each paragraph while it is read (plan phase 11).
+    /// </summary>
+    public static (PcmAudio Audio, List<(double Start, double End)> Times) JoinTimed(int sampleRate, IEnumerable<(PcmAudio Sound, int PauseBeforeMs)> pieces)
     {
         var all = new List<short>();
+        var times = new List<(double, double)>();
         void Silence(int ms) => all.AddRange(new short[(int)((long)sampleRate * ms / 1000)]);
         Silence(HeadMs);
         foreach (var (sound, pause) in pieces)
         {
             if (sound.SampleRate != sampleRate) throw new InvalidDataException($"A piece is at {sound.SampleRate} Hz, not {sampleRate} Hz.");
             Silence(pause);
+            double start = all.Count / (double)sampleRate;
             all.AddRange(Trim(sound.Samples));
+            times.Add((start, all.Count / (double)sampleRate));
         }
         Silence(TailMs);
-        return new PcmAudio(sampleRate, all.ToArray());
+        return (new PcmAudio(sampleRate, all.ToArray()), times);
     }
 
     /// <summary>The piece without the silence the voice leaves at its ends (the pauses are set here instead).</summary>
@@ -108,6 +117,23 @@ public static class ChapterSound
         if (a >= b) return Array.Empty<short>();
         a = Math.Max(0, a - 200); b = Math.Min(s.Length - 1, b + 400);     // keep the breath in and the fall at the end
         return s[a..(b + 1)];
+    }
+
+    /// <summary>Where each pause of at least <paramref name="minMs"/> ends (seconds) — where speech starts again after it.</summary>
+    public static List<double> PauseEnds(PcmAudio a, int minMs = 450, short threshold = 400)
+    {
+        int window = Math.Max(1, a.SampleRate / 100);                 // 10 ms
+        var ends = new List<double>();
+        int quiet = 0;
+        for (int w = 0; w * window < a.Samples.Length; w++)
+        {
+            int peak = 0;
+            for (int i = w * window; i < Math.Min(a.Samples.Length, (w + 1) * window); i++) peak = Math.Max(peak, Math.Abs((int)a.Samples[i]));
+            if (peak < threshold) { quiet++; continue; }
+            if (quiet * 10 >= minMs) ends.Add(w * window / (double)a.SampleRate);
+            quiet = 0;
+        }
+        return ends;
     }
 
     /// <summary>Loudness as RMS in dB below full scale (−∞ for silence), over the sound that is not silence.</summary>

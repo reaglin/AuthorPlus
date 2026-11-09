@@ -235,9 +235,13 @@ public partial class MainWindow
         /// <summary>The author heard the chapter in Listen mode and approved it for the audiobook (Ron, 2026-11-06).</summary>
         public bool Approved { get; set; }
         public DateTime? ApprovedUtc { get; set; }
+        /// <summary>When each piece is heard in the track (seconds), for the video; empty for a track made before videos.</summary>
+        public List<double> PieceStarts { get; set; } = new();
+        public List<double> PieceEnds { get; set; } = new();
     }
 
-    private sealed record Piece(string Text, VoiceChoice Voice, SpokenText Spoken, int PauseMs);
+    /// <summary>A piece of a track: its words, voice, pause before it, and the paragraph it reads (−1 for the title or credits).</summary>
+    private sealed record Piece(string Text, VoiceChoice Voice, SpokenText Spoken, int PauseMs, int Paragraph = -1);
 
     private sealed record TrackPlan(string Id, string Label, List<Piece> Pieces, string Fingerprint)
     {
@@ -268,7 +272,7 @@ public partial class MainWindow
             bool scene = prev != null && Enumerable.Range(prev.Paragraph + 1, Math.Max(0, part.Paragraph - prev.Paragraph - 1))
                                                    .Any(i => paras[i].Trim() == FlowDocumentXaml.SceneBreak);
             int pause = prev == null ? ChapterSound.AfterTitleMs : ChapterSound.PauseBefore(prev, part, scene);
-            pieces.Add(new Piece(part.Text, v, Spoken(part.Text, v), pause));
+            pieces.Add(new Piece(part.Text, v, Spoken(part.Text, v), pause, part.Paragraph));
             prev = part;
         }
         var label = $"{_book.ChapterNumber(ch)}. {ch.Title}";
@@ -291,7 +295,7 @@ public partial class MainWindow
 
     private sealed class Spent { public double Usd; }
 
-    private string TrackNotePath(string id) => Path.Combine(AudioFolder("chapters"), id + ".json");
+    internal string TrackNotePath(string id) => Path.Combine(AudioFolder("chapters"), id + ".json");
     private string TrackMp3(string id) => Path.Combine(AudioFolder("chapters"), id + ".mp3");
 
     private TrackNote? TrackNoteOf(string id)
@@ -300,13 +304,24 @@ public partial class MainWindow
         catch { return null; }
     }
 
+    /// <summary>The piece times of tracks just made, until their note is written.</summary>
+    private readonly Dictionary<string, List<(double Start, double End)>> _madeTimes = new();
+
     private void SaveTrackNote(TrackPlan t, bool approved)
     {
         double secs; using (var r = new MediaFoundationReader(TrackMp3(t.Id))) secs = r.TotalTime.TotalSeconds;
+        // The times of a track just made; else those already noted for this same track (approving, withdrawing).
+        var old = TrackNoteOf(t.Id);
+        List<double> starts, ends;
+        List<(double Start, double End)>? made;
+        lock (_madeTimes) _madeTimes.Remove(t.Id, out made);
+        if (made != null) { starts = made.Select(x => Math.Round(x.Start, 3)).ToList(); ends = made.Select(x => Math.Round(x.End, 3)).ToList(); }
+        else if (old != null && old.Fingerprint == t.Fingerprint) { starts = old.PieceStarts; ends = old.PieceEnds; }
+        else { starts = new(); ends = new(); }
         File.WriteAllText(TrackNotePath(t.Id), JsonSerializer.Serialize(new TrackNote
         {
             Fingerprint = t.Fingerprint, Title = t.TitleText, Words = t.WordsHash, Voices = t.VoicesHash, Said = t.SaidHash, Seconds = secs,
-            Approved = approved, ApprovedUtc = approved ? DateTime.UtcNow : null
+            Approved = approved, ApprovedUtc = approved ? DateTime.UtcNow : null, PieceStarts = starts, PieceEnds = ends
         }));
     }
 
@@ -367,7 +382,9 @@ public partial class MainWindow
         {
             MediaFoundationApi.Startup();
             var sounds = t.Pieces.Select(p => (Wav.Read(File.ReadAllBytes(PiecePath(p))), p.PauseMs)).ToList();
-            var joined = ChapterSound.Even(ChapterSound.Join(StoreRate, sounds));
+            var (raw, times) = ChapterSound.JoinTimed(StoreRate, sounds);
+            lock (_madeTimes) _madeTimes[t.Id] = times;
+            var joined = ChapterSound.Even(raw);
             var stereo = new byte[joined.Samples.Length * 4];
             for (int i = 0; i < joined.Samples.Length; i++)
             {
@@ -404,7 +421,7 @@ public partial class MainWindow
         private readonly TextBlock _coverNote = new() { TextWrapping = TextWrapping.Wrap, Foreground = Brushes.DimGray, FontSize = 12, Margin = new Thickness(0, 4, 0, 0) };
         private readonly TextBlock _progressText = new() { TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 6, 0, 0) };
         private readonly ProgressBar _progress = new() { Height = 14, Margin = new Thickness(0, 6, 0, 0), Maximum = 1 };
-        private readonly Button _go, _stop, _open;
+        private readonly Button _go, _stop, _open, _video;
         private CancellationTokenSource? _cts;
         private bool _folderEdited;
         private (int Chars, double? Cost, int Pieces, int ToMake) _last;
@@ -441,6 +458,9 @@ public partial class MainWindow
             _stop = new Button { Content = "Stop", Padding = new Thickness(14, 5, 14, 5), Margin = new Thickness(0, 0, 8, 0), IsEnabled = false,
                                  ToolTip = "Stops soon. Finished chapters are kept, and so are the pieces of the chapter being made — Make the audiobook carries on from there" };
             _open = new Button { Content = "Open the folder", Padding = new Thickness(14, 5, 14, 5), Margin = new Thickness(0, 0, 8, 0), ToolTip = "Opens the folder the audiobook is saved in" };
+            _video = new Button { Content = "🎬 Make a video for YouTube…", Padding = new Thickness(14, 5, 14, 5), Margin = new Thickness(0, 0, 8, 0) };
+            ToolTipService.SetShowOnDisabled(_video, true);
+            _video.Click += (_, _) => MakeVideo();
             var close = new Button { Content = "Close", Padding = new Thickness(14, 5, 14, 5), IsCancel = true };
             _go.Click += async (_, _) => await Make();
             _stop.Click += (_, _) => { _cts?.Cancel(); _stop.IsEnabled = false; _progressText.Text = "Stopping…"; };
@@ -453,7 +473,7 @@ public partial class MainWindow
                                     MessageBoxButton.YesNo, MessageBoxImage.Question) != MessageBoxResult.Yes) e.Cancel = true;
                 else _cts.Cancel();
             };
-            buttons.Children.Add(_go); buttons.Children.Add(_stop); buttons.Children.Add(_open); buttons.Children.Add(close);
+            buttons.Children.Add(_go); buttons.Children.Add(_stop); buttons.Children.Add(_open); buttons.Children.Add(_video); buttons.Children.Add(close);
             bottom.Children.Add(buttons);
             DockPanel.SetDock(bottom, Dock.Bottom);
             root.Children.Add(bottom);
@@ -603,8 +623,16 @@ public partial class MainWindow
             string? blocked = _book.NarratorVoice == null ? "Choose the narrator's voice first: open a chapter, Listen mode (Ctrl+6) ▸ Voices ▸ Choose…"
                             : !_w._ai.CanSpeak ? "Connect Google voices first: Help ▸ AI Settings ▸ Voices — Google text-to-speech."
                             : _plans.Count == 0 ? "Working out what each chapter needs…" : null;
-            if (blocked != null) { _cost.Text = blocked; _go.IsEnabled = false; _go.ToolTip = blocked; return; }
+            if (blocked != null)
+            {
+                _cost.Text = blocked; _go.IsEnabled = false; _go.ToolTip = blocked;
+                // The video needs no Google: only the tracks, already made.
+                if (_book.NarratorVoice != null && _plans.Count > 0) VideoState(Tracks(_book.NarratorVoice));
+                else { _video.IsEnabled = false; _video.ToolTip = blocked; }
+                return;
+            }
             var tracks = Tracks(_book.NarratorVoice!);
+            var missing = VideoState(tracks);
             int chars = 0, toMake = 0, pieces = 0; double? cost = 0; double seconds = 0;
             foreach (var t in tracks)
             {
@@ -625,6 +653,30 @@ public partial class MainWindow
                                : $"{toMake} track(s) to make: about {chars:N0} characters, {price} (Google's free characters each month come first); about {Duration(making)} to make, with this computer on.");
             _go.IsEnabled = chapters > 0;
             _go.ToolTip = _go.IsEnabled ? "Makes the tracks that need it, then puts the audiobook together" : "Tick at least one chapter";
+            if (chapters > 0 && missing.Count > 0)
+                _cost.Text += $"\nFor a video for YouTube every ticked track must be made — not made yet: {string.Join(", ", missing)}. " +
+                              "Make the audiobook first, or untick those (\"Approved only\", or the credits) to make a video of what is made.";
+        }
+
+        /// <summary>Turns the video button on when every ticked track is made; returns the ones that are not, by name.</summary>
+        private List<string> VideoState(List<TrackPlan> tracks)
+        {
+            var missing = tracks.Where(t => _w.TrackNoteOf(t.Id)?.Fingerprint != t.Fingerprint).Select(t => t.Label).ToList();
+            int chapters = tracks.Count(t => t.Id is not ("opening" or "closing"));
+            _video.IsEnabled = chapters > 0 && missing.Count == 0 && _cts == null;
+            _video.ToolTip = chapters == 0 ? "Tick at least one chapter"
+                : _cts != null ? "Wait until the audiobook is made"
+                : missing.Count > 0 ? $"Not made yet: {string.Join(", ", missing)}. Make the audiobook first, or untick them — the video is made from the made tracks (no cost)"
+                : "One video of the ticked chapters for YouTube: each paragraph on the screen while it is read, with chapter times for its description";
+            return missing;
+        }
+
+        private void MakeVideo()
+        {
+            var tracks = Tracks(_book.NarratorVoice!);
+            var name = Safe(_book.Title + (Selection() is { Length: > 0 } sel ? " — " + sel : ""));
+            new VideoWindow(_w, name, tracks, Path.Combine(VideosFolder(_book), name + ".mp4"), wholeBook: true) { Owner = this }.ShowDialog();
+            Estimate();                                                    // a damaged track now counts as not made
         }
 
         private static string Duration(TimeSpan t) => t.TotalMinutes < 2 ? "a minute" : t.TotalHours < 1.5 ? $"{t.TotalMinutes:0} minutes" : $"{t.TotalHours:0.0} hours";
@@ -656,7 +708,7 @@ public partial class MainWindow
 
             _cts = new CancellationTokenSource();
             var ct = _cts.Token;
-            _go.IsEnabled = false; _stop.IsEnabled = true;
+            _go.IsEnabled = false; _stop.IsEnabled = true; _video.IsEnabled = false;
             var spent = new Spent();
             try
             {
@@ -746,7 +798,7 @@ public partial class MainWindow
             }
         }
 
-        private static byte[]? CoverOf(Book book)
+        internal static byte[]? CoverOf(Book book)
         {
             foreach (var name in new[] { "cover.jpg", "cover.jpeg", "cover.png" })
             {

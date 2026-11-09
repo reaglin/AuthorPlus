@@ -151,6 +151,9 @@ unit tests and must keep them (the AI layer's tests live in the AiManager repo).
    `Book.Pronunciations` (respelling + IPA, used by Listen too); File ▸ Export ▸ Audiobook — 192 kbps MP3 per chapter (Windows'
    Media Foundation through NAudio.Wasapi, MIT), one M4B with chapter marks written by `Mp4Book`; made chapters in
    `audio\chapters`, pieces in progress in `audio\work`.
+   **The video for YouTube** (plan phase 11, `MainWindow.Video.cs`, `Video.cs`, `Core/Services/Video/`): made from tracks already
+   made (no cost), each paragraph on the screen while it is read; H.264 + AAC MP4 by Media Foundation's sink writer (NAudio's
+   interop — no ffmpeg); the piece times are noted with each track (`TrackNote.PieceStarts/PieceEnds`).
 
 5. **A book's history is a git repository in its own folder, and git is never said out loud.**
    `Core/Services/Versioning/BookRepository` is the whole of git the app uses — a version is a

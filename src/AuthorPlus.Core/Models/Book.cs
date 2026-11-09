@@ -54,6 +54,8 @@ public sealed class Book
     public string              ClosingCredits { get; set; } = string.Empty;
     /// <summary>Where the audiobook was last saved (empty = Documents\AuthorPlus\Audiobooks\{Title}).</summary>
     public string              AudiobookFolder { get; set; } = string.Empty;
+    /// <summary>The audiobook video's look: "Light" (dark ink on a light page) or "Dark".</summary>
+    public string              VideoLook { get; set; } = "Light";
     /// <summary>Words already sent to the AI for pronunciations, so the next run asks about the next ones.</summary>
     public List<string>        PronunciationsAsked { get; set; } = new();
 

@@ -196,9 +196,9 @@ public partial class MainWindow
             _approveCts != null ? _approveStatus
             : fresh && note!.Approved ? $"Approved for the audiobook{(note.ApprovedUtc is { } d ? $" on {d.ToLocalTime():d MMM yyyy}" : "")} — {TimeSpan.FromSeconds(note.Seconds):m\\:ss} of audio. The audiobook export uses this track as it is."
             : fresh ? $"Its audiobook track is made ({TimeSpan.FromSeconds(note!.Seconds):m\\:ss}) but not approved yet. Hear it, then approve it."
-            : note != null ? $"Its audiobook track is out of date: {why}. When the chapter sounds right, approve it again — the new track costs {price} ({chars:N0} characters)."
+            : note != null ? $"Its audiobook track is out of date: {why}. When the chapter sounds right, approve it again — the new track costs {price} ({chars:N0} characters). Then you can make a video of it for YouTube again."
             : $"Not in the audiobook yet. When the chapter sounds right, approve it: its track is made now at the audiobook's quality (192 kbps, steady loudness, " +
-              $"its title read first) — {chars:N0} characters, {price} — and the audiobook export uses it as it is.";
+              $"its title read first) — {chars:N0} characters, {price} — and the audiobook export uses it as it is. Once it is made you can also make a video of it for YouTube.";
         _approveText = Body(text, muted: !fresh && _approveCts == null);
         body.Children.Add(_approveText);
 
@@ -216,6 +216,7 @@ public partial class MainWindow
             {
                 buttons.Add(PanelButton("▶ Hear the track", "Plays the audiobook track itself — the chapter as the audiobook has it", () => PlayTrack(ch, plan)));
                 buttons.Add(PanelButton("Save the MP3…", "Saves this chapter's audiobook MP3 where you choose — to send to a reader, or to upload one chapter", () => SaveTrack(ch, plan)));
+                buttons.Add(PanelButton("🎬 Make a video…", "A video of this chapter for YouTube: each paragraph on the screen while the track reads it. Made on this computer from the track — no cost", () => MakeChapterVideo(ch, plan)));
                 if (note!.Approved)
                     buttons.Add(PanelButton("Withdraw approval", "The track stays made, but the export no longer counts it as approved", () =>
                     {

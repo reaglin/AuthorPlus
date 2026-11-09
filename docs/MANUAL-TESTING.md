@@ -137,6 +137,19 @@ W8. Listen mode, a chapter you have heard: the **Audiobook** card. **✓ Approve
     choose. Change a word in the chapter: the card says the track is out of date and why. Export ▸ Audiobook…: the chapter
     says "approved"; **Approved only** ticks just those.
 
+### X. The video for YouTube (plan phase 11, 2026-11-09)
+X1. Listen mode, a chapter whose track is approved: the Audiobook card has **🎬 Make a video…**. The window shows the look
+    (Light / Dark — the picture changes), where it saves (Documents\AuthorPlus\Videos\{book}), what is saved beside it.
+    **Make the video**: a minute's chapter takes a few seconds. Play the MP4: the chapter's title while it is announced, then
+    each paragraph as it is read — does the text come up as the voice starts it? A long paragraph turns to its next page at a
+    sentence end. The thumbnail (1280 × 720) and the YouTube description are beside it.
+X2. **Stop** part way: "No video was saved", and no half-made file. Make it again with the same name: it asks before replacing.
+X3. File ▸ Export ▸ Audiobook…: with a chapter not made, **🎬 Make a video for YouTube…** is greyed and its tooltip says to make
+    the audiobook first. Make the audiobook, then the video: one video of all the ticked chapters, with the credits (and the
+    cover, if the book folder has `cover.jpg`); the description lists the chapters from 0:00.
+X4. Upload one to YouTube (Studio ▸ Create ▸ Upload videos), paste the description, choose the thumbnail: the chapters show
+    on YouTube's progress bar (it needs at least three, each 10 seconds or longer).
+
 ### Q. Look (the review could not judge these from the code)
 Q1. The white ¶ on the amber and green icons — readable? The colour washes behind the text (yellow, teal especially)?
 Q2. At 150 % scaling: the panel (430 px) — nothing cut off; the mode bar's line of help wraps tidily.
