@@ -378,7 +378,7 @@ Phase 11 goes to the Store as 1.2.0. The steps and the text to paste are in `doc
 | R12.4 | Privacy policy: no change (the video is made locally; nothing is sent) | | ⚠️ checked 2026-11-09 |
 | R12.5 | Listing: What's new, "PUT IT ON YOUTUBE" in the description, two features, screenshots (`store\screenshots-1.2`), the certification note on the video | pasted in Partner Center | ⚠️ pasted 2026-11-09 (through Chrome; the two screenshots replace Pronunciations and the 1.0 plotlines chart); **submitted for certification 2026-11-09** |
 | R12.6 | Ron's hand-test X1–X6 (`manual-test\AuthorPlus.exe`) before submitting | | ⚠️ Ron |
-| R12.7 | After it is live: SoftwarePlus.ai's Author+ page (the video for YouTube, Generated Audio/Video), tag `v1.2.0` | | |
+| R12.7 | After it is live: SoftwarePlus.ai's Author+ page (the video for YouTube, Generated Audio/Video), tag `v1.2.0` | page deployed, tag pushed | ⚠️ **live on the Microsoft Store 2026-11-09** (Ron); the page says Version 1.2, has "A video for YouTube" with chapter 1 of *The Keeper of Gull Point* as a video to play, and two new screenshots; home tile mentions the video; deployed `-Only author,index.html` and tagged `v1.2.0` 2026-11-09. Ron to look at https://softwareplus.ai/author/ |
 
 ## Release 1.1.0 — voices, the audiobook and the editor's modes (Ron, 2026-11-06: "Let's prepare a software release")
 
